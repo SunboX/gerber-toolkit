@@ -1,0 +1,54 @@
+{
+    "name": "gerber-toolkit",
+    "version": "0.1.17",
+    "description": "Gerber and Excellon fabrication parsing and deterministic SVG rendering utilities",
+    "keywords": [
+        "gerber",
+        "excellon",
+        "pcb",
+        "eda",
+        "ecad",
+        "fabrication",
+        "parser",
+        "renderer",
+        "svg",
+        "javascript",
+        "esm"
+    ],
+    "license": "GPL-3.0-or-later",
+    "type": "module",
+    "main": "./src/index.mjs",
+    "exports": {
+        ".": "./src/index.mjs",
+        "./parser": "./src/parser.mjs",
+        "./renderers": "./src/renderers.mjs",
+        "./scene3d": "./src/scene3d.mjs"
+    },
+    "files": [
+        "src",
+        "docs",
+        "spec",
+        "LICENSE",
+        "LICENSES",
+        "COMMERCIAL-LICENSE.md",
+        "CONTRIBUTING.md",
+        "NOTICE.md",
+        "README.md",
+        "AGENTS.md",
+        "REUSE.toml"
+    ],
+    "scripts": {
+        "test": "node --test",
+        "format": "prettier --write .",
+        "check:format": "prettier --check ."
+    },
+    "dependencies": {
+        "fflate": "^0.8.2"
+    },
+    "devDependencies": {
+        "prettier": "^3.4.2"
+    },
+    "engines": {
+        "node": ">=20"
+    }
+}
