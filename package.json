@@ -1,6 +1,6 @@
 {
     "name": "gerber-toolkit",
-    "version": "0.1.18",
+    "version": "0.1.19",
     "description": "Gerber and Excellon fabrication parsing and deterministic SVG rendering utilities",
     "repository": {
         "type": "git",
