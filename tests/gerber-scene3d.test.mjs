@@ -97,6 +97,71 @@ function createBareDrilledTrackDocument() {
 }
 
 /**
+ * Clones the synthetic document and adds a rotated copper pad with a matching
+ * slotted drill.
+ * @returns {object}
+ */
+function createMatchedSlottedPadDocument() {
+    const documentModel = structuredClone(createDocument())
+    const layers = documentModel.pcb.fabrication.layers
+    const topCopper = layers.find((layer) => layer.id === 'top-copper')
+    const drillLayer = layers.find((layer) => layer.id === 'plated-drill')
+
+    topCopper.primitives = [
+        {
+            type: 'flash',
+            shape: 'obround',
+            x: 6,
+            y: 3,
+            width: 1,
+            height: 2,
+            rotation: 90
+        }
+    ]
+    drillLayer.drills = [
+        {
+            type: 'slot',
+            x1: 6,
+            y1: 2.4,
+            x2: 6,
+            y2: 3.6,
+            diameter: 0.35,
+            plated: true,
+            tool: 'T05'
+        }
+    ]
+
+    return documentModel
+}
+
+/**
+ * Clones the synthetic document and adds an unmatched slotted drill.
+ * @returns {object}
+ */
+function createBareSlottedDrillDocument() {
+    const documentModel = structuredClone(createDocument())
+    const layers = documentModel.pcb.fabrication.layers
+    const topCopper = layers.find((layer) => layer.id === 'top-copper')
+    const drillLayer = layers.find((layer) => layer.id === 'plated-drill')
+
+    topCopper.primitives = []
+    drillLayer.drills = [
+        {
+            type: 'slot',
+            x1: 5,
+            y1: 2.2,
+            x2: 5,
+            y2: 3.8,
+            diameter: 0.4,
+            plated: false,
+            tool: 'T06'
+        }
+    ]
+
+    return documentModel
+}
+
+/**
  * Clones the synthetic document and places a trace endpoint inside a drilled
  * pad opening.
  * @returns {object}
@@ -183,6 +248,92 @@ function createMaskOpenedPadDocument() {
         ],
         drills: []
     })
+
+    return documentModel
+}
+
+/**
+ * Builds a compact document with a copper pour and one clear-polarity void.
+ * @returns {object}
+ */
+function createCopperPourClearanceDocument() {
+    const documentModel = structuredClone(createDocument())
+    const layers = documentModel.pcb.fabrication.layers
+    const topCopper = layers.find((layer) => layer.id === 'top-copper')
+
+    topCopper.primitives = [
+        {
+            type: 'region',
+            polarity: 'dark',
+            points: [
+                { x: 1, y: 1 },
+                { x: 9, y: 1 },
+                { x: 9, y: 5 },
+                { x: 1, y: 5 },
+                { x: 1, y: 1 }
+            ]
+        },
+        {
+            type: 'region',
+            polarity: 'clear',
+            points: [
+                { x: 4, y: 2 },
+                { x: 6, y: 2 },
+                { x: 6, y: 4 },
+                { x: 4, y: 4 },
+                { x: 4, y: 2 }
+            ]
+        }
+    ]
+
+    return documentModel
+}
+
+/**
+ * Builds a compact document whose later dark copper region redraws over a
+ * previous clear-polarity area.
+ * @returns {object}
+ */
+function createOrderedCopperRegionDocument() {
+    const documentModel = structuredClone(createDocument())
+    const layers = documentModel.pcb.fabrication.layers
+    const topCopper = layers.find((layer) => layer.id === 'top-copper')
+
+    topCopper.primitives = [
+        {
+            type: 'region',
+            polarity: 'dark',
+            points: [
+                { x: 1, y: 1 },
+                { x: 4, y: 1 },
+                { x: 4, y: 4 },
+                { x: 1, y: 4 },
+                { x: 1, y: 1 }
+            ]
+        },
+        {
+            type: 'region',
+            polarity: 'clear',
+            points: [
+                { x: 2, y: 2 },
+                { x: 3, y: 2 },
+                { x: 3, y: 3 },
+                { x: 2, y: 3 },
+                { x: 2, y: 2 }
+            ]
+        },
+        {
+            type: 'region',
+            polarity: 'dark',
+            points: [
+                { x: 1.5, y: 1.5 },
+                { x: 3.5, y: 1.5 },
+                { x: 3.5, y: 3.5 },
+                { x: 1.5, y: 3.5 },
+                { x: 1.5, y: 1.5 }
+            ]
+        }
+    ]
 
     return documentModel
 }
@@ -603,6 +754,26 @@ test('PcbScene3dBuilder keeps clearance at Gerber drill-only holes', () => {
     assertSceneValue(splitTracks[1].x1, drillOnlyPad.x + clearance)
 })
 
+test('PcbScene3dBuilder maps matched Gerber slot holes in pad-local rotation', () => {
+    const scene = PcbScene3dBuilder.build(createMatchedSlottedPadDocument())
+    const pad = scene.detail.pads.find((candidate) => candidate.holeShape === 2)
+
+    assert.ok(pad)
+    assert.equal(pad.rotation, 270)
+    assert.equal(pad.holeRotation, 0)
+    assert.equal(pad.holeSlotLength, 61.023622)
+})
+
+test('PcbScene3dBuilder avoids double-rotating bare Gerber slot holes', () => {
+    const scene = PcbScene3dBuilder.build(createBareSlottedDrillDocument())
+    const pad = scene.detail.pads.find((candidate) => candidate.holeShape === 2)
+
+    assert.ok(pad)
+    assert.equal(pad.rotation, 270)
+    assert.equal(pad.holeRotation, 0)
+    assert.equal(pad.holeSlotLength, 78.740157)
+})
+
 test('PcbScene3dBuilder cuts trace endpoints at Gerber drill holes', () => {
     const scene = PcbScene3dBuilder.build(createDrilledTrackEndpointDocument())
     const endpointTrack = scene.detail.tracks.find(
@@ -658,6 +829,28 @@ test('PcbScene3dBuilder exposes pads opened by Gerber solder mask apertures', ()
 
     assert.equal(openedPad.hasTopSolderMaskOpening, true)
     assert.equal(coveredPad.hasTopSolderMaskOpening, false)
+})
+
+test('PcbScene3dBuilder maps clear Gerber copper regions to pour holes', () => {
+    const scene = PcbScene3dBuilder.build(createCopperPourClearanceDocument())
+    const pour = scene.detail.polygons.find((polygon) => polygon.layerId === 1)
+
+    assert.equal(scene.detail.polygons.length, 1)
+    assert.equal(pour.holes.length, 1)
+    assert.equal(pour.holes[0].length, 5)
+    assertSceneValue(pour.holes[0][0].x, 157.480315)
+    assertSceneValue(pour.holes[0][0].y, 157.480315)
+})
+
+test('PcbScene3dBuilder keeps Gerber clear regions ordered for later dark fills', () => {
+    const scene = PcbScene3dBuilder.build(createOrderedCopperRegionDocument())
+    const pours = scene.detail.polygons.filter(
+        (polygon) => polygon.layerId === 1
+    )
+
+    assert.equal(pours.length, 2)
+    assert.equal(pours[0].holes.length, 1)
+    assert.equal(pours[1].holes?.length || 0, 0)
 })
 
 test('PcbScene3dBuilder preserves Gerber long arc sweeps for 3D silkscreen', () => {

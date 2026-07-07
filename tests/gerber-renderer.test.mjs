@@ -179,6 +179,19 @@ test('GerberPcbSvgRenderer emits self-contained paint styles', () => {
     assert.match(markup, /\.gerber-line/)
 })
 
+test('GerberPcbSvgRenderer paints surface copper regions as solid copper', () => {
+    const markup = GerberPcbSvgRenderer.render(createDocument())
+
+    assert.match(
+        markup,
+        /\.pcb-copper--surface \.gerber-region,[^{}]+\.gerber-macro-region\{fill:var\(--pcb-copper-solid-fill,rgba\(196,118,70,0\.68\)\);stroke:none;opacity:1;\}/
+    )
+    assert.match(
+        markup,
+        /\.pcb-copper--surface \.pcb-copper--mask-covered\.gerber-region,[^{}]+\.gerber-macro-region\{fill:var\(--pcb-mask-covered-fill,var\(--pcb-copper-solid-fill,rgba\(196,118,70,0\.68\)\)\);stroke:none;opacity:1;\}/
+    )
+})
+
 test('GerberPcbSvgRenderer maps active side to app palette classes', () => {
     const topMarkup = GerberPcbSvgRenderer.render(createTwoSideDocument(), {
         side: 'top'
@@ -410,6 +423,10 @@ test('GerberPcbSvgRenderer masks clear-polarity layer regions', () => {
     const markup = GerberPcbSvgRenderer.render(document)
 
     assert.match(markup, /<mask id="gerber-clear-mask-top-silk"/)
+    assert.match(
+        markup,
+        /<mask id="gerber-clear-mask-top-silk" maskUnits="userSpaceOnUse" x="[^"]+" y="[^"]+" width="[^"]+" height="[^"]+">/
+    )
     assert.match(markup, /<g class="gerber-clear-mask">/)
     assert.match(markup, /<g mask="url\(#gerber-clear-mask-top-silk\)">/)
 })
@@ -438,6 +455,26 @@ test('GerberPcbSvgRenderer renders selected source layers together', () => {
     assert.match(markup, /gerber-role-top-copper/)
     assert.match(markup, /gerber-role-bottom-copper/)
     assert.doesNotMatch(markup, /gerber-role-plated-drill/)
+})
+
+test('GerberPcbSvgRenderer paints separated bottom copper as surface artwork', () => {
+    const markup = GerberPcbSvgRenderer.render(createTwoSideDocument(), {
+        renderMode: 'separated',
+        layerId: 'layer-3',
+        side: 'top'
+    })
+
+    assert.match(markup, /data-render-mode="separated"/)
+    assert.match(markup, /data-render-side="top"/)
+    assert.match(
+        markup,
+        /gerber-role-bottom-copper pcb-copper pcb-copper--surface/
+    )
+    assert.doesNotMatch(
+        markup,
+        /gerber-role-bottom-copper pcb-copper pcb-copper--subsurface/
+    )
+    assert.doesNotMatch(markup, /scale\(-1 -1\)/)
 })
 
 test('PcbInteractionIndex filters selected Gerber source layers together', () => {

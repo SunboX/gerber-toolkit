@@ -1,6 +1,7 @@
 import { GerberBoardFillPathRenderer } from './GerberBoardFillPathRenderer.mjs'
 import { GerberPcbLayerViewModel } from './GerberPcbLayerViewModel.mjs'
 import { GerberPcbSvgBounds } from './GerberPcbSvgBounds.mjs'
+import { GerberPcbSvgClearMaskRenderer } from './GerberPcbSvgClearMaskRenderer.mjs'
 import { GerberPcbSvgStyles } from './GerberPcbSvgStyles.mjs'
 import { GerberSvgArcFlags } from './GerberSvgArcFlags.mjs'
 
@@ -64,7 +65,8 @@ export class GerberPcbSvgRenderer {
                         layer,
                         side,
                         renderContext,
-                        bounds
+                        bounds,
+                        renderMode
                     )
                 )
                 .join('') +
@@ -135,13 +137,16 @@ export class GerberPcbSvgRenderer {
      * @param {'top' | 'bottom'} side Active board side.
      * @param {{ smallPlatedDrillCenters?: Set<string> }} renderContext Render context.
      * @param {{ minX: number, minY: number, width: number, height: number }} bounds Render bounds.
+     * @param {string} renderMode Active Gerber render mode.
      * @returns {string}
      */
-    static #renderLayer(layer, side, renderContext, bounds) {
+    static #renderLayer(layer, side, renderContext, bounds, renderMode) {
         const className =
             'gerber-layer gerber-role-' +
             GerberPcbSvgRenderer.#classToken(layer.role) +
-            GerberPcbLayerViewModel.layerAppClasses(layer, side)
+            GerberPcbLayerViewModel.layerAppClasses(layer, side, {
+                renderMode
+            })
         const primitiveContent = GerberPcbSvgRenderer.#renderLayerPrimitives(
             layer,
             renderContext,
@@ -253,62 +258,24 @@ export class GerberPcbSvgRenderer {
 
         const maskId = GerberPcbSvgRenderer.#clearMaskId(layer, index)
         return (
-            GerberPcbSvgRenderer.#renderClearMask(
+            GerberPcbSvgClearMaskRenderer.render({
                 maskId,
-                segment.clearPrimitives,
+                clearPrimitives: segment.clearPrimitives,
                 layer,
                 renderContext,
-                bounds
-            ) +
+                bounds,
+                renderPrimitive: (primitive, sourceLayer, context) =>
+                    GerberPcbSvgRenderer.#renderPrimitive(
+                        primitive,
+                        sourceLayer,
+                        context
+                    )
+            }) +
             '<g mask="url(#' +
             maskId +
             ')">' +
             content +
             '</g>'
-        )
-    }
-
-    /**
-     * Renders an SVG mask that subtracts clear-polarity primitives.
-     * @param {string} maskId Stable mask id.
-     * @param {object[]} clearPrimitives Clear primitives.
-     * @param {object} layer Source layer.
-     * @param {{ smallPlatedDrillCenters?: Set<string> }} renderContext Render context.
-     * @param {{ minX: number, minY: number, width: number, height: number }} bounds Render bounds.
-     * @returns {string}
-     */
-    static #renderClearMask(
-        maskId,
-        clearPrimitives,
-        layer,
-        renderContext,
-        bounds
-    ) {
-        return (
-            '<mask id="' +
-            GerberPcbSvgRenderer.#escape(maskId) +
-            '" maskUnits="userSpaceOnUse">' +
-            '<rect x="' +
-            bounds.minX +
-            '" y="' +
-            bounds.minY +
-            '" width="' +
-            bounds.width +
-            '" height="' +
-            bounds.height +
-            '" fill="white" />' +
-            '<g class="gerber-clear-mask">' +
-            clearPrimitives
-                .map((primitive) =>
-                    GerberPcbSvgRenderer.#renderPrimitive(
-                        primitive,
-                        layer,
-                        renderContext
-                    )
-                )
-                .join('') +
-            '</g>' +
-            '</mask>'
         )
     }
 

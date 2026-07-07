@@ -71,16 +71,18 @@ export class GerberPcbLayerViewModel {
      * Builds app palette classes for one layer.
      * @param {object} layer Source layer.
      * @param {'top' | 'bottom'} side Active board side.
+     * @param {{ renderMode?: string }} [options] Layer render context.
      * @returns {string}
      */
-    static layerAppClasses(layer, side) {
+    static layerAppClasses(layer, side, options = {}) {
         if (!GerberPcbLayerViewModel.isCopperLayer(layer)) return ''
+        const isSurface =
+            options.renderMode === 'separated' ||
+            GerberPcbLayerViewModel.isSurfaceLayer(layer, side)
 
         return (
             ' pcb-copper ' +
-            (GerberPcbLayerViewModel.isSurfaceLayer(layer, side)
-                ? 'pcb-copper--surface'
-                : 'pcb-copper--subsurface')
+            (isSurface ? 'pcb-copper--surface' : 'pcb-copper--subsurface')
         )
     }
 

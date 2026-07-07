@@ -5,6 +5,8 @@ import { GerberScene3dSilkscreenCutoutBuilder } from './scene3d/GerberScene3dSil
 import { GerberScene3dDrillGeometryBuilder } from './scene3d/GerberScene3dDrillGeometryBuilder.mjs'
 import { GerberScene3dMaskOpeningBuilder } from './scene3d/GerberScene3dMaskOpeningBuilder.mjs'
 import { GerberScene3dOutlineContourResolver } from './scene3d/GerberScene3dOutlineContourResolver.mjs'
+import { GerberScene3dFlashGeometry } from './scene3d/GerberScene3dFlashGeometry.mjs'
+import { GerberScene3dRegionCutoutResolver } from './scene3d/GerberScene3dRegionCutoutResolver.mjs'
 export { PcbScene3dModelRegistry } from './scene3d/PcbScene3dModelRegistry.mjs'
 
 const MILS_PER_MM = 1000 / 25.4
@@ -286,15 +288,22 @@ export class PcbScene3dBuilder {
      * @returns {void}
      */
     static #appendCopperLayer(detail, layer, drillIndex, board) {
+        const regionArtwork = GerberScene3dRegionCutoutResolver.createArtwork()
+
         for (const primitive of layer.primitives || []) {
             PcbScene3dBuilder.#appendCopperPrimitive(
                 detail,
                 primitive,
                 layer,
                 drillIndex,
-                board
+                board,
+                regionArtwork
             )
         }
+
+        detail.polygons.push(
+            ...GerberScene3dRegionCutoutResolver.apply(regionArtwork)
+        )
     }
 
     /**
@@ -304,9 +313,17 @@ export class PcbScene3dBuilder {
      * @param {object} layer Source layer.
      * @param {Map<string, object[]>} drillIndex Drills keyed by position.
      * @param {object} board Board metadata.
+     * @param {{ polygons: object[], cutouts: { x: number, y: number }[][] } | null} [regionArtwork] Region accumulator.
      * @returns {void}
      */
-    static #appendCopperPrimitive(detail, primitive, layer, drillIndex, board) {
+    static #appendCopperPrimitive(
+        detail,
+        primitive,
+        layer,
+        drillIndex,
+        board,
+        regionArtwork = null
+    ) {
         if (primitive?.shape === 'block') {
             for (const child of primitive.primitives || []) {
                 PcbScene3dBuilder.#appendCopperPrimitive(
@@ -314,7 +331,8 @@ export class PcbScene3dBuilder {
                     child,
                     layer,
                     drillIndex,
-                    board
+                    board,
+                    regionArtwork
                 )
             }
             return
@@ -335,9 +353,23 @@ export class PcbScene3dBuilder {
         }
 
         if (primitive?.type === 'region') {
-            detail.polygons.push(
-                PcbScene3dBuilder.#mapRegion(primitive, layer, board)
-            )
+            const region = PcbScene3dBuilder.#mapRegion(primitive, layer, board)
+            if (PcbScene3dBuilder.#isClearPrimitive(primitive)) {
+                GerberScene3dRegionCutoutResolver.appendClearRegion(
+                    regionArtwork,
+                    region.points
+                )
+                return
+            }
+
+            if (regionArtwork) {
+                GerberScene3dRegionCutoutResolver.appendDarkRegion(
+                    regionArtwork,
+                    region
+                )
+            } else {
+                detail.polygons.push(region)
+            }
             return
         }
 
@@ -701,7 +733,7 @@ export class PcbScene3dBuilder {
      * @returns {object | null}
      */
     static #mapFlashPad(primitive, layer, drillIndex, board) {
-        const dimensions = PcbScene3dBuilder.#flashDimensions(primitive)
+        const dimensions = GerberScene3dFlashGeometry.dimensions(primitive)
         if (!dimensions) {
             return null
         }
@@ -735,7 +767,10 @@ export class PcbScene3dBuilder {
         }
 
         if (drill) {
-            Object.assign(pad, PcbScene3dBuilder.#padDrillFields(drill))
+            Object.assign(
+                pad,
+                PcbScene3dBuilder.#padDrillFields(drill, pad.rotation)
+            )
         }
 
         return pad
@@ -748,28 +783,37 @@ export class PcbScene3dBuilder {
      * @returns {object}
      */
     static #mapDrillOnlyPad(drill, board) {
+        const rotation = GerberScene3dCoordinateMapper.rotation(
+            drill.rotationDeg
+        )
+
         return {
             x: PcbScene3dBuilder.#mmToMil(drill.x),
             y: GerberScene3dCoordinateMapper.y(
                 PcbScene3dBuilder.#mmToMil(drill.y),
                 board
             ),
-            rotation: GerberScene3dCoordinateMapper.rotation(drill.rotationDeg),
+            rotation,
             shapeTop: PAD_SHAPE_CIRCLE,
             shapeBottom: PAD_SHAPE_CIRCLE,
             hasTopSolderMaskOpening: false,
             hasBottomSolderMaskOpening: false,
             isPlated: drill.plated === true,
-            ...PcbScene3dBuilder.#padDrillFields(drill)
+            ...PcbScene3dBuilder.#padDrillFields(drill, rotation)
         }
     }
 
     /**
      * Resolves pad drill fields in scene units.
      * @param {object} drill Normalized drill.
+     * @param {number} padRotationDeg Scene pad rotation in degrees.
      * @returns {object}
      */
-    static #padDrillFields(drill) {
+    static #padDrillFields(drill, padRotationDeg = 0) {
+        const drillRotation = GerberScene3dCoordinateMapper.rotation(
+            drill.rotationDeg
+        )
+
         return {
             holeDiameter: PcbScene3dBuilder.#mmToMil(drill.diameter),
             holeShape:
@@ -779,10 +823,23 @@ export class PcbScene3dBuilder {
             holeSlotLength: drill.slotLength
                 ? PcbScene3dBuilder.#mmToMil(drill.slotLength)
                 : null,
-            holeRotation: GerberScene3dCoordinateMapper.rotation(
-                drill.rotationDeg
+            holeRotation: PcbScene3dBuilder.#relativeRotation(
+                drillRotation,
+                padRotationDeg
             )
         }
+    }
+
+    /**
+     * Resolves a hole rotation relative to its already-rotated pad body.
+     * @param {number} absoluteRotationDeg Absolute scene rotation in degrees.
+     * @param {number} padRotationDeg Scene pad rotation in degrees.
+     * @returns {number}
+     */
+    static #relativeRotation(absoluteRotationDeg, padRotationDeg) {
+        const relative =
+            Number(absoluteRotationDeg || 0) - Number(padRotationDeg || 0)
+        return ((relative % 360) + 360) % 360
     }
 
     /**
@@ -804,147 +861,6 @@ export class PcbScene3dBuilder {
                 : {}
 
         return { ...topSizes, ...bottomSizes }
-    }
-
-    /**
-     * Resolves one flash primitive's visible dimensions.
-     * @param {object} primitive Source primitive.
-     * @returns {{ width: number, height: number, shapeCode: number, cornerRadiusRatio: number } | null}
-     */
-    static #flashDimensions(primitive) {
-        if (primitive?.shape === 'circle') {
-            return PcbScene3dBuilder.#dimensionResult(
-                primitive.diameter,
-                primitive.diameter,
-                PAD_SHAPE_CIRCLE,
-                0
-            )
-        }
-
-        if (primitive?.shape === 'rect') {
-            return PcbScene3dBuilder.#dimensionResult(
-                primitive.width,
-                primitive.height,
-                PAD_SHAPE_RECT,
-                0
-            )
-        }
-
-        if (primitive?.shape === 'obround') {
-            return PcbScene3dBuilder.#dimensionResult(
-                primitive.width,
-                primitive.height,
-                PAD_SHAPE_RECT,
-                0.5
-            )
-        }
-
-        if (primitive?.shape === 'polygon') {
-            return PcbScene3dBuilder.#dimensionResult(
-                primitive.diameter,
-                primitive.diameter,
-                PAD_SHAPE_CIRCLE,
-                0
-            )
-        }
-
-        if (primitive?.shape === 'macro') {
-            return PcbScene3dBuilder.#macroDimensions(primitive)
-        }
-
-        return null
-    }
-
-    /**
-     * Builds a normalized dimension result.
-     * @param {number} width Width in mm.
-     * @param {number} height Height in mm.
-     * @param {number} shapeCode Scene pad shape code.
-     * @param {number} cornerRadiusRatio Rounded-rectangle corner ratio.
-     * @returns {object | null}
-     */
-    static #dimensionResult(width, height, shapeCode, cornerRadiusRatio) {
-        const normalizedWidth = Number(width || 0)
-        const normalizedHeight = Number(height || 0)
-        if (normalizedWidth <= 0 || normalizedHeight <= 0) {
-            return null
-        }
-
-        return {
-            width: normalizedWidth,
-            height: normalizedHeight,
-            shapeCode,
-            cornerRadiusRatio
-        }
-    }
-
-    /**
-     * Approximates a macro flash from child primitive bounds.
-     * @param {object} primitive Macro primitive.
-     * @returns {object | null}
-     */
-    static #macroDimensions(primitive) {
-        const bounds = (primitive.primitives || []).reduce(
-            (currentBounds, child) =>
-                PcbScene3dBuilder.#mergeBounds(
-                    currentBounds,
-                    PcbScene3dBuilder.#primitiveBoundsMm(child)
-                ),
-            null
-        )
-        if (!bounds) {
-            return null
-        }
-
-        return PcbScene3dBuilder.#dimensionResult(
-            bounds.maxX - bounds.minX,
-            bounds.maxY - bounds.minY,
-            PAD_SHAPE_RECT,
-            0
-        )
-    }
-
-    /**
-     * Resolves approximate primitive bounds in mm.
-     * @param {object} primitive Source primitive.
-     * @returns {object | null}
-     */
-    static #primitiveBoundsMm(primitive) {
-        if (primitive?.type === 'line' || primitive?.type === 'arc') {
-            const radius = Number(primitive.width || 0) / 2
-            return {
-                minX: Math.min(primitive.x1, primitive.x2) - radius,
-                minY: Math.min(primitive.y1, primitive.y2) - radius,
-                maxX: Math.max(primitive.x1, primitive.x2) + radius,
-                maxY: Math.max(primitive.y1, primitive.y2) + radius
-            }
-        }
-
-        if (primitive?.type === 'region') {
-            return (primitive.points || []).reduce(
-                (bounds, point) =>
-                    PcbScene3dBuilder.#mergeBounds(bounds, {
-                        minX: Number(point.x),
-                        minY: Number(point.y),
-                        maxX: Number(point.x),
-                        maxY: Number(point.y)
-                    }),
-                null
-            )
-        }
-
-        const width = Number(primitive?.width || primitive?.diameter || 0)
-        const height = Number(primitive?.height || primitive?.diameter || width)
-        if (width <= 0 || height <= 0) {
-            return null
-        }
-
-        return {
-            minX: Number(primitive.x || 0) - width / 2,
-            minY: Number(primitive.y || 0) - height / 2,
-            maxX: Number(primitive.x || 0) + width / 2,
-            maxY: Number(primitive.y || 0) + height / 2
-        }
     }
 
     /**
