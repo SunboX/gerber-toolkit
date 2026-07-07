@@ -235,6 +235,14 @@ test('GerberPcbSvgRenderer renders macro groups, transformed flashes, clear prim
                         primitives: [
                             {
                                 type: 'flash',
+                                shape: 'circle',
+                                x: 2,
+                                y: 3,
+                                diameter: 2,
+                                polarity: 'dark'
+                            },
+                            {
+                                type: 'flash',
                                 shape: 'macro',
                                 name: 'PLUS',
                                 x: 2,

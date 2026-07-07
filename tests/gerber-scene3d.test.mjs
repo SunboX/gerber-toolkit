@@ -67,6 +67,36 @@ function createDrilledTrackDocument() {
 }
 
 /**
+ * Clones the synthetic document and places an unmatched drill aperture directly
+ * on a trace.
+ * @returns {object}
+ */
+function createBareDrilledTrackDocument() {
+    const documentModel = structuredClone(createDocument())
+    const layers = documentModel.pcb.fabrication.layers
+    const topCopper = layers.find((layer) => layer.id === 'top-copper')
+    const drillLayer = layers.find((layer) => layer.id === 'plated-drill')
+
+    topCopper.primitives.push({
+        type: 'line',
+        x1: 1,
+        y1: 5,
+        x2: 4,
+        y2: 5,
+        width: 0.3
+    })
+    drillLayer.drills.push({
+        x: 2,
+        y: 5,
+        diameter: 0.6,
+        plated: true,
+        tool: 'T04'
+    })
+
+    return documentModel
+}
+
+/**
  * Clones the synthetic document and places a trace endpoint inside a drilled
  * pad opening.
  * @returns {object}
@@ -123,6 +153,33 @@ function createMaskOpenedStrokeDocument() {
         side: 'top',
         primitives: [
             { type: 'line', x1: 4.95, y1: 2, x2: 7.05, y2: 2, width: 0.4 }
+        ],
+        drills: []
+    })
+
+    return documentModel
+}
+
+/**
+ * Builds a compact document with one pad opened by solder mask and one covered.
+ * @returns {object}
+ */
+function createMaskOpenedPadDocument() {
+    const documentModel = structuredClone(createDocument())
+    const layers = documentModel.pcb.fabrication.layers
+    const topCopper = layers.find((layer) => layer.id === 'top-copper')
+
+    topCopper.primitives = [
+        { type: 'flash', shape: 'circle', x: 2, y: 2, diameter: 0.8 },
+        { type: 'flash', shape: 'circle', x: 4, y: 2, diameter: 0.8 }
+    ]
+    layers.push({
+        id: 'top-mask',
+        fileName: 'sample-F_Mask.gts',
+        role: 'top-soldermask',
+        side: 'top',
+        primitives: [
+            { type: 'flash', shape: 'circle', x: 2, y: 2, diameter: 1 }
         ],
         drills: []
     })
@@ -323,6 +380,94 @@ test('PcbScene3dBuilder builds a bare-board Gerber 3D scene', () => {
     assert.equal(scene.detail.tracks[1].layerId, 32)
 })
 
+test('PcbScene3dBuilder ignores empty outline layers when resolving board bounds', () => {
+    const document = createDocument()
+    const outline = document.pcb.fabrication.layers.find(
+        (layer) => layer.id === 'outline'
+    )
+    document.pcb.bounds = { minX: 0, minY: 0, maxX: 100, maxY: 100 }
+    document.pcb.fabrication.layers.unshift({
+        id: 'empty-outline',
+        fileName: 'empty-profile.gko',
+        role: 'board-outline',
+        side: 'both',
+        bounds: { minX: 0, minY: 0, maxX: 1, maxY: 1 },
+        primitives: [],
+        drills: []
+    })
+    outline.bounds = { minX: 50, minY: 20, maxX: 60, maxY: 26 }
+    for (const primitive of outline.primitives) {
+        primitive.x1 += 50
+        primitive.x2 += 50
+        primitive.y1 += 20
+        primitive.y2 += 20
+    }
+
+    const scene = PcbScene3dBuilder.build(document)
+
+    assert.equal(scene.board.widthMil, 393.700787)
+    assert.equal(scene.board.heightMil, 236.220472)
+    assert.equal(scene.board.minX, 1968.503937)
+    assert.equal(scene.board.minY, 787.401575)
+})
+
+test('PcbScene3dBuilder derives the board from the outer outline contour', () => {
+    const document = createDocument()
+    const outline = document.pcb.fabrication.layers.find(
+        (layer) => layer.id === 'outline'
+    )
+    document.pcb.bounds = { minX: 0, minY: 0, maxX: 100, maxY: 100 }
+    outline.bounds = { minX: 0, minY: 0, maxX: 60, maxY: 26 }
+    for (const primitive of outline.primitives) {
+        primitive.x1 += 50
+        primitive.x2 += 50
+        primitive.y1 += 20
+        primitive.y2 += 20
+    }
+    outline.primitives.push(
+        { type: 'line', x1: 0, y1: 0, x2: 5, y2: 5, width: 0.1 },
+        { type: 'line', x1: 1, y1: 9, x2: 6, y2: 9, width: 0.1 }
+    )
+
+    const scene = PcbScene3dBuilder.build(document)
+
+    assert.equal(scene.board.widthMil, 393.700787)
+    assert.equal(scene.board.heightMil, 236.220472)
+    assert.equal(scene.board.minX, 1968.503937)
+    assert.equal(scene.board.minY, 787.401575)
+    assert.equal(scene.board.segments.length, 4)
+})
+
+test('PcbScene3dBuilder synthesizes a perimeter from fragmented corner profiles', () => {
+    const document = createDocument()
+    const outline = document.pcb.fabrication.layers.find(
+        (layer) => layer.id === 'outline'
+    )
+    outline.bounds = { minX: 0, minY: 0, maxX: 60, maxY: 30 }
+    outline.primitives = [
+        { type: 'line', x1: 0, y1: 6, x2: 0, y2: 0, width: 0.1 },
+        { type: 'line', x1: 0, y1: 0, x2: 6, y2: 0, width: 0.1 },
+        { type: 'line', x1: 54, y1: 0, x2: 60, y2: 0, width: 0.1 },
+        { type: 'line', x1: 60, y1: 0, x2: 60, y2: 6, width: 0.1 },
+        { type: 'line', x1: 60, y1: 24, x2: 60, y2: 30, width: 0.1 },
+        { type: 'line', x1: 60, y1: 30, x2: 54, y2: 30, width: 0.1 },
+        { type: 'line', x1: 6, y1: 30, x2: 0, y2: 30, width: 0.1 },
+        { type: 'line', x1: 0, y1: 30, x2: 0, y2: 24, width: 0.1 },
+        { type: 'line', x1: 2, y1: 2, x2: 4, y2: 2, width: 0.1 },
+        { type: 'line', x1: 4, y1: 2, x2: 4, y2: 4, width: 0.1 },
+        { type: 'line', x1: 4, y1: 4, x2: 2, y2: 4, width: 0.1 },
+        { type: 'line', x1: 2, y1: 4, x2: 2, y2: 2, width: 0.1 }
+    ]
+
+    const scene = PcbScene3dBuilder.build(document)
+
+    assert.equal(scene.board.widthMil, 2362.204724)
+    assert.equal(scene.board.heightMil, 1181.102362)
+    assert.equal(scene.board.segments.length, 12)
+    assert.equal(scene.board.cutouts.length, 1)
+    assert.equal(scene.board.cutouts[0].points.length, 5)
+})
+
 test('PcbScene3dBuilder mirrors Gerber coordinates into normal 3D board orientation', () => {
     const scene = PcbScene3dBuilder.build(createDocument())
 
@@ -357,6 +502,55 @@ test('PcbScene3dBuilder clears Gerber silkscreen around rendered pads and drills
     )
 })
 
+test('PcbScene3dBuilder maps clear Gerber silkscreen regions to cutouts', () => {
+    const document = createDocument()
+    document.pcb.fabrication.layers = [
+        document.pcb.fabrication.layers.find((layer) => layer.id === 'outline'),
+        {
+            id: 'top-silkscreen',
+            fileName: 'sample-F_Silkscreen.gto',
+            role: 'top-silkscreen',
+            side: 'top',
+            primitives: [
+                {
+                    type: 'region',
+                    polarity: 'dark',
+                    points: [
+                        { x: 1, y: 1 },
+                        { x: 5, y: 1 },
+                        { x: 5, y: 4 },
+                        { x: 1, y: 4 },
+                        { x: 1, y: 1 }
+                    ]
+                },
+                {
+                    type: 'region',
+                    polarity: 'clear',
+                    points: [
+                        { x: 2, y: 2 },
+                        { x: 3, y: 2 },
+                        { x: 3, y: 3 },
+                        { x: 2, y: 3 },
+                        { x: 2, y: 2 }
+                    ]
+                }
+            ],
+            drills: []
+        }
+    ].filter(Boolean)
+
+    const scene = PcbScene3dBuilder.build(document)
+
+    assert.equal(scene.detail.silkscreen.top.fills.length, 1)
+    assert.equal(scene.detail.silkscreen.top.drillCutouts.length, 1)
+
+    const cutoutBounds = pointBounds(
+        scene.detail.silkscreen.top.drillCutouts[0]
+    )
+
+    assertSceneValue(cutoutBounds.maxX - cutoutBounds.minX, 39.370079)
+})
+
 test('PcbScene3dBuilder cuts copper tracks at Gerber drill holes', () => {
     const scene = PcbScene3dBuilder.build(createDrilledTrackDocument())
     const trackY = 196.850393
@@ -366,13 +560,17 @@ test('PcbScene3dBuilder cuts copper tracks at Gerber drill holes', () => {
             Math.abs(track.y1 - trackY) <= 0.000001 &&
             Math.abs(track.y2 - trackY) <= 0.000001
     )
+    const drilledPad = scene.detail.pads.find(
+        (pad) =>
+            Math.abs(pad.x - 78.740157) <= 0.000001 &&
+            Math.abs(pad.y - trackY) <= 0.000001
+    )
+    const drillRadius = Number(drilledPad.holeDiameter) / 2
 
     assert.equal(splitTracks.length, 2)
     assert.ok(splitTracks.every((track) => track.x1 < track.x2))
-    assert.ok(splitTracks[0].x2 < 78.740157)
-    assert.ok(splitTracks[1].x1 > 78.740157)
-    assert.ok(splitTracks[0].x2 <= 66.929133)
-    assert.ok(splitTracks[1].x1 >= 90.551181)
+    assertSceneValue(splitTracks[0].x2, drilledPad.x - drillRadius)
+    assertSceneValue(splitTracks[1].x1, drilledPad.x + drillRadius)
     assert.notEqual(splitTracks[0].capStartRound, false)
     assert.equal(splitTracks[0].capEndRound, false)
     assert.equal(splitTracks[1].capStartRound, false)
@@ -381,6 +579,28 @@ test('PcbScene3dBuilder cuts copper tracks at Gerber drill holes', () => {
     assert.equal(splitTracks[0].capEndSideWall, false)
     assert.equal(splitTracks[1].capStartSideWall, false)
     assert.notEqual(splitTracks[1].capEndSideWall, false)
+})
+
+test('PcbScene3dBuilder keeps clearance at Gerber drill-only holes', () => {
+    const scene = PcbScene3dBuilder.build(createBareDrilledTrackDocument())
+    const trackY = 39.370079
+    const splitTracks = scene.detail.tracks.filter(
+        (track) =>
+            track.layerId === 1 &&
+            Math.abs(track.y1 - trackY) <= 0.000001 &&
+            Math.abs(track.y2 - trackY) <= 0.000001
+    )
+    const drillOnlyPad = scene.detail.pads.find(
+        (pad) =>
+            Math.abs(pad.x - 78.740157) <= 0.000001 &&
+            Math.abs(pad.y - trackY) <= 0.000001
+    )
+    const clearance =
+        Number(drillOnlyPad.holeDiameter) / 2 + Number(splitTracks[0].width) / 2
+
+    assert.equal(splitTracks.length, 2)
+    assertSceneValue(splitTracks[0].x2, drillOnlyPad.x - clearance)
+    assertSceneValue(splitTracks[1].x1, drillOnlyPad.x + clearance)
 })
 
 test('PcbScene3dBuilder cuts trace endpoints at Gerber drill holes', () => {
@@ -394,12 +614,9 @@ test('PcbScene3dBuilder cuts trace endpoints at Gerber drill holes', () => {
             Math.abs(pad.x - 472.440945) <= 0.000001 &&
             Math.abs(pad.y - 78.740157) <= 0.000001
     )
-    const clearance =
-        Number(drilledPad.holeDiameter) / 2 + Number(endpointTrack.width) / 2
+    const drillRadius = Number(drilledPad.holeDiameter) / 2
 
-    assert.ok(endpointTrack.x2 <= drilledPad.x - clearance + 0.000001)
-    assert.equal(endpointTrack.capEndRound, false)
-    assert.equal(endpointTrack.capEndSideWall, false)
+    assertSceneValue(endpointTrack.x2, drilledPad.x - drillRadius)
 })
 
 test('PcbScene3dBuilder exposes plated drill barrels without filling non-plated drills', () => {
@@ -428,6 +645,19 @@ test('PcbScene3dBuilder exposes copper strokes opened by solder mask', () => {
     assert.equal(candidateTracks.length, 2)
     assert.equal(candidateTracks[0].solderMaskOpening, true)
     assert.notEqual(candidateTracks[1].solderMaskOpening, true)
+})
+
+test('PcbScene3dBuilder exposes pads opened by Gerber solder mask apertures', () => {
+    const scene = PcbScene3dBuilder.build(createMaskOpenedPadDocument())
+    const openedPad = scene.detail.pads.find(
+        (pad) => Math.abs(pad.x - 78.740157) <= 0.000001
+    )
+    const coveredPad = scene.detail.pads.find(
+        (pad) => Math.abs(pad.x - 157.480315) <= 0.000001
+    )
+
+    assert.equal(openedPad.hasTopSolderMaskOpening, true)
+    assert.equal(coveredPad.hasTopSolderMaskOpening, false)
 })
 
 test('PcbScene3dBuilder preserves Gerber long arc sweeps for 3D silkscreen', () => {

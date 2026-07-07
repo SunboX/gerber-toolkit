@@ -1,4 +1,5 @@
 import { GerberSvgArcFlags } from './GerberSvgArcFlags.mjs'
+import { GerberScene3dOutlineContourResolver } from '../scene3d/GerberScene3dOutlineContourResolver.mjs'
 
 const POINT_EPSILON = 0.01
 
@@ -12,10 +13,13 @@ export class GerberBoardFillPathRenderer {
      * @returns {string}
      */
     static render(layers) {
-        const outlineLayer = (Array.isArray(layers) ? layers : []).find(
-            (layer) => layer?.role === 'board-outline'
+        const outline = GerberScene3dOutlineContourResolver.resolve(
+            Array.isArray(layers) ? layers : []
         )
-        const path = GerberBoardFillPathRenderer.#boardFillPath(outlineLayer)
+        const path = GerberBoardFillPathRenderer.#boardFillPath(
+            outline.segments,
+            outline.cutouts
+        )
         if (!path) return ''
 
         return (
@@ -26,15 +30,32 @@ export class GerberBoardFillPathRenderer {
     }
 
     /**
-     * Builds a fillable path from ordered board-outline segments.
-     * @param {object | null | undefined} layer Board-outline layer.
+     * Builds a fillable path from ordered board-outline contours.
+     * @param {object[]} segments Selected outer outline segments.
+     * @param {{ x: number, y: number }[][]} cutouts Selected inner cutout contours.
      * @returns {string}
      */
-    static #boardFillPath(layer) {
-        const segments = (layer?.primitives || []).filter(
-            (primitive) =>
-                primitive?.type === 'line' || primitive?.type === 'arc'
+    static #boardFillPath(segments, cutouts) {
+        const outerPath = GerberBoardFillPathRenderer.#segmentContourPath(
+            segments || []
         )
+        if (!outerPath) return ''
+
+        const cutoutPaths = (cutouts || [])
+            .map((points) =>
+                GerberBoardFillPathRenderer.#pointContourPath(points)
+            )
+            .filter(Boolean)
+
+        return [outerPath, ...cutoutPaths].join(' ')
+    }
+
+    /**
+     * Builds one contour path from ordered outline segments.
+     * @param {object[]} segments Ordered contour segments.
+     * @returns {string}
+     */
+    static #segmentContourPath(segments) {
         if (!segments.length) return ''
 
         const commands = []
@@ -82,6 +103,38 @@ export class GerberBoardFillPathRenderer {
             commands.push('Z')
         }
 
+        return commands.join(' ')
+    }
+
+    /**
+     * Builds one closed cutout contour path from points.
+     * @param {{ x: number, y: number }[]} points Contour points.
+     * @returns {string}
+     */
+    static #pointContourPath(points) {
+        const normalizedPoints = (points || [])
+            .map((point) => ({
+                x: Number(point?.x),
+                y: Number(point?.y)
+            }))
+            .filter(
+                (point) => Number.isFinite(point.x) && Number.isFinite(point.y)
+            )
+        if (normalizedPoints.length < 3) {
+            return ''
+        }
+
+        const commands = normalizedPoints.map((point, index) => {
+            const command = index === 0 ? 'M' : 'L'
+            return (
+                command +
+                ' ' +
+                GerberBoardFillPathRenderer.#round(point.x) +
+                ' ' +
+                GerberBoardFillPathRenderer.#round(point.y)
+            )
+        })
+        commands.push('Z')
         return commands.join(' ')
     }
 

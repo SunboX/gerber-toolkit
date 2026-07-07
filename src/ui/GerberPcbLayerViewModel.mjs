@@ -1,3 +1,5 @@
+import { GerberMaskOpeningClassifier } from '../core/gerber/GerberMaskOpeningClassifier.mjs'
+
 const ROLE_ORDER = [
     'board-outline',
     'nonplated-drill',
@@ -85,9 +87,10 @@ export class GerberPcbLayerViewModel {
     /**
      * Builds render-time lookup data from the selected fabrication layers.
      * @param {object[]} layers Source layers selected for rendering.
-     * @returns {{ smallPlatedDrillCenters: Set<string> }}
+     * @param {object[]} [sourceLayers] All source fabrication layers.
+     * @returns {{ smallPlatedDrillCenters: Set<string>, solderMaskOpeningPrimitives: WeakSet<object>, solderMaskSides: Set<string> }}
      */
-    static renderContext(layers) {
+    static renderContext(layers, sourceLayers = layers) {
         const smallPlatedDrillCenters = new Set()
         for (const layer of Array.isArray(layers) ? layers : []) {
             if (!GerberPcbLayerViewModel.isDrillLayer(layer)) continue
@@ -107,31 +110,39 @@ export class GerberPcbLayerViewModel {
             }
         }
 
-        return { smallPlatedDrillCenters }
+        return {
+            smallPlatedDrillCenters,
+            ...GerberMaskOpeningClassifier.build(sourceLayers)
+        }
     }
 
     /**
      * Builds app palette classes for one primitive.
      * @param {object} primitive Primitive model.
      * @param {object} layer Source layer.
-     * @param {{ smallPlatedDrillCenters?: Set<string> }} [renderContext] Render context.
+     * @param {{ smallPlatedDrillCenters?: Set<string>, solderMaskOpeningPrimitives?: WeakSet<object>, solderMaskSides?: Set<string> }} [renderContext] Render context.
      * @returns {string}
      */
     static primitiveAppClasses(primitive, layer, renderContext = {}) {
         if (GerberPcbLayerViewModel.isCopperLayer(layer)) {
+            const maskClass = GerberPcbLayerViewModel.#solderMaskAppClass(
+                primitive,
+                layer,
+                renderContext
+            )
             if (primitive.type === 'line' || primitive.type === 'arc') {
-                return ' pcb-track'
+                return ' pcb-track' + maskClass
             }
-            if (primitive.type === 'region') return ' pcb-region'
+            if (primitive.type === 'region') return ' pcb-region' + maskClass
             if (
                 GerberPcbLayerViewModel.#isSmallDrilledFlash(
                     primitive,
                     renderContext
                 )
             ) {
-                return ' pcb-via'
+                return ' pcb-via' + maskClass
             }
-            return ' pcb-pad'
+            return ' pcb-pad' + maskClass
         }
 
         if (GerberPcbLayerViewModel.isSilkscreenLayer(layer)) {
@@ -242,6 +253,29 @@ export class GerberPcbLayerViewModel {
                 GerberPcbLayerViewModel.#pointKey(primitive.x, primitive.y)
             )
         )
+    }
+
+    /**
+     * Builds a same-side solder-mask visibility class for copper primitives.
+     * @param {object} primitive Copper primitive.
+     * @param {object} layer Copper source layer.
+     * @param {{ solderMaskOpeningPrimitives?: WeakSet<object>, solderMaskSides?: Set<string> }} renderContext Render context.
+     * @returns {string}
+     */
+    static #solderMaskAppClass(primitive, layer, renderContext) {
+        const side = GerberPcbLayerViewModel.#layerSide(layer)
+        if (
+            !GerberMaskOpeningClassifier.hasSolderMaskForSide(
+                renderContext.solderMaskSides,
+                side
+            )
+        ) {
+            return ''
+        }
+
+        return renderContext.solderMaskOpeningPrimitives?.has(primitive)
+            ? ' pcb-copper--mask-open'
+            : ' pcb-copper--mask-covered'
     }
 
     /**

@@ -2,6 +2,7 @@ import { GerberApertureMacro } from './GerberApertureMacro.mjs'
 import { GerberBoardOutlineBuilder } from './GerberBoardOutlineBuilder.mjs'
 import { GerberBounds } from './GerberBounds.mjs'
 import { GerberCoordinateParser } from './GerberCoordinateParser.mjs'
+import { GerberDrillParser } from './GerberDrillParser.mjs'
 import { GerberLayerRoleResolver } from './GerberLayerRoleResolver.mjs'
 import { GerberPrimitiveBuilder } from './GerberPrimitiveBuilder.mjs'
 
@@ -19,7 +20,7 @@ export class GerberParser {
     static parseArrayBuffer(fileName, buffer, options = {}) {
         const bytes = GerberParser.#toUint8Array(buffer)
         const text = new TextDecoder('utf-8').decode(bytes)
-        const role = GerberLayerRoleResolver.resolve(fileName)
+        const role = GerberLayerRoleResolver.resolve(fileName, text)
         const layer = role.isDrill
             ? GerberParser.#parseDrillLayer(fileName, text, role, options)
             : GerberParser.#parseGerberLayer(fileName, text, role, options)
@@ -96,98 +97,14 @@ export class GerberParser {
      * @returns {object}
      */
     static #parseDrillLayer(fileName, text, role, options) {
-        const unit = /INCH/iu.test(text) ? 'inch' : 'mm'
-        const coordinateParser = new GerberCoordinateParser({ unit })
-        const bounds = new GerberBounds()
-        const tools = new Map()
-        const drills = []
-        let currentTool = ''
-        let currentX = null
-        let currentY = null
-
-        for (const rawLine of text.split(/\r?\n/u)) {
-            const line = rawLine.trim()
-            if (!line || line.startsWith(';')) {
-                continue
-            }
-
-            const toolDefinition = /^T(\d+)C([0-9.]+)/iu.exec(line)
-            if (toolDefinition) {
-                const tool = 'T' + toolDefinition[1].padStart(2, '0')
-                tools.set(tool, Number.parseFloat(toolDefinition[2]))
-                continue
-            }
-
-            const toolSelection = /^T(\d+)$/iu.exec(line)
-            if (toolSelection) {
-                currentTool = 'T' + toolSelection[1].padStart(2, '0')
-                continue
-            }
-
-            const slotCoordinate = /G85X([+-]?[0-9.]+)Y([+-]?[0-9.]+)/iu.exec(
-                line
-            )
-            if (
-                slotCoordinate &&
-                Number.isFinite(currentX) &&
-                Number.isFinite(currentY)
-            ) {
-                const x = coordinateParser.parseDrill(slotCoordinate[1])
-                const y = coordinateParser.parseDrill(slotCoordinate[2])
-                const diameter = tools.get(currentTool) || 0
-                const normalizedDiameter =
-                    unit === 'inch' ? diameter * 25.4 : diameter
-                drills.push({
-                    type: 'slot',
-                    x1: currentX,
-                    y1: currentY,
-                    x2: x,
-                    y2: y,
-                    diameter: GerberParser.#round(normalizedDiameter),
-                    plated: role.plated,
-                    tool: currentTool || 'T00'
-                })
-                bounds.includeSegment(
-                    currentX,
-                    currentY,
-                    x,
-                    y,
-                    normalizedDiameter / 2
-                )
-                currentX = x
-                currentY = y
-                continue
-            }
-
-            const coordinate = /X([+-]?[0-9.]+)Y([+-]?[0-9.]+)/iu.exec(line)
-            if (!coordinate) {
-                continue
-            }
-
-            const x = coordinateParser.parseDrill(coordinate[1])
-            const y = coordinateParser.parseDrill(coordinate[2])
-            const diameter = tools.get(currentTool) || 0
-            const normalizedDiameter =
-                unit === 'inch' ? diameter * 25.4 : diameter
-            const drill = {
-                x,
-                y,
-                diameter: GerberParser.#round(normalizedDiameter),
-                plated: role.plated,
-                tool: currentTool || 'T00'
-            }
-            drills.push(drill)
-            bounds.includePoint(x, y, normalizedDiameter / 2)
-            currentX = x
-            currentY = y
-        }
+        const parsed = GerberDrillParser.parse(text, role)
 
         return GerberParser.#buildLayer(fileName, role, {
-            unit,
+            unit: parsed.unit,
             primitives: [],
-            drills,
-            diagnostics: [],
-            bounds: bounds.toObject(),
+            drills: parsed.drills,
+            diagnostics: parsed.diagnostics,
+            bounds: parsed.bounds,
             attributes: {},
             options
         })
@@ -336,8 +253,20 @@ export class GerberParser {
             return
         }
 
+        if (command === 'G70') {
+            state.unit = 'inch'
+            state.coordinateParser.unit = 'inch'
+            return
+        }
+
+        if (command === 'G71') {
+            state.unit = 'mm'
+            state.coordinateParser.unit = 'mm'
+            return
+        }
+
         const apertureSelection = /^(?:G54)?D(\d+)$/u.exec(command)
-        if (apertureSelection) {
+        if (apertureSelection && Number(apertureSelection[1]) >= 10) {
             state.currentAperture = state.apertures.get(apertureSelection[1])
             return
         }
@@ -649,30 +578,39 @@ export class GerberParser {
             return {
                 shape: 'macro',
                 name: template,
-                primitives: GerberApertureMacro.expand(macro, values)
+                primitives: GerberApertureMacro.expand(macro, values).map(
+                    (primitive) =>
+                        GerberParser.#scaleMacroPrimitive(primitive, state.unit)
+                )
             }
         }
 
         if (template === 'R') {
             return {
                 shape: 'rect',
-                width: Number(values[0] || 0),
-                height: Number(values[1] || values[0] || 0)
+                width: GerberParser.#unitValue(values[0], state.unit),
+                height: GerberParser.#unitValue(
+                    values[1] || values[0],
+                    state.unit
+                )
             }
         }
 
         if (template === 'O') {
             return {
                 shape: 'obround',
-                width: Number(values[0] || 0),
-                height: Number(values[1] || values[0] || 0)
+                width: GerberParser.#unitValue(values[0], state.unit),
+                height: GerberParser.#unitValue(
+                    values[1] || values[0],
+                    state.unit
+                )
             }
         }
 
         if (template === 'P') {
             return {
                 shape: 'polygon',
-                diameter: Number(values[0] || 0),
+                diameter: GerberParser.#unitValue(values[0], state.unit),
                 vertices: Number(values[1] || 3),
                 rotation: Number(values[2] || 0)
             }
@@ -680,8 +618,62 @@ export class GerberParser {
 
         return {
             shape: 'circle',
-            diameter: Number(values[0] || 0)
+            diameter: GerberParser.#unitValue(values[0], state.unit)
         }
+    }
+
+    /**
+     * Converts one expanded macro primitive from source units to millimeters.
+     * @param {object} primitive Macro primitive.
+     * @param {string} unit Source unit.
+     * @returns {object}
+     */
+    static #scaleMacroPrimitive(primitive, unit) {
+        const scaled = { ...primitive }
+        for (const key of GerberParser.#macroLengthKeys(primitive)) {
+            scaled[key] = GerberParser.#unitValue(primitive[key], unit)
+        }
+
+        if (Array.isArray(primitive.points)) {
+            scaled.points = primitive.points.map((point) => ({
+                x: GerberParser.#unitValue(point.x, unit),
+                y: GerberParser.#unitValue(point.y, unit)
+            }))
+        }
+
+        return scaled
+    }
+
+    /**
+     * Returns macro primitive fields that carry source-unit lengths.
+     * @param {object} primitive Macro primitive.
+     * @returns {string[]}
+     */
+    static #macroLengthKeys(primitive) {
+        const keys = ['x', 'y']
+        if (primitive.type === 'circle' || primitive.type === 'polygon') {
+            keys.push('diameter')
+        }
+        if (primitive.type === 'line') {
+            keys.push('width', 'x1', 'y1', 'x2', 'y2')
+        }
+        if (primitive.type === 'rect') {
+            keys.push('width', 'height')
+        }
+        if (primitive.type === 'moire') {
+            keys.push(
+                'outerDiameter',
+                'ringThickness',
+                'ringGap',
+                'crosshairThickness',
+                'crosshairLength'
+            )
+        }
+        if (primitive.type === 'thermal') {
+            keys.push('outerDiameter', 'innerDiameter', 'gap')
+        }
+
+        return keys.filter((key) => primitive[key] !== undefined)
     }
 
     /**
@@ -696,6 +688,10 @@ export class GerberParser {
         const yMatch = /Y([+-]?[0-9.]+)/u.exec(command)
         const iMatch = /I([+-]?[0-9.]+)/u.exec(command)
         const jMatch = /J([+-]?[0-9.]+)/u.exec(command)
+        if (!operation && !xMatch && !yMatch && !iMatch && !jMatch) {
+            return
+        }
+
         const nextX = xMatch
             ? state.coordinateParser.parseX(xMatch[1])
             : state.currentX

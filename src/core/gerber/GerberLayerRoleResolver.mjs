@@ -20,9 +20,10 @@ export class GerberLayerRoleResolver {
     /**
      * Resolves source-layer metadata for one file name.
      * @param {string} fileName Source file name.
+     * @param {string} [contentText] Optional source text for ambiguous names.
      * @returns {{ role: string, side: string, isDrill: boolean, isDocumentation: boolean, plated: boolean }}
      */
-    static resolve(fileName) {
+    static resolve(fileName, contentText = '') {
         const normalized = GerberLayerRoleResolver.#baseName(fileName)
         const lower = normalized.toLowerCase()
         const extension = lower.split('.').pop() || ''
@@ -55,6 +56,17 @@ export class GerberLayerRoleResolver {
                 true,
                 false,
                 true
+            )
+        }
+
+        if (GerberLayerRoleResolver.#looksLikeExcellonDrill(contentText)) {
+            const plated = !/(?:npth|non[-_\s]?plated)/iu.test(lower)
+            return GerberLayerRoleResolver.#metadata(
+                plated ? 'plated-drill' : 'nonplated-drill',
+                'both',
+                true,
+                false,
+                plated
             )
         }
 
@@ -201,5 +213,15 @@ export class GerberLayerRoleResolver {
      */
     static #isDrillMap(lower) {
         return lower.includes('drl_map') || lower.includes('drill_map')
+    }
+
+    /**
+     * Returns true when source text appears to be Excellon drill data.
+     * @param {string} text Source text.
+     * @returns {boolean}
+     */
+    static #looksLikeExcellonDrill(text) {
+        const sample = String(text || '').slice(0, 2048)
+        return /^M48\b/imu.test(sample) && /\bT\d+.*?C[0-9.]+/imu.test(sample)
     }
 }

@@ -40,6 +40,7 @@ export class GerberScene3dMaskOpeningBuilder {
             openings,
             GerberScene3dMaskOpeningBuilder.#pointBounds
         )
+        GerberScene3dMaskOpeningBuilder.#markPads(detail?.pads, openings)
     }
 
     /**
@@ -174,6 +175,118 @@ export class GerberScene3dMaskOpeningBuilder {
             ) {
                 primitive.solderMaskOpening = true
             }
+        }
+    }
+
+    /**
+     * Marks pad faces that are opened by same-side solder-mask apertures.
+     * @param {object[] | undefined} pads Scene pad primitives.
+     * @param {{ layerId: number, bounds: object }[]} openings Mask openings.
+     * @returns {void}
+     */
+    static #markPads(pads, openings) {
+        const openingLayerIds = new Set(
+            openings.map((opening) => opening.layerId)
+        )
+
+        for (const pad of pads || []) {
+            GerberScene3dMaskOpeningBuilder.#markPadSide(
+                pad,
+                TOP_COPPER_LAYER_ID,
+                openingLayerIds,
+                openings
+            )
+            GerberScene3dMaskOpeningBuilder.#markPadSide(
+                pad,
+                BOTTOM_COPPER_LAYER_ID,
+                openingLayerIds,
+                openings
+            )
+        }
+    }
+
+    /**
+     * Marks one pad side as opened or covered when mask data exists.
+     * @param {object} pad Scene pad primitive.
+     * @param {number} layerId Scene copper layer id.
+     * @param {Set<number>} openingLayerIds Mask side lookup.
+     * @param {{ layerId: number, bounds: object }[]} openings Mask openings.
+     * @returns {void}
+     */
+    static #markPadSide(pad, layerId, openingLayerIds, openings) {
+        if (
+            !openingLayerIds.has(layerId) ||
+            !GerberScene3dMaskOpeningBuilder.#hasPadCopperOnLayer(pad, layerId)
+        ) {
+            return
+        }
+
+        const fieldName =
+            layerId === BOTTOM_COPPER_LAYER_ID
+                ? 'hasBottomSolderMaskOpening'
+                : 'hasTopSolderMaskOpening'
+        const bounds = GerberScene3dMaskOpeningBuilder.#padBounds(pad, layerId)
+        pad[fieldName] = Boolean(
+            bounds &&
+            openings.some(
+                (opening) =>
+                    opening.layerId === layerId &&
+                    GerberScene3dMaskOpeningBuilder.#contains(
+                        opening.bounds,
+                        bounds
+                    )
+            )
+        )
+    }
+
+    /**
+     * Checks whether a pad has copper dimensions on a layer.
+     * @param {object} pad Scene pad primitive.
+     * @param {number} layerId Scene copper layer id.
+     * @returns {boolean}
+     */
+    static #hasPadCopperOnLayer(pad, layerId) {
+        if (layerId === BOTTOM_COPPER_LAYER_ID) {
+            return (
+                Number(pad?.sizeBottomX || 0) > 0 ||
+                Number(pad?.sizeBottomY || 0) > 0
+            )
+        }
+
+        return Number(pad?.sizeTopX || 0) > 0 || Number(pad?.sizeTopY || 0) > 0
+    }
+
+    /**
+     * Resolves scene bounds for one pad side.
+     * @param {object} pad Scene pad primitive.
+     * @param {number} layerId Scene copper layer id.
+     * @returns {object | null}
+     */
+    static #padBounds(pad, layerId) {
+        const width =
+            layerId === BOTTOM_COPPER_LAYER_ID
+                ? Number(pad?.sizeBottomX || 0)
+                : Number(pad?.sizeTopX || 0)
+        const height =
+            layerId === BOTTOM_COPPER_LAYER_ID
+                ? Number(pad?.sizeBottomY || 0)
+                : Number(pad?.sizeTopY || 0)
+        const x = Number(pad?.x)
+        const y = Number(pad?.y)
+
+        if (
+            !Number.isFinite(width + height + x + y) ||
+            width <= 0 ||
+            height <= 0
+        ) {
+            return null
+        }
+
+        return {
+            minX: x - width / 2,
+            minY: y - height / 2,
+            maxX: x + width / 2,
+            maxY: y + height / 2
         }
     }
 

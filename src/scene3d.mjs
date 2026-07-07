@@ -4,6 +4,7 @@ import { GerberScene3dArcGeometry } from './scene3d/GerberScene3dArcGeometry.mjs
 import { GerberScene3dSilkscreenCutoutBuilder } from './scene3d/GerberScene3dSilkscreenCutoutBuilder.mjs'
 import { GerberScene3dDrillGeometryBuilder } from './scene3d/GerberScene3dDrillGeometryBuilder.mjs'
 import { GerberScene3dMaskOpeningBuilder } from './scene3d/GerberScene3dMaskOpeningBuilder.mjs'
+import { GerberScene3dOutlineContourResolver } from './scene3d/GerberScene3dOutlineContourResolver.mjs'
 export { PcbScene3dModelRegistry } from './scene3d/PcbScene3dModelRegistry.mjs'
 
 const MILS_PER_MM = 1000 / 25.4
@@ -25,10 +26,14 @@ export class PcbScene3dBuilder {
      */
     static build(documentModel, options = {}) {
         const layers = PcbScene3dBuilder.#fabricationLayers(documentModel)
-        const bounds = PcbScene3dBuilder.#resolveBounds(documentModel, layers)
+        const outline = GerberScene3dOutlineContourResolver.resolve(layers)
+        const bounds =
+            outline.bounds ||
+            PcbScene3dBuilder.#resolveBounds(documentModel, layers)
         const board = PcbScene3dBuilder.#buildBoard(
             bounds,
-            layers,
+            outline.segments,
+            outline.cutouts,
             Number(options.boardThicknessMil || DEFAULT_BOARD_THICKNESS_MIL)
         )
         const detail = PcbScene3dBuilder.#buildDetail(layers, board)
@@ -65,11 +70,12 @@ export class PcbScene3dBuilder {
     /**
      * Builds board metadata in viewer scene units.
      * @param {{ minX: number, minY: number, maxX: number, maxY: number }} bounds Board bounds in mm.
-     * @param {object[]} layers Fabrication layers.
+     * @param {object[]} outlineSegments Board outline source segments.
+     * @param {{ x: number, y: number }[][]} outlineCutouts Board cutout source contours.
      * @param {number} thicknessMil Board thickness in mils.
      * @returns {object}
      */
-    static #buildBoard(bounds, layers, thicknessMil) {
+    static #buildBoard(bounds, outlineSegments, outlineCutouts, thicknessMil) {
         const minX = PcbScene3dBuilder.#mmToMil(bounds.minX)
         const minY = PcbScene3dBuilder.#mmToMil(bounds.minY)
         const maxX = PcbScene3dBuilder.#mmToMil(bounds.maxX)
@@ -87,10 +93,18 @@ export class PcbScene3dBuilder {
             minY: PcbScene3dBuilder.#roundMil(minY),
             centerX: PcbScene3dBuilder.#roundMil(minX + widthMil / 2),
             centerY: PcbScene3dBuilder.#roundMil(minY + heightMil / 2),
-            segments: []
+            segments: [],
+            cutouts: []
         }
 
-        board.segments = PcbScene3dBuilder.#buildBoardSegments(layers, board)
+        board.segments = PcbScene3dBuilder.#mapBoardSegments(
+            outlineSegments,
+            board
+        )
+        board.cutouts = PcbScene3dBuilder.#mapBoardCutouts(
+            outlineCutouts,
+            board
+        )
         return board
     }
 
@@ -126,6 +140,10 @@ export class PcbScene3dBuilder {
      */
     static #layerBounds(layers) {
         return (layers || []).reduce((bounds, layer) => {
+            if (!PcbScene3dBuilder.#hasLayerGeometry(layer)) {
+                return bounds
+            }
+
             const candidate = layer?.bounds
             if (!candidate) {
                 return bounds
@@ -138,6 +156,18 @@ export class PcbScene3dBuilder {
                 maxY: Number(candidate.maxY)
             })
         }, null)
+    }
+
+    /**
+     * Returns true when a layer contains geometry that can justify its bounds.
+     * @param {object} layer Source layer.
+     * @returns {boolean}
+     */
+    static #hasLayerGeometry(layer) {
+        return Boolean(
+            (Array.isArray(layer?.primitives) && layer.primitives.length) ||
+            (Array.isArray(layer?.drills) && layer.drills.length)
+        )
     }
 
     /**
@@ -169,78 +199,35 @@ export class PcbScene3dBuilder {
     }
 
     /**
-     * Builds scene board outline segments from profile primitives.
-     * @param {object[]} layers Fabrication layers.
+     * Maps source outline segments into scene board coordinates.
+     * @param {object[]} outlineSegments Board outline source segments.
      * @param {object} board Board metadata.
      * @returns {object[]}
      */
-    static #buildBoardSegments(layers, board) {
-        return layers
-            .filter((layer) =>
-                GerberScene3dLayerClassifier.isBoardOutline(layer)
-            )
-            .flatMap((layer) =>
-                (layer.primitives || []).flatMap((primitive) =>
-                    PcbScene3dBuilder.#outlinePrimitiveToSegments(
-                        primitive,
-                        board
-                    )
-                )
-            )
-    }
-
-    /**
-     * Converts an outline primitive into scene line or arc segments.
-     * @param {object} primitive Source primitive.
-     * @param {object} board Board metadata.
-     * @returns {object[]}
-     */
-    static #outlinePrimitiveToSegments(primitive, board) {
-        if (primitive?.type === 'line') {
-            return [PcbScene3dBuilder.#mapLine(primitive, board)]
-        }
-
-        if (primitive?.type === 'arc') {
-            return [PcbScene3dBuilder.#mapOutlineArc(primitive, board)]
-        }
-
-        if (primitive?.type === 'region') {
-            return PcbScene3dBuilder.#pointsToSegments(
-                primitive.points || [],
-                board
-            )
-        }
-
-        return []
-    }
-
-    /**
-     * Converts a point loop into ordered line segments.
-     * @param {{ x: number, y: number }[]} points Source points.
-     * @param {object} board Board metadata.
-     * @returns {object[]}
-     */
-    static #pointsToSegments(points, board) {
-        const normalizedPoints = (points || []).filter((point) =>
-            Number.isFinite(Number(point?.x) + Number(point?.y))
+    static #mapBoardSegments(outlineSegments, board) {
+        return (outlineSegments || []).map((segment) =>
+            segment?.type === 'arc'
+                ? PcbScene3dBuilder.#mapOutlineArc(segment, board)
+                : PcbScene3dBuilder.#mapLine(segment, board)
         )
-        if (normalizedPoints.length < 2) {
-            return []
-        }
+    }
 
-        return normalizedPoints.map((point, index) => {
-            const next = normalizedPoints[(index + 1) % normalizedPoints.length]
-            return GerberScene3dCoordinateMapper.line(
-                {
-                    type: 'line',
-                    x1: PcbScene3dBuilder.#mmToMil(point.x),
-                    y1: PcbScene3dBuilder.#mmToMil(point.y),
-                    x2: PcbScene3dBuilder.#mmToMil(next.x),
-                    y2: PcbScene3dBuilder.#mmToMil(next.y)
-                },
+    /**
+     * Maps source cutout contours into scene board coordinates.
+     * @param {{ x: number, y: number }[][]} outlineCutouts Source cutouts.
+     * @param {object} board Board metadata.
+     * @returns {{ points: { x?: number, y?: number }[] }[]}
+     */
+    static #mapBoardCutouts(outlineCutouts, board) {
+        return (outlineCutouts || []).map((points) => ({
+            points: GerberScene3dCoordinateMapper.points(
+                points.map((point) => ({
+                    x: PcbScene3dBuilder.#mmToMil(point.x),
+                    y: PcbScene3dBuilder.#mmToMil(point.y)
+                })),
                 board
             )
-        })
+        }))
     }
 
     /**
@@ -411,6 +398,15 @@ export class PcbScene3dBuilder {
             return
         }
 
+        if (PcbScene3dBuilder.#isClearPrimitive(primitive)) {
+            PcbScene3dBuilder.#appendSilkscreenCutout(
+                sideDetail,
+                primitive,
+                board
+            )
+            return
+        }
+
         if (primitive?.type === 'line') {
             sideDetail.tracks.push(PcbScene3dBuilder.#mapLine(primitive, board))
             return
@@ -428,6 +424,37 @@ export class PcbScene3dBuilder {
                 PcbScene3dBuilder.#mapRegion(primitive, null, board)
             )
         }
+    }
+
+    /**
+     * Appends a clear-polarity silkscreen primitive as a surface cutout.
+     * @param {object} sideDetail Silkscreen side accumulator.
+     * @param {object} primitive Source primitive.
+     * @param {object} board Board metadata.
+     * @returns {void}
+     */
+    static #appendSilkscreenCutout(sideDetail, primitive, board) {
+        if (primitive?.type !== 'region') {
+            return
+        }
+
+        const cutout = PcbScene3dBuilder.#mapRegion(
+            primitive,
+            null,
+            board
+        ).points
+        if (cutout.length >= 3) {
+            sideDetail.drillCutouts.push(cutout)
+        }
+    }
+
+    /**
+     * Returns true when a source primitive subtracts from the layer image.
+     * @param {object} primitive Source primitive.
+     * @returns {boolean}
+     */
+    static #isClearPrimitive(primitive) {
+        return String(primitive?.polarity || 'dark') === 'clear'
     }
 
     /**
@@ -563,7 +590,7 @@ export class PcbScene3dBuilder {
      * @returns {object}
      */
     static #mapOutlineArc(primitive, board) {
-        const center = GerberScene3dArcGeometry.center(primitive)
+        const center = PcbScene3dBuilder.#outlineArcCenter(primitive)
         return GerberScene3dCoordinateMapper.line(
             {
                 type: 'arc',
@@ -577,6 +604,22 @@ export class PcbScene3dBuilder {
             },
             board
         )
+    }
+
+    /**
+     * Resolves an outline arc center from precomputed or primitive fields.
+     * @param {object} primitive Source primitive.
+     * @returns {{ x: number, y: number, radius: number }}
+     */
+    static #outlineArcCenter(primitive) {
+        const center = {
+            x: Number(primitive?.cx),
+            y: Number(primitive?.cy),
+            radius: Number(primitive?.radius)
+        }
+        return Number.isFinite(center.x + center.y + center.radius)
+            ? center
+            : GerberScene3dArcGeometry.center(primitive)
     }
 
     /**
@@ -682,8 +725,7 @@ export class PcbScene3dBuilder {
             shapeBottom: dimensions.shapeCode,
             hasSolderMask: true,
             isPlated: drill?.plated === true,
-            ...PcbScene3dBuilder.#padSurfaceSizes(dimensions, side),
-            ...PcbScene3dBuilder.#padMaskOpenings(side)
+            ...PcbScene3dBuilder.#padSurfaceSizes(dimensions, side)
         }
 
         if (dimensions.cornerRadiusRatio > 0) {
@@ -762,18 +804,6 @@ export class PcbScene3dBuilder {
                 : {}
 
         return { ...topSizes, ...bottomSizes }
-    }
-
-    /**
-     * Builds side-specific solder-mask opening flags.
-     * @param {'top' | 'bottom' | 'both'} side Layer side.
-     * @returns {object}
-     */
-    static #padMaskOpenings(side) {
-        return {
-            hasTopSolderMaskOpening: side === 'top' || side === 'both',
-            hasBottomSolderMaskOpening: side === 'bottom' || side === 'both'
-        }
     }
 
     /**

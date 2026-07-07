@@ -16,17 +16,21 @@ export class GerberPcbSvgRenderer {
      */
     static render(documentModel, options = {}) {
         const side = GerberPcbLayerViewModel.normalizeSide(options.side)
-        const layers = GerberPcbSvgRenderer.#renderLayers(
-            documentModel,
-            options,
-            side
-        )
-        const bounds = GerberPcbSvgBounds.resolve(documentModel, layers)
-        const renderContext = GerberPcbLayerViewModel.renderContext(layers)
+        const sourceLayers = GerberPcbSvgRenderer.#sourceLayers(documentModel)
         const renderMode =
             options.renderMode ||
             documentModel?.pcb?.fabrication?.renderMode ||
             'composite'
+        const layers = GerberPcbSvgRenderer.#renderLayers(
+            sourceLayers,
+            { ...options, renderMode },
+            side
+        )
+        const bounds = GerberPcbSvgBounds.resolve(documentModel, layers)
+        const renderContext = GerberPcbLayerViewModel.renderContext(
+            layers,
+            sourceLayers
+        )
 
         return (
             '<svg xmlns="http://www.w3.org/2000/svg" class="pcb-svg gerber-pcb-renderer" ' +
@@ -59,7 +63,8 @@ export class GerberPcbSvgRenderer {
                     GerberPcbSvgRenderer.#renderLayer(
                         layer,
                         side,
-                        renderContext
+                        renderContext,
+                        bounds
                     )
                 )
                 .join('') +
@@ -70,19 +75,13 @@ export class GerberPcbSvgRenderer {
 
     /**
      * Returns the source layers that should be rendered.
-     * @param {object} documentModel Normalized Gerber document.
+     * @param {object[]} allLayers All source fabrication layers.
      * @param {{ renderMode?: string, layerId?: string, layerIds?: string[] }} options Render options.
      * @param {'top' | 'bottom'} side Active board side.
      * @returns {object[]}
      */
-    static #renderLayers(documentModel, options, side) {
-        const allLayers = Array.isArray(documentModel?.pcb?.fabrication?.layers)
-            ? documentModel.pcb.fabrication.layers
-            : []
-        const renderMode =
-            options.renderMode ||
-            documentModel?.pcb?.fabrication?.renderMode ||
-            'composite'
+    static #renderLayers(allLayers, options, side) {
+        const renderMode = options.renderMode || 'composite'
 
         const selectedLayerIds = GerberPcbSvgRenderer.#selectedLayerIds(options)
         if (renderMode === 'separated' && selectedLayerIds.size) {
@@ -101,6 +100,17 @@ export class GerberPcbSvgRenderer {
                     GerberPcbLayerViewModel.roleOrder(b, side)
                 )
             })
+    }
+
+    /**
+     * Resolves all source fabrication layers from a document.
+     * @param {object} documentModel Normalized Gerber document.
+     * @returns {object[]}
+     */
+    static #sourceLayers(documentModel) {
+        return Array.isArray(documentModel?.pcb?.fabrication?.layers)
+            ? documentModel.pcb.fabrication.layers
+            : []
     }
 
     /**
@@ -124,25 +134,22 @@ export class GerberPcbSvgRenderer {
      * @param {object} layer Source layer.
      * @param {'top' | 'bottom'} side Active board side.
      * @param {{ smallPlatedDrillCenters?: Set<string> }} renderContext Render context.
+     * @param {{ minX: number, minY: number, width: number, height: number }} bounds Render bounds.
      * @returns {string}
      */
-    static #renderLayer(layer, side, renderContext) {
+    static #renderLayer(layer, side, renderContext, bounds) {
         const className =
             'gerber-layer gerber-role-' +
             GerberPcbSvgRenderer.#classToken(layer.role) +
             GerberPcbLayerViewModel.layerAppClasses(layer, side)
-        const content = [
-            ...(layer.primitives || []).map((primitive) =>
-                GerberPcbSvgRenderer.#renderPrimitive(
-                    primitive,
-                    layer,
-                    renderContext
-                )
-            ),
-            ...(layer.drills || []).map((drill) =>
-                GerberPcbSvgRenderer.#renderDrill(drill, layer)
-            )
-        ].join('')
+        const primitiveContent = GerberPcbSvgRenderer.#renderLayerPrimitives(
+            layer,
+            renderContext,
+            bounds
+        )
+        const drillContent = (layer.drills || [])
+            .map((drill) => GerberPcbSvgRenderer.#renderDrill(drill, layer))
+            .join('')
 
         return (
             '<g class="' +
@@ -152,9 +159,181 @@ export class GerberPcbSvgRenderer {
             '" data-file-name="' +
             GerberPcbSvgRenderer.#escape(layer.fileName) +
             '">' +
+            primitiveContent +
+            drillContent +
+            '</g>'
+        )
+    }
+
+    /**
+     * Renders source primitives with Gerber dark/clear polarity composition.
+     * @param {object} layer Source layer.
+     * @param {{ smallPlatedDrillCenters?: Set<string> }} renderContext Render context.
+     * @param {{ minX: number, minY: number, width: number, height: number }} bounds Render bounds.
+     * @returns {string}
+     */
+    static #renderLayerPrimitives(layer, renderContext, bounds) {
+        const primitives = Array.isArray(layer?.primitives)
+            ? layer.primitives
+            : []
+        const segments = GerberPcbSvgRenderer.#polaritySegments(primitives)
+
+        return segments
+            .map((segment, index) =>
+                GerberPcbSvgRenderer.#renderPolaritySegment(
+                    segment,
+                    index,
+                    layer,
+                    renderContext,
+                    bounds
+                )
+            )
+            .join('')
+    }
+
+    /**
+     * Groups dark primitives with the later clear primitives that erase them.
+     * @param {object[]} primitives Source primitives in file order.
+     * @returns {{ primitives: object[], clearPrimitives: object[] }[]}
+     */
+    static #polaritySegments(primitives) {
+        const segments = []
+        let activeSegment = null
+
+        for (const primitive of primitives || []) {
+            if (GerberPcbSvgRenderer.#isClearPrimitive(primitive)) {
+                for (const segment of segments) {
+                    segment.clearPrimitives.push(primitive)
+                }
+                activeSegment = null
+                continue
+            }
+
+            if (!activeSegment) {
+                activeSegment = {
+                    primitives: [],
+                    clearPrimitives: []
+                }
+                segments.push(activeSegment)
+            }
+            activeSegment.primitives.push(primitive)
+        }
+
+        return segments
+    }
+
+    /**
+     * Renders one polarity-composed primitive segment.
+     * @param {{ primitives: object[], clearPrimitives: object[] }} segment Segment model.
+     * @param {number} index Segment index.
+     * @param {object} layer Source layer.
+     * @param {{ smallPlatedDrillCenters?: Set<string> }} renderContext Render context.
+     * @param {{ minX: number, minY: number, width: number, height: number }} bounds Render bounds.
+     * @returns {string}
+     */
+    static #renderPolaritySegment(
+        segment,
+        index,
+        layer,
+        renderContext,
+        bounds
+    ) {
+        const content = segment.primitives
+            .map((primitive) =>
+                GerberPcbSvgRenderer.#renderPrimitive(
+                    primitive,
+                    layer,
+                    renderContext
+                )
+            )
+            .join('')
+        if (!segment.clearPrimitives.length) {
+            return content
+        }
+
+        const maskId = GerberPcbSvgRenderer.#clearMaskId(layer, index)
+        return (
+            GerberPcbSvgRenderer.#renderClearMask(
+                maskId,
+                segment.clearPrimitives,
+                layer,
+                renderContext,
+                bounds
+            ) +
+            '<g mask="url(#' +
+            maskId +
+            ')">' +
             content +
             '</g>'
         )
+    }
+
+    /**
+     * Renders an SVG mask that subtracts clear-polarity primitives.
+     * @param {string} maskId Stable mask id.
+     * @param {object[]} clearPrimitives Clear primitives.
+     * @param {object} layer Source layer.
+     * @param {{ smallPlatedDrillCenters?: Set<string> }} renderContext Render context.
+     * @param {{ minX: number, minY: number, width: number, height: number }} bounds Render bounds.
+     * @returns {string}
+     */
+    static #renderClearMask(
+        maskId,
+        clearPrimitives,
+        layer,
+        renderContext,
+        bounds
+    ) {
+        return (
+            '<mask id="' +
+            GerberPcbSvgRenderer.#escape(maskId) +
+            '" maskUnits="userSpaceOnUse">' +
+            '<rect x="' +
+            bounds.minX +
+            '" y="' +
+            bounds.minY +
+            '" width="' +
+            bounds.width +
+            '" height="' +
+            bounds.height +
+            '" fill="white" />' +
+            '<g class="gerber-clear-mask">' +
+            clearPrimitives
+                .map((primitive) =>
+                    GerberPcbSvgRenderer.#renderPrimitive(
+                        primitive,
+                        layer,
+                        renderContext
+                    )
+                )
+                .join('') +
+            '</g>' +
+            '</mask>'
+        )
+    }
+
+    /**
+     * Returns a stable mask id for one layer segment.
+     * @param {object} layer Source layer.
+     * @param {number} index Segment index.
+     * @returns {string}
+     */
+    static #clearMaskId(layer, index) {
+        const suffix = index > 0 ? '-' + index : ''
+        return (
+            'gerber-clear-mask-' +
+            GerberPcbSvgRenderer.#classToken(layer?.id || layer?.fileName) +
+            suffix
+        )
+    }
+
+    /**
+     * Returns true when a primitive subtracts from the current layer image.
+     * @param {object} primitive Source primitive.
+     * @returns {boolean}
+     */
+    static #isClearPrimitive(primitive) {
+        return String(primitive?.polarity || 'dark') === 'clear'
     }
 
     /**

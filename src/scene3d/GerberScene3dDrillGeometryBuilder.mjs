@@ -28,11 +28,10 @@ export class GerberScene3dDrillGeometryBuilder {
     /**
      * Builds deduped physical drill apertures from pads and vias.
      * @param {{ pads?: object[], vias?: object[] }} detail Scene detail.
-     * @returns {{ x: number, y: number, diameter: number, slotLength: number | null }[]}
+     * @returns {{ x: number, y: number, diameter: number, slotLength: number | null, hasCopperAnnulus: boolean }[]}
      */
     static #buildDrillSpecs(detail) {
-        const seen = new Set()
-        const drillSpecs = []
+        const drillSpecsByKey = new Map()
 
         for (const primitive of [
             ...(detail?.pads || []),
@@ -45,21 +44,23 @@ export class GerberScene3dDrillGeometryBuilder {
             }
 
             const key = GerberScene3dDrillGeometryBuilder.#drillKey(drillSpec)
-            if (seen.has(key)) {
+            const existingSpec = drillSpecsByKey.get(key)
+            if (existingSpec) {
+                existingSpec.hasCopperAnnulus =
+                    existingSpec.hasCopperAnnulus || drillSpec.hasCopperAnnulus
                 continue
             }
 
-            seen.add(key)
-            drillSpecs.push(drillSpec)
+            drillSpecsByKey.set(key, drillSpec)
         }
 
-        return drillSpecs
+        return [...drillSpecsByKey.values()]
     }
 
     /**
      * Resolves one primitive's physical drill aperture.
      * @param {object} primitive Pad or via primitive.
-     * @returns {{ x: number, y: number, diameter: number, slotLength: number | null } | null}
+     * @returns {{ x: number, y: number, diameter: number, slotLength: number | null, hasCopperAnnulus: boolean } | null}
      */
     static #primitiveDrillSpec(primitive) {
         const diameter = Number(primitive?.holeDiameter || 0)
@@ -75,13 +76,25 @@ export class GerberScene3dDrillGeometryBuilder {
                 ? Number(primitive.holeSlotLength)
                 : null
 
-        return { x, y, diameter, slotLength }
+        const radius = Math.max(diameter, Number(slotLength || 0)) / 2
+
+        return {
+            x,
+            y,
+            diameter,
+            slotLength,
+            hasCopperAnnulus:
+                GerberScene3dDrillGeometryBuilder.#copperAnnulusRadius(
+                    primitive
+                ) >
+                radius + MIN_SEGMENT_LENGTH_MIL
+        }
     }
 
     /**
      * Splits copper tracks where physical drill apertures remove copper.
      * @param {object[] | undefined} tracks Copper tracks.
-     * @param {{ x: number, y: number, diameter: number, slotLength: number | null }[]} drillSpecs
+     * @param {{ x: number, y: number, diameter: number, slotLength: number | null, hasCopperAnnulus: boolean }[]} drillSpecs
      * Drill apertures.
      * @returns {object[]}
      */
@@ -94,7 +107,7 @@ export class GerberScene3dDrillGeometryBuilder {
     /**
      * Splits one copper track around every intersecting drill aperture.
      * @param {object} track Copper track.
-     * @param {{ x: number, y: number, diameter: number, slotLength: number | null }[]} drillSpecs
+     * @param {{ x: number, y: number, diameter: number, slotLength: number | null, hasCopperAnnulus: boolean }[]} drillSpecs
      * Drill apertures.
      * @returns {object[]}
      */
@@ -141,7 +154,7 @@ export class GerberScene3dDrillGeometryBuilder {
     /**
      * Resolves the normalized segment interval removed by a drill.
      * @param {object} track Copper track.
-     * @param {{ x: number, y: number, diameter: number, slotLength: number | null }} drillSpec
+     * @param {{ x: number, y: number, diameter: number, slotLength: number | null, hasCopperAnnulus: boolean }} drillSpec
      * Drill aperture.
      * @returns {{ start: number, end: number } | null}
      */
@@ -174,8 +187,10 @@ export class GerberScene3dDrillGeometryBuilder {
             Number(drillSpec.y) - projectionPoint.y
         )
         const cutRadius =
-            GerberScene3dDrillGeometryBuilder.#drillCutRadius(drillSpec) +
-            Math.max(Number(track?.width || 0), 1) / 2
+            GerberScene3dDrillGeometryBuilder.#trackDrillCutRadius(
+                track,
+                drillSpec
+            )
 
         if (perpendicularDistance > cutRadius) {
             return null
@@ -203,6 +218,23 @@ export class GerberScene3dDrillGeometryBuilder {
     }
 
     /**
+     * Resolves the route interval radius for one drill aperture.
+     * @param {object} track Copper track.
+     * @param {{ diameter: number, slotLength: number | null, hasCopperAnnulus: boolean }} drillSpec
+     * Drill aperture.
+     * @returns {number}
+     */
+    static #trackDrillCutRadius(track, drillSpec) {
+        const radius =
+            GerberScene3dDrillGeometryBuilder.#drillCutRadius(drillSpec)
+        if (drillSpec?.hasCopperAnnulus) {
+            return radius
+        }
+
+        return radius + Math.max(Number(track?.width || 0), 1) / 2
+    }
+
+    /**
      * Resolves the conservative cut radius for circular or slotted drills.
      * @param {{ diameter: number, slotLength: number | null }} drillSpec Drill aperture.
      * @returns {number}
@@ -212,6 +244,25 @@ export class GerberScene3dDrillGeometryBuilder {
             Math.max(
                 Number(drillSpec?.diameter || 0),
                 Number(drillSpec?.slotLength || 0)
+            ) / 2
+        )
+    }
+
+    /**
+     * Resolves the largest copper radius around a drilled primitive.
+     * @param {object} primitive Pad or via primitive.
+     * @returns {number}
+     */
+    static #copperAnnulusRadius(primitive) {
+        return (
+            Math.max(
+                Number(primitive?.diameter || 0),
+                Number(primitive?.sizeTopX || 0),
+                Number(primitive?.sizeTopY || 0),
+                Number(primitive?.sizeMidX || 0),
+                Number(primitive?.sizeMidY || 0),
+                Number(primitive?.sizeBottomX || 0),
+                Number(primitive?.sizeBottomY || 0)
             ) / 2
         )
     }

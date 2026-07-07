@@ -208,6 +208,55 @@ test('GerberPcbSvgRenderer maps active side to app palette classes', () => {
     assert.match(topMarkup, /class="gerber-drill[^"]* pcb-via-drill/)
 })
 
+test('GerberPcbSvgRenderer marks copper opened by solder mask apertures', () => {
+    const document = createDocument()
+    document.pcb.fabrication.layers = [
+        {
+            id: 'top-copper',
+            fileName: 'sample-F_Cu.gtl',
+            role: 'top-copper',
+            side: 'top',
+            primitives: [
+                { type: 'line', x1: 1, y1: 2, x2: 4, y2: 2, width: 0.25 },
+                { type: 'line', x1: 1, y1: 3, x2: 4, y2: 3, width: 0.25 },
+                { type: 'flash', shape: 'circle', x: 2, y: 4, diameter: 0.8 },
+                { type: 'flash', shape: 'circle', x: 4, y: 4, diameter: 0.8 }
+            ],
+            drills: []
+        },
+        {
+            id: 'top-mask',
+            fileName: 'sample-F_Mask.gts',
+            role: 'top-soldermask',
+            side: 'top',
+            primitives: [
+                { type: 'line', x1: 0.95, y1: 2, x2: 4.05, y2: 2, width: 0.5 },
+                { type: 'flash', shape: 'circle', x: 2, y: 4, diameter: 1 }
+            ],
+            drills: []
+        }
+    ]
+
+    const markup = GerberPcbSvgRenderer.render(document)
+
+    assert.match(
+        markup,
+        /<line class="[^"]*\bpcb-copper--mask-open\b[^"]*"[^>]+y1="2"/
+    )
+    assert.match(
+        markup,
+        /<line class="[^"]*\bpcb-copper--mask-covered\b[^"]*"[^>]+y1="3"/
+    )
+    assert.match(
+        markup,
+        /<circle class="[^"]*\bpcb-copper--mask-open\b[^"]*"[^>]+cx="2"[^>]+cy="4"/
+    )
+    assert.match(
+        markup,
+        /<circle class="[^"]*\bpcb-copper--mask-covered\b[^"]*"[^>]+cx="4"[^>]+cy="4"/
+    )
+})
+
 test('GerberPcbSvgRenderer lets track widths scale in board units', () => {
     const markup = GerberPcbSvgRenderer.render(createTwoSideDocument())
 
@@ -292,6 +341,14 @@ test('GerberPcbSvgRenderer mirrors bottom-side composite output', () => {
 test('GerberPcbSvgRenderer renders board fill from outline layers', () => {
     const document = createDocument()
     document.pcb.fabrication.layers.push({
+        id: 'empty-board-outline',
+        fileName: 'sample-Drawing.gko',
+        role: 'board-outline',
+        side: 'both',
+        primitives: [],
+        drills: []
+    })
+    document.pcb.fabrication.layers.push({
         id: 'board-outline',
         fileName: 'sample-Edge_Cuts.gm1',
         role: 'board-outline',
@@ -312,6 +369,49 @@ test('GerberPcbSvgRenderer renders board fill from outline layers', () => {
         /<path class="gerber-board-fill pcb-board" d="M 0 0 L 4 0 L 4 3 L 0 3 L 0 0 Z"/
     )
     assert.match(markup, /fill-rule="evenodd"/)
+})
+
+test('GerberPcbSvgRenderer masks clear-polarity layer regions', () => {
+    const document = createDocument()
+    document.pcb.fabrication.layers = [
+        {
+            id: 'top-silk',
+            fileName: 'sample-F_Silkscreen.gto',
+            role: 'top-silkscreen',
+            side: 'top',
+            primitives: [
+                {
+                    type: 'region',
+                    polarity: 'dark',
+                    points: [
+                        { x: 1, y: 1 },
+                        { x: 5, y: 1 },
+                        { x: 5, y: 4 },
+                        { x: 1, y: 4 },
+                        { x: 1, y: 1 }
+                    ]
+                },
+                {
+                    type: 'region',
+                    polarity: 'clear',
+                    points: [
+                        { x: 2, y: 2 },
+                        { x: 4, y: 2 },
+                        { x: 4, y: 3 },
+                        { x: 2, y: 3 },
+                        { x: 2, y: 2 }
+                    ]
+                }
+            ],
+            drills: []
+        }
+    ]
+
+    const markup = GerberPcbSvgRenderer.render(document)
+
+    assert.match(markup, /<mask id="gerber-clear-mask-top-silk"/)
+    assert.match(markup, /<g class="gerber-clear-mask">/)
+    assert.match(markup, /<g mask="url\(#gerber-clear-mask-top-silk\)">/)
 })
 
 test('GerberPcbSvgRenderer renders one separated source layer', () => {

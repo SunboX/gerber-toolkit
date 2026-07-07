@@ -51,12 +51,16 @@ export class GerberScene3dSilkscreenCutoutBuilder {
 
     /**
      * Builds all cutout point lists for one board side.
-     * @param {{ pads?: object[], vias?: object[] }} detail Scene detail.
+     * @param {{ pads?: object[], vias?: object[], silkscreen?: object }} detail Scene detail.
      * @param {'top' | 'bottom'} side Board side.
      * @returns {{ x: number, y: number }[][]}
      */
     static #buildSideCutouts(detail, side) {
+        const sideDetail = detail.silkscreen?.[side] || {}
         return GerberScene3dSilkscreenCutoutBuilder.#dedupeCutouts([
+            ...GerberScene3dSilkscreenCutoutBuilder.#authoredCutouts(
+                sideDetail
+            ),
             ...(detail.pads || []).flatMap((pad) =>
                 GerberScene3dSilkscreenCutoutBuilder.#padCutouts(pad, side)
             ),
@@ -64,6 +68,19 @@ export class GerberScene3dSilkscreenCutoutBuilder {
                 GerberScene3dSilkscreenCutoutBuilder.#viaCutouts(via)
             )
         ]).map((cutout) => cutout.points)
+    }
+
+    /**
+     * Normalizes cutouts already attached to one side.
+     * @param {{ drillCutouts?: { x: number, y: number }[][] }} sideDetail Silkscreen side detail.
+     * @returns {object[]}
+     */
+    static #authoredCutouts(sideDetail) {
+        return (sideDetail.drillCutouts || [])
+            .map((points) =>
+                GerberScene3dSilkscreenCutoutBuilder.#fromPoints(points)
+            )
+            .filter(Boolean)
     }
 
     /**
