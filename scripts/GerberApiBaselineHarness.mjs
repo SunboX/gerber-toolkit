@@ -170,6 +170,7 @@ export class GerberApiBaselineHarness {
             ...BEHAVIORS
         ]
             .map((feature) => mapFeature(feature, testSources))
+            .filter(Boolean)
             .sort((left, right) => left.feature.localeCompare(right.feature))
         const body = {
             schema: 'gerber-toolkit.api-baseline.v1',
@@ -227,7 +228,7 @@ function capabilityFor(exportName) {
  * Adds preservation policy and pinned evidence paths to one feature.
  * @param {Record<string, any>} feature Baseline feature.
  * @param {{ path: string, source: string }[]} testSources Pinned tests.
- * @returns {Record<string, any>} Complete mapped feature.
+ * @returns {Record<string, any> | null} Complete mapped feature or an untested inferred result.
  */
 function mapFeature(feature, testSources) {
     const policy = POLICIES[feature.capabilityId]
@@ -236,15 +237,25 @@ function mapFeature(feature, testSources) {
             `Missing preservation policy for ${feature.capabilityId}.`
         )
     }
-    const evidenceTokens = featureEvidenceTokens(feature)
-    const tests = testSources
-        .filter((testSource) =>
-            evidenceTokens.every((token) => testSource.source.includes(token))
-        )
-        .map((testSource) => testSource.path)
+    let evidenceTokens = []
+    let tests = []
+    for (const candidateTokens of featureEvidenceTokenSets(feature)) {
+        const candidateTests = testSources
+            .filter((testSource) =>
+                candidateTokens.every((token) =>
+                    testSource.source.includes(token)
+                )
+            )
+            .map((testSource) => testSource.path)
+        if (!candidateTests.length) continue
+        evidenceTokens = candidateTokens
+        tests = candidateTests
+        break
+    }
     if (!tests.length) {
+        if (feature.sourceContract?.type === 'result-field') return null
         throw new Error(
-            `No historical repository test references ${evidenceTokens.join(' + ')} for ${feature.feature}.`
+            `No historical repository test references ${featureEvidenceTokens(feature).join(' + ')} for ${feature.feature}.`
         )
     }
     return {
@@ -258,6 +269,21 @@ function mapFeature(feature, testSources) {
         tests,
         documentation: [...policy.documentation]
     }
+}
+
+/**
+ * Builds precise and result-shape fallback evidence token sets.
+ * @param {Record<string, any>} feature Captured feature.
+ * @returns {string[][]} Ordered evidence token candidates.
+ */
+function featureEvidenceTokenSets(feature) {
+    const precise = featureEvidenceTokens(feature)
+    if (feature.sourceContract?.type !== 'result-field') return [precise]
+    const fallback = [
+        feature.exportName,
+        String(feature.sourceContract.name).split('.').at(-1)
+    ].filter(Boolean)
+    return [precise, [...new Set(fallback)]]
 }
 
 /**

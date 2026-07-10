@@ -6,6 +6,7 @@ import { pathToFileURL } from 'node:url'
 import { isDeepStrictEqual, promisify } from 'node:util'
 
 import { GerberApiContractInspector } from './GerberApiContractInspector.mjs'
+import { assertGerberTask1CapabilityInventory } from './GerberTask1CapabilityInventory.mjs'
 
 const execFileAsync = promisify(execFile)
 const TOOLKITS = [
@@ -109,6 +110,10 @@ export async function checkFeaturePreservation(options = {}) {
         readOptionalJson(inventoryPath)
     ])
 
+    if (options.strict === true && isGerberTask1Baseline(apiBaseline)) {
+        assertGerberTask1CapabilityInventory(inventory)
+    }
+
     let packed = null
     try {
         if (options.strict === true && !options.packageRoot) {
@@ -125,6 +130,18 @@ export async function checkFeaturePreservation(options = {}) {
     } finally {
         await packed?.cleanup()
     }
+}
+
+/**
+ * Returns whether an API artifact is the immutable Task 1 Gerber baseline.
+ * @param {Record<string, any>} apiBaseline API baseline candidate.
+ * @returns {boolean} Whether the frozen inventory binding applies.
+ */
+function isGerberTask1Baseline(apiBaseline) {
+    return (
+        apiBaseline?.package === 'gerber-toolkit' &&
+        apiBaseline?.packageVersion === '0.1.21'
+    )
 }
 
 /**

@@ -321,6 +321,60 @@ test('Gerber benchmark comparison gates exact metadata, configuration, samples, 
     )
 })
 
+test('Gerber benchmark comparison rejects resealed invalid measurement records', async () => {
+    const baseline = await readJson('benchmarks/baseline-v0.1.21.json')
+    const current = passingBenchmarkCandidate(baseline)
+    const mutations = [
+        {
+            label: 'zero result bytes',
+            mutate: (report) => {
+                report.cases[0].resultBytes = 0
+            }
+        },
+        {
+            label: 'fractional clone bytes',
+            mutate: (report) => {
+                report.cases[0].cloneBytes = 1.5
+            }
+        },
+        {
+            label: 'incomplete retained heap',
+            mutate: (report) => {
+                delete report.cases[0].retainedHeap.afterBytes
+            }
+        },
+        {
+            label: 'negative retained heap observation',
+            mutate: (report) => {
+                report.cases[0].retainedHeap.beforeBytes = -1
+            }
+        },
+        {
+            label: 'inconsistent retained heap total',
+            mutate: (report) => {
+                report.cases[0].retainedHeap.retainedBytes += 1
+            }
+        }
+    ]
+
+    for (const { label, mutate } of mutations) {
+        const divergent = structuredClone(current)
+        mutate(divergent)
+        sealBenchmarkReport(divergent)
+        assert.equal(
+            compareBenchmarks(divergent, baseline).passed,
+            false,
+            `Accepted invalid benchmark measurement: ${label}`
+        )
+    }
+
+    const invalidBaseline = structuredClone(baseline)
+    invalidBaseline.cases[0].retainedHeap.afterBytes =
+        Number.MAX_SAFE_INTEGER + 1
+    sealBenchmarkReport(invalidBaseline)
+    assert.equal(compareBenchmarks(current, invalidBaseline).passed, false)
+})
+
 test('Gerber benchmark reports emit the complete frozen provenance', async () => {
     const baseline = await readJson('benchmarks/baseline-v0.1.21.json')
     const measured = await runBenchmarks({ warmups: 1, samples: 1 })
@@ -491,6 +545,78 @@ test('Gerber API inspector captures public instance fields and recursive private
     }
 })
 
+test('Gerber API inspector resolves instance results and array element shapes across call boundaries', async () => {
+    class Bounds {
+        toObject() {
+            return { minX: 0, maxY: 1 }
+        }
+    }
+    class Parser {
+        static parse() {
+            const layer = Parser.#layer()
+            return Parser.fromLayers([layer])
+        }
+
+        static fromLayers(layers) {
+            const bounds = new Bounds()
+            const normalizedBounds = bounds.toObject()
+            return {
+                pcb: { bounds: normalizedBounds, fabrication: { layers } }
+            }
+        }
+
+        static #layer() {
+            return { role: 'top-copper', primitives: [] }
+        }
+    }
+    class SceneBuilder {
+        static build() {
+            const board = SceneBuilder.#board()
+            return { board }
+        }
+
+        static #board() {
+            const board = { segments: [], cutouts: [] }
+            board.segments = SceneBuilder.#segments()
+            board.cutouts = SceneBuilder.#cutouts()
+            return board
+        }
+
+        static #segments() {
+            return [].map(() => SceneBuilder.#line())
+        }
+
+        static #line() {
+            return { y1: 1 }
+        }
+
+        static #cutouts() {
+            return [].map(() => ({ points: [] }))
+        }
+    }
+    const contracts = await GerberApiContractInspector.inspect([
+        {
+            entrypoint: '.',
+            target: './index.mjs',
+            api: { Bounds, Parser, SceneBuilder }
+        }
+    ])
+    const features = new Set(
+        contracts.features.map((feature) => feature.feature)
+    )
+
+    for (const feature of [
+        '.#Parser.parse().result.pcb.bounds.minX',
+        '.#Parser.fromLayers().result.pcb.bounds.maxY',
+        '.#Parser.parse().result.pcb.fabrication.layers.role',
+        '.#Parser.fromLayers().result.pcb.fabrication.layers.primitives',
+        '.#SceneBuilder.build().result.board.segments.y1',
+        '.#SceneBuilder.build().result.board.cutouts.points'
+    ]) {
+        assert.equal(features.has(feature), true, `Missing ${feature}`)
+    }
+})
+
 test('Gerber convergence baselines cover every public export and primary case', async () => {
     const api = await readJson('spec/api-baseline-v0.1.21.json')
     const ledger = await readJson('spec/feature-preservation.json')
@@ -565,7 +691,16 @@ test('Gerber API baseline records complete callable, option, field, and behavior
         '.#PcbScene3dBuilder.build().result.board.heightMil',
         '.#PcbScene3dBuilder.build().result.board.thicknessMil',
         './scene3d#PcbScene3dBuilder.build().result.board.widthMil',
-        '.#PcbScene3dScenePreparator.prepare().result.board.widthMil'
+        '.#PcbScene3dScenePreparator.prepare().result.board.widthMil',
+        '.#GerberParser.parseArrayBuffer().result.pcb.bounds.minX',
+        '.#GerberParser.parseArrayBuffer().result.pcb.bounds.maxY',
+        './parser#GerberParser.fromLayers().result.pcb.bounds.minX',
+        '.#GerberParser.parseArrayBuffer().result.pcb.fabrication.layers.role',
+        '.#GerberParser.parseArrayBuffer().result.pcb.fabrication.layers.primitives',
+        '.#GerberParser.fromLayers().result.pcb.fabrication.layers.role',
+        './parser#GerberParser.fromLayers().result.pcb.fabrication.layers.primitives',
+        '.#PcbScene3dBuilder.build().result.board.segments.y1',
+        '.#PcbScene3dBuilder.build().result.board.cutouts.points'
     ]) {
         assert.equal(
             api.features.some((row) => row.feature === feature),

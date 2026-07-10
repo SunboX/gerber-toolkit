@@ -67,8 +67,14 @@ export function compareBenchmarks(current, baseline) {
               ? 10
               : 5
         const timePassed = changePercent <= timeLimitPercent
-        const resultBytesPassed = row.resultBytes <= previous.resultBytes
-        const cloneBytesPassed = row.cloneBytes <= previous.cloneBytes
+        const resultBytesPassed =
+            positiveSafeInteger(row.resultBytes) &&
+            positiveSafeInteger(previous.resultBytes) &&
+            row.resultBytes <= previous.resultBytes
+        const cloneBytesPassed =
+            positiveSafeInteger(row.cloneBytes) &&
+            positiveSafeInteger(previous.cloneBytes) &&
+            row.cloneBytes <= previous.cloneBytes
         const fixtureChecksumPassed =
             row.fixtureChecksum === previous.fixtureChecksum
         const structuralChecksumPassed =
@@ -91,10 +97,12 @@ export function compareBenchmarks(current, baseline) {
             samplesPassed &&
             row.medianMilliseconds === median(row.samples) &&
             previous.medianMilliseconds === median(previous.samples)
+        const retainedHeapPassed =
+            validRetainedHeap(row.retainedHeap) &&
+            validRetainedHeap(previous.retainedHeap)
         const heapModePassed =
-            typeof row.retainedHeap?.gcControlled === 'boolean' &&
-            row.retainedHeap.gcControlled ===
-                previous.retainedHeap?.gcControlled
+            retainedHeapPassed &&
+            row.retainedHeap.gcControlled === previous.retainedHeap.gcControlled
         return {
             id: row.id,
             primary: previous.primary,
@@ -110,6 +118,7 @@ export function compareBenchmarks(current, baseline) {
             warmupsPassed,
             samplesPassed,
             medianPassed,
+            retainedHeapPassed,
             heapModePassed,
             passed:
                 timePassed &&
@@ -121,6 +130,7 @@ export function compareBenchmarks(current, baseline) {
                 warmupsPassed &&
                 samplesPassed &&
                 medianPassed &&
+                retainedHeapPassed &&
                 heapModePassed
         }
     })
@@ -173,6 +183,44 @@ export function compareBenchmarks(current, baseline) {
         fixtureChecksumPassed,
         cases
     }
+}
+
+/**
+ * Returns whether a byte count is a positive safe integer.
+ * @param {unknown} value Byte count candidate.
+ * @returns {boolean} Whether the byte count is valid.
+ */
+function positiveSafeInteger(value) {
+    return Number.isSafeInteger(value) && value > 0
+}
+
+/**
+ * Returns whether a retained-heap record is complete and internally valid.
+ * @param {unknown} value Retained-heap observation candidate.
+ * @returns {boolean} Whether the observation is valid.
+ */
+function validRetainedHeap(value) {
+    if (!value || typeof value !== 'object' || Array.isArray(value)) {
+        return false
+    }
+    const keys = Object.keys(value).sort()
+    const expectedKeys = [
+        'afterBytes',
+        'beforeBytes',
+        'gcControlled',
+        'retainedBytes'
+    ]
+    if (!isDeepStrictEqual(keys, expectedKeys)) return false
+    if (typeof value.gcControlled !== 'boolean') return false
+    if (!positiveSafeInteger(value.beforeBytes)) return false
+    if (!positiveSafeInteger(value.afterBytes)) return false
+    if (!Number.isSafeInteger(value.retainedBytes) || value.retainedBytes < 0) {
+        return false
+    }
+    return (
+        value.retainedBytes ===
+        Math.max(0, value.afterBytes - value.beforeBytes)
+    )
 }
 
 /**

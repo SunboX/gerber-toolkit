@@ -95,7 +95,7 @@ export class GerberApiSupportingClassLoader {
     }
 
     /**
-     * Finds class-like static call owners in one callable's source.
+     * Finds class-like static call owners and constructed supporting classes.
      * @param {unknown} value Callable candidate.
      * @returns {string[]} Referenced class names.
      */
@@ -105,6 +105,11 @@ export class GerberApiSupportingClassLoader {
         const source = Function.prototype.toString.call(value)
         for (const match of source.matchAll(
             /\b([A-Z][A-Za-z0-9_$]*)\.(?:#?[A-Za-z_$][\w$]*)\s*\(/gu
+        )) {
+            names.add(match[1])
+        }
+        for (const match of source.matchAll(
+            /\bnew\s+([A-Z][A-Za-z0-9_$]*)\s*\(/gu
         )) {
             names.add(match[1])
         }
