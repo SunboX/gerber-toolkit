@@ -23,12 +23,36 @@ export function assertGerberTask1CapabilityInventory(inventory) {
     const observedChecksum = capabilityInventoryChecksum(rows)
     if (
         rows.length !== 8 ||
+        !rows.every((row) => hasExactInventoryKeys(row)) ||
         observedChecksum !== GERBER_TASK1_CAPABILITY_INVENTORY_CHECKSUM
     ) {
         throw new Error(
             `Immutable capability inventory drift: expected 8 rows with checksum ${GERBER_TASK1_CAPABILITY_INVENTORY_CHECKSUM}, received ${rows.length} rows with checksum ${observedChecksum}.`
         )
     }
+}
+
+/**
+ * Requires the exact immutable row and availability key sets.
+ * @param {unknown} row Capability row candidate.
+ * @returns {boolean} Whether no field is missing or added.
+ */
+function hasExactInventoryKeys(row) {
+    if (!row || typeof row !== 'object' || Array.isArray(row)) return false
+    const rowKeys = Object.keys(row).sort().join(',')
+    const availability = row.availability
+    if (
+        !availability ||
+        typeof availability !== 'object' ||
+        Array.isArray(availability)
+    ) {
+        return false
+    }
+    return (
+        rowKeys === 'availability,category,id,operation' &&
+        Object.keys(availability).sort().join(',') ===
+            [...TOOLKITS].sort().join(',')
+    )
 }
 
 /**

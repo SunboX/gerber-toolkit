@@ -700,7 +700,16 @@ test('Gerber API baseline records complete callable, option, field, and behavior
         '.#GerberParser.fromLayers().result.pcb.fabrication.layers.role',
         './parser#GerberParser.fromLayers().result.pcb.fabrication.layers.primitives',
         '.#PcbScene3dBuilder.build().result.board.segments.y1',
-        '.#PcbScene3dBuilder.build().result.board.cutouts.points'
+        '.#PcbScene3dBuilder.build().result.board.cutouts.points',
+        '.#GerberParser.parseArrayBuffer().result.pcb.fabrication.layers.primitives.type',
+        '.#GerberParser.parseArrayBuffer().result.pcb.fabrication.layers.primitives.width',
+        '.#GerberParser.parseArrayBuffer().result.pcb.fabrication.layers.primitives.polarity',
+        '.#GerberParser.parseArrayBuffer().result.pcb.fabrication.layers.primitives.attributes.object',
+        '.#GerberParser.parseArrayBuffer().result.pcb.fabrication.layers.drills.diameter',
+        './parser#GerberParser.fromLayers().result.pcb.fabrication.layers.primitives.type',
+        '.#PcbScene3dBuilder.build().result.detail.tracks.layerId',
+        '.#PcbScene3dBuilder.build().result.detail.tracks.y1',
+        './scene3d#PcbScene3dBuilder.build().result.detail.tracks.layerId'
     ]) {
         assert.equal(
             api.features.some((row) => row.feature === feature),

@@ -492,6 +492,41 @@ test('strict command rejects a supplied ninth row against the immutable inventor
     )
 })
 
+test('strict command rejects extra fields on immutable inventory rows', async (context) => {
+    const root = await mkdtemp(join(tmpdir(), 'gerber-feature-inventory-'))
+    const inventory = JSON.parse(
+        await readFile('spec/capability-inventory-v0.1.21.json', 'utf8')
+    )
+    inventory[0].untrustedNote = 'ignored by normalized checksum'
+    const inventoryPath = join(root, 'capability-inventory.json')
+    await writeFile(inventoryPath, JSON.stringify(inventory))
+    context.after(() => rm(root, { recursive: true, force: true }))
+
+    await assert.rejects(
+        () =>
+            execFileAsync(process.execPath, [
+                fileURLToPath(
+                    new URL(
+                        '../scripts/check-feature-preservation.mjs',
+                        import.meta.url
+                    )
+                ),
+                '--strict',
+                '--inventory',
+                inventoryPath,
+                '--repository-root',
+                process.cwd()
+            ]),
+        (error) => {
+            assert.match(
+                String(error.stderr),
+                /Immutable capability inventory drift: expected 8 rows/u
+            )
+            return true
+        }
+    )
+})
+
 test('strict feature checker validates evidence paths and symbol references', async (context) => {
     const packageRoot = await packageFixture(context, [
         capabilityRow('parser.document.parse')
