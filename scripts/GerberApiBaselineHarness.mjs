@@ -5,6 +5,7 @@ import { fileURLToPath } from 'node:url'
 import { GerberApiContractInspector } from './GerberApiContractInspector.mjs'
 
 const META_TEST_PATHS = new Set([
+    'tests/api-result-contract-resolver.test.mjs',
     'tests/convergence-baselines.test.mjs',
     'tests/feature-preservation-check.test.mjs'
 ])

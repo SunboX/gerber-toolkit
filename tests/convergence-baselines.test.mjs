@@ -725,6 +725,9 @@ test('Gerber API baseline records complete callable, option, field, and behavior
                 ) &&
                 !feature.tests.includes(
                     'tests/feature-preservation-check.test.mjs'
+                ) &&
+                !feature.tests.includes(
+                    'tests/api-result-contract-resolver.test.mjs'
                 )
         ),
         true
