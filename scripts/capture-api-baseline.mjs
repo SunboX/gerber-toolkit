@@ -21,10 +21,10 @@ const META_TEST_PATHS = new Set([
 const PROVENANCE = Object.freeze({
     sourceCommit: '11ba9df32ce966d6626f99f444909ff6c50d2281',
     sourceTree: '1b7813598247b9ec3907a9589aefe084e4a448bd',
-    evidenceCommit: '01bc1d01adb2550ba19800f304a1a8b730dd9a0f',
-    evidenceTree: 'fc1567a89c936b0115bb98f834d1a77b3a4425c6',
-    harnessCommit: '01bc1d01adb2550ba19800f304a1a8b730dd9a0f',
-    harnessTree: 'fc1567a89c936b0115bb98f834d1a77b3a4425c6'
+    evidenceCommit: '65e42e5edca8b88cab41f5de33c8348e34f96e5b',
+    evidenceTree: 'ab80b452f402941f2dbc1dcf03328f0106c82a17',
+    harnessCommit: '65e42e5edca8b88cab41f5de33c8348e34f96e5b',
+    harnessTree: 'ab80b452f402941f2dbc1dcf03328f0106c82a17'
 })
 const TOOLKIT_AVAILABILITY = Object.freeze({
     shared: Object.freeze({
