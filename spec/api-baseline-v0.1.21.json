@@ -5,10 +5,10 @@
     "provenance": {
         "sourceCommit": "11ba9df32ce966d6626f99f444909ff6c50d2281",
         "sourceTree": "1b7813598247b9ec3907a9589aefe084e4a448bd",
-        "evidenceCommit": "bf0bd2445bdfdfe7a31ace44572fe548aaabde87",
-        "evidenceTree": "3e207a817187624537b9e271fc01b0158daaa816",
-        "harnessCommit": "bf0bd2445bdfdfe7a31ace44572fe548aaabde87",
-        "harnessTree": "3e207a817187624537b9e271fc01b0158daaa816"
+        "evidenceCommit": "43ab4c2c9abdd14cb4c4ca7e7abb7dd07d7dd021",
+        "evidenceTree": "c1cc89b8d4340c9e48c505e4598b159812ce4ef0",
+        "harnessCommit": "43ab4c2c9abdd14cb4c4ca7e7abb7dd07d7dd021",
+        "harnessTree": "c1cc89b8d4340c9e48c505e4598b159812ce4ef0"
     },
     "entrypoints": [
         {
@@ -1346,7 +1346,6 @@
             "evidenceToken": "GerberParser",
             "evidenceTokens": ["GerberParser"],
             "tests": [
-                "tests/api-result-contract-resolver.test.mjs",
                 "tests/gerber-parity.test.mjs",
                 "tests/gerber-parser.test.mjs",
                 "tests/package-layout.test.mjs"
@@ -1399,10 +1398,7 @@
             "reason": "The canonical parser envelope is shared while lossless CAM facts remain Gerber-native.",
             "evidenceToken": "fromLayers",
             "evidenceTokens": ["GerberParser", "fromLayers"],
-            "tests": [
-                "tests/api-result-contract-resolver.test.mjs",
-                "tests/gerber-parser.test.mjs"
-            ],
+            "tests": ["tests/gerber-parser.test.mjs"],
             "documentation": ["docs/api.md", "docs/model-format.md"]
         },
         {
@@ -1432,10 +1428,7 @@
             "reason": "The canonical parser envelope is shared while lossless CAM facts remain Gerber-native.",
             "evidenceToken": "fromLayers",
             "evidenceTokens": ["GerberParser", "fromLayers"],
-            "tests": [
-                "tests/api-result-contract-resolver.test.mjs",
-                "tests/gerber-parser.test.mjs"
-            ],
+            "tests": ["tests/gerber-parser.test.mjs"],
             "documentation": ["docs/api.md", "docs/model-format.md"]
         },
         {
@@ -1465,10 +1458,7 @@
             "reason": "The canonical parser envelope is shared while lossless CAM facts remain Gerber-native.",
             "evidenceToken": "fromLayers",
             "evidenceTokens": ["GerberParser", "fromLayers"],
-            "tests": [
-                "tests/api-result-contract-resolver.test.mjs",
-                "tests/gerber-parser.test.mjs"
-            ],
+            "tests": ["tests/gerber-parser.test.mjs"],
             "documentation": ["docs/api.md", "docs/model-format.md"]
         },
         {
@@ -1498,10 +1488,7 @@
             "reason": "The canonical parser envelope is shared while lossless CAM facts remain Gerber-native.",
             "evidenceToken": "fromLayers",
             "evidenceTokens": ["GerberParser", "fromLayers"],
-            "tests": [
-                "tests/api-result-contract-resolver.test.mjs",
-                "tests/gerber-parser.test.mjs"
-            ],
+            "tests": ["tests/gerber-parser.test.mjs"],
             "documentation": ["docs/api.md", "docs/model-format.md"]
         },
         {
@@ -1658,10 +1645,7 @@
             "reason": "The canonical parser envelope is shared while lossless CAM facts remain Gerber-native.",
             "evidenceToken": "pcb",
             "evidenceTokens": ["GerberParser", "fromLayers", "pcb"],
-            "tests": [
-                "tests/api-result-contract-resolver.test.mjs",
-                "tests/gerber-parser.test.mjs"
-            ],
+            "tests": ["tests/gerber-parser.test.mjs"],
             "documentation": ["docs/api.md", "docs/model-format.md"]
         },
         {
@@ -1817,10 +1801,7 @@
             "reason": "The canonical parser envelope is shared while lossless CAM facts remain Gerber-native.",
             "evidenceToken": "type",
             "evidenceTokens": ["GerberParser", "fromLayers", "type"],
-            "tests": [
-                "tests/api-result-contract-resolver.test.mjs",
-                "tests/gerber-parser.test.mjs"
-            ],
+            "tests": ["tests/gerber-parser.test.mjs"],
             "documentation": ["docs/api.md", "docs/model-format.md"]
         },
         {
@@ -1898,10 +1879,7 @@
             "reason": "The canonical parser envelope is shared while lossless CAM facts remain Gerber-native.",
             "evidenceToken": "y1",
             "evidenceTokens": ["GerberParser", "fromLayers", "y1"],
-            "tests": [
-                "tests/api-result-contract-resolver.test.mjs",
-                "tests/gerber-parser.test.mjs"
-            ],
+            "tests": ["tests/gerber-parser.test.mjs"],
             "documentation": ["docs/api.md", "docs/model-format.md"]
         },
         {
@@ -2135,10 +2113,7 @@
             "reason": "The canonical parser envelope is shared while lossless CAM facts remain Gerber-native.",
             "evidenceToken": "fabrication",
             "evidenceTokens": ["GerberParser", "fromLayers", "fabrication"],
-            "tests": [
-                "tests/api-result-contract-resolver.test.mjs",
-                "tests/gerber-parser.test.mjs"
-            ],
+            "tests": ["tests/gerber-parser.test.mjs"],
             "documentation": ["docs/api.md", "docs/model-format.md"]
         },
         {
@@ -2164,10 +2139,7 @@
             "reason": "The canonical parser envelope is shared while lossless CAM facts remain Gerber-native.",
             "evidenceToken": "layers",
             "evidenceTokens": ["GerberParser", "fromLayers", "layers"],
-            "tests": [
-                "tests/api-result-contract-resolver.test.mjs",
-                "tests/gerber-parser.test.mjs"
-            ],
+            "tests": ["tests/gerber-parser.test.mjs"],
             "documentation": ["docs/api.md", "docs/model-format.md"]
         },
         {
@@ -2192,8 +2164,8 @@
             },
             "reason": "The canonical parser envelope is shared while lossless CAM facts remain Gerber-native.",
             "evidenceToken": "attributes",
-            "evidenceTokens": ["GerberParser", "fromLayers", "attributes"],
-            "tests": ["tests/api-result-contract-resolver.test.mjs"],
+            "evidenceTokens": ["GerberParser", "attributes"],
+            "tests": ["tests/gerber-parity.test.mjs"],
             "documentation": ["docs/api.md", "docs/model-format.md"]
         },
         {
@@ -2270,8 +2242,8 @@
             },
             "reason": "The canonical parser envelope is shared while lossless CAM facts remain Gerber-native.",
             "evidenceToken": "object",
-            "evidenceTokens": ["GerberParser", "fromLayers", "object"],
-            "tests": ["tests/api-result-contract-resolver.test.mjs"],
+            "evidenceTokens": ["GerberParser", "object"],
+            "tests": ["tests/gerber-parity.test.mjs"],
             "documentation": ["docs/api.md", "docs/model-format.md"]
         },
         {
@@ -2375,10 +2347,7 @@
             "reason": "The canonical parser envelope is shared while lossless CAM facts remain Gerber-native.",
             "evidenceToken": "drills",
             "evidenceTokens": ["GerberParser", "fromLayers", "drills"],
-            "tests": [
-                "tests/api-result-contract-resolver.test.mjs",
-                "tests/gerber-parser.test.mjs"
-            ],
+            "tests": ["tests/gerber-parser.test.mjs"],
             "documentation": ["docs/api.md", "docs/model-format.md"]
         },
         {
@@ -2404,10 +2373,7 @@
             "reason": "The canonical parser envelope is shared while lossless CAM facts remain Gerber-native.",
             "evidenceToken": "diameter",
             "evidenceTokens": ["GerberParser", "fromLayers", "diameter"],
-            "tests": [
-                "tests/api-result-contract-resolver.test.mjs",
-                "tests/gerber-parser.test.mjs"
-            ],
+            "tests": ["tests/gerber-parser.test.mjs"],
             "documentation": ["docs/api.md", "docs/model-format.md"]
         },
         {
@@ -2485,10 +2451,7 @@
             "reason": "The canonical parser envelope is shared while lossless CAM facts remain Gerber-native.",
             "evidenceToken": "type",
             "evidenceTokens": ["GerberParser", "fromLayers", "type"],
-            "tests": [
-                "tests/api-result-contract-resolver.test.mjs",
-                "tests/gerber-parser.test.mjs"
-            ],
+            "tests": ["tests/gerber-parser.test.mjs"],
             "documentation": ["docs/api.md", "docs/model-format.md"]
         },
         {
@@ -2514,10 +2477,7 @@
             "reason": "The canonical parser envelope is shared while lossless CAM facts remain Gerber-native.",
             "evidenceToken": "x",
             "evidenceTokens": ["GerberParser", "fromLayers", "x"],
-            "tests": [
-                "tests/api-result-contract-resolver.test.mjs",
-                "tests/gerber-parser.test.mjs"
-            ],
+            "tests": ["tests/gerber-parser.test.mjs"],
             "documentation": ["docs/api.md", "docs/model-format.md"]
         },
         {
@@ -2595,10 +2555,7 @@
             "reason": "The canonical parser envelope is shared while lossless CAM facts remain Gerber-native.",
             "evidenceToken": "y",
             "evidenceTokens": ["GerberParser", "fromLayers", "y"],
-            "tests": [
-                "tests/api-result-contract-resolver.test.mjs",
-                "tests/gerber-parser.test.mjs"
-            ],
+            "tests": ["tests/gerber-parser.test.mjs"],
             "documentation": ["docs/api.md", "docs/model-format.md"]
         },
         {
@@ -2624,10 +2581,7 @@
             "reason": "The canonical parser envelope is shared while lossless CAM facts remain Gerber-native.",
             "evidenceToken": "y1",
             "evidenceTokens": ["GerberParser", "fromLayers", "y1"],
-            "tests": [
-                "tests/api-result-contract-resolver.test.mjs",
-                "tests/gerber-parser.test.mjs"
-            ],
+            "tests": ["tests/gerber-parser.test.mjs"],
             "documentation": ["docs/api.md", "docs/model-format.md"]
         },
         {
@@ -2705,10 +2659,7 @@
             "reason": "The canonical parser envelope is shared while lossless CAM facts remain Gerber-native.",
             "evidenceToken": "id",
             "evidenceTokens": ["GerberParser", "fromLayers", "id"],
-            "tests": [
-                "tests/api-result-contract-resolver.test.mjs",
-                "tests/gerber-parser.test.mjs"
-            ],
+            "tests": ["tests/gerber-parser.test.mjs"],
             "documentation": ["docs/api.md", "docs/model-format.md"]
         },
         {
@@ -2760,10 +2711,7 @@
             "reason": "The canonical parser envelope is shared while lossless CAM facts remain Gerber-native.",
             "evidenceToken": "primitives",
             "evidenceTokens": ["GerberParser", "fromLayers", "primitives"],
-            "tests": [
-                "tests/api-result-contract-resolver.test.mjs",
-                "tests/gerber-parser.test.mjs"
-            ],
+            "tests": ["tests/gerber-parser.test.mjs"],
             "documentation": ["docs/api.md", "docs/model-format.md"]
         },
         {
@@ -2788,8 +2736,8 @@
             },
             "reason": "The canonical parser envelope is shared while lossless CAM facts remain Gerber-native.",
             "evidenceToken": "attributes",
-            "evidenceTokens": ["GerberParser", "fromLayers", "attributes"],
-            "tests": ["tests/api-result-contract-resolver.test.mjs"],
+            "evidenceTokens": ["GerberParser", "attributes"],
+            "tests": ["tests/gerber-parity.test.mjs"],
             "documentation": ["docs/api.md", "docs/model-format.md"]
         },
         {
@@ -2866,8 +2814,8 @@
             },
             "reason": "The canonical parser envelope is shared while lossless CAM facts remain Gerber-native.",
             "evidenceToken": "object",
-            "evidenceTokens": ["GerberParser", "fromLayers", "object"],
-            "tests": ["tests/api-result-contract-resolver.test.mjs"],
+            "evidenceTokens": ["GerberParser", "object"],
+            "tests": ["tests/gerber-parity.test.mjs"],
             "documentation": ["docs/api.md", "docs/model-format.md"]
         },
         {
@@ -2893,10 +2841,7 @@
             "reason": "The canonical parser envelope is shared while lossless CAM facts remain Gerber-native.",
             "evidenceToken": "diameter",
             "evidenceTokens": ["GerberParser", "fromLayers", "diameter"],
-            "tests": [
-                "tests/api-result-contract-resolver.test.mjs",
-                "tests/gerber-parser.test.mjs"
-            ],
+            "tests": ["tests/gerber-parser.test.mjs"],
             "documentation": ["docs/api.md", "docs/model-format.md"]
         },
         {
@@ -2948,10 +2893,7 @@
             "reason": "The canonical parser envelope is shared while lossless CAM facts remain Gerber-native.",
             "evidenceToken": "i",
             "evidenceTokens": ["GerberParser", "fromLayers", "i"],
-            "tests": [
-                "tests/api-result-contract-resolver.test.mjs",
-                "tests/gerber-parser.test.mjs"
-            ],
+            "tests": ["tests/gerber-parser.test.mjs"],
             "documentation": ["docs/api.md", "docs/model-format.md"]
         },
         {
@@ -2977,10 +2919,7 @@
             "reason": "The canonical parser envelope is shared while lossless CAM facts remain Gerber-native.",
             "evidenceToken": "j",
             "evidenceTokens": ["GerberParser", "fromLayers", "j"],
-            "tests": [
-                "tests/api-result-contract-resolver.test.mjs",
-                "tests/gerber-parser.test.mjs"
-            ],
+            "tests": ["tests/gerber-parser.test.mjs"],
             "documentation": ["docs/api.md", "docs/model-format.md"]
         },
         {
@@ -3061,10 +3000,7 @@
             "reason": "The canonical parser envelope is shared while lossless CAM facts remain Gerber-native.",
             "evidenceToken": "x",
             "evidenceTokens": ["GerberParser", "fromLayers", "x"],
-            "tests": [
-                "tests/api-result-contract-resolver.test.mjs",
-                "tests/gerber-parser.test.mjs"
-            ],
+            "tests": ["tests/gerber-parser.test.mjs"],
             "documentation": ["docs/api.md", "docs/model-format.md"]
         },
         {
@@ -3090,10 +3026,7 @@
             "reason": "The canonical parser envelope is shared while lossless CAM facts remain Gerber-native.",
             "evidenceToken": "y",
             "evidenceTokens": ["GerberParser", "fromLayers", "y"],
-            "tests": [
-                "tests/api-result-contract-resolver.test.mjs",
-                "tests/gerber-parser.test.mjs"
-            ],
+            "tests": ["tests/gerber-parser.test.mjs"],
             "documentation": ["docs/api.md", "docs/model-format.md"]
         },
         {
@@ -3119,10 +3052,7 @@
             "reason": "The canonical parser envelope is shared while lossless CAM facts remain Gerber-native.",
             "evidenceToken": "polarity",
             "evidenceTokens": ["GerberParser", "fromLayers", "polarity"],
-            "tests": [
-                "tests/api-result-contract-resolver.test.mjs",
-                "tests/gerber-parser.test.mjs"
-            ],
+            "tests": ["tests/gerber-parser.test.mjs"],
             "documentation": ["docs/api.md", "docs/model-format.md"]
         },
         {
@@ -3148,10 +3078,7 @@
             "reason": "The canonical parser envelope is shared while lossless CAM facts remain Gerber-native.",
             "evidenceToken": "primitives",
             "evidenceTokens": ["GerberParser", "fromLayers", "primitives"],
-            "tests": [
-                "tests/api-result-contract-resolver.test.mjs",
-                "tests/gerber-parser.test.mjs"
-            ],
+            "tests": ["tests/gerber-parser.test.mjs"],
             "documentation": ["docs/api.md", "docs/model-format.md"]
         },
         {
@@ -3203,10 +3130,7 @@
             "reason": "The canonical parser envelope is shared while lossless CAM facts remain Gerber-native.",
             "evidenceToken": "x",
             "evidenceTokens": ["GerberParser", "fromLayers", "x"],
-            "tests": [
-                "tests/api-result-contract-resolver.test.mjs",
-                "tests/gerber-parser.test.mjs"
-            ],
+            "tests": ["tests/gerber-parser.test.mjs"],
             "documentation": ["docs/api.md", "docs/model-format.md"]
         },
         {
@@ -3232,10 +3156,7 @@
             "reason": "The canonical parser envelope is shared while lossless CAM facts remain Gerber-native.",
             "evidenceToken": "y",
             "evidenceTokens": ["GerberParser", "fromLayers", "y"],
-            "tests": [
-                "tests/api-result-contract-resolver.test.mjs",
-                "tests/gerber-parser.test.mjs"
-            ],
+            "tests": ["tests/gerber-parser.test.mjs"],
             "documentation": ["docs/api.md", "docs/model-format.md"]
         },
         {
@@ -3261,10 +3182,7 @@
             "reason": "The canonical parser envelope is shared while lossless CAM facts remain Gerber-native.",
             "evidenceToken": "primitives",
             "evidenceTokens": ["GerberParser", "fromLayers", "primitives"],
-            "tests": [
-                "tests/api-result-contract-resolver.test.mjs",
-                "tests/gerber-parser.test.mjs"
-            ],
+            "tests": ["tests/gerber-parser.test.mjs"],
             "documentation": ["docs/api.md", "docs/model-format.md"]
         },
         {
@@ -3316,10 +3234,7 @@
             "reason": "The canonical parser envelope is shared while lossless CAM facts remain Gerber-native.",
             "evidenceToken": "x",
             "evidenceTokens": ["GerberParser", "fromLayers", "x"],
-            "tests": [
-                "tests/api-result-contract-resolver.test.mjs",
-                "tests/gerber-parser.test.mjs"
-            ],
+            "tests": ["tests/gerber-parser.test.mjs"],
             "documentation": ["docs/api.md", "docs/model-format.md"]
         },
         {
@@ -3345,10 +3260,7 @@
             "reason": "The canonical parser envelope is shared while lossless CAM facts remain Gerber-native.",
             "evidenceToken": "y",
             "evidenceTokens": ["GerberParser", "fromLayers", "y"],
-            "tests": [
-                "tests/api-result-contract-resolver.test.mjs",
-                "tests/gerber-parser.test.mjs"
-            ],
+            "tests": ["tests/gerber-parser.test.mjs"],
             "documentation": ["docs/api.md", "docs/model-format.md"]
         },
         {
@@ -3374,10 +3286,7 @@
             "reason": "The canonical parser envelope is shared while lossless CAM facts remain Gerber-native.",
             "evidenceToken": "primitives",
             "evidenceTokens": ["GerberParser", "fromLayers", "primitives"],
-            "tests": [
-                "tests/api-result-contract-resolver.test.mjs",
-                "tests/gerber-parser.test.mjs"
-            ],
+            "tests": ["tests/gerber-parser.test.mjs"],
             "documentation": ["docs/api.md", "docs/model-format.md"]
         },
         {
@@ -3403,10 +3312,7 @@
             "reason": "The canonical parser envelope is shared while lossless CAM facts remain Gerber-native.",
             "evidenceToken": "x",
             "evidenceTokens": ["GerberParser", "fromLayers", "x"],
-            "tests": [
-                "tests/api-result-contract-resolver.test.mjs",
-                "tests/gerber-parser.test.mjs"
-            ],
+            "tests": ["tests/gerber-parser.test.mjs"],
             "documentation": ["docs/api.md", "docs/model-format.md"]
         },
         {
@@ -3484,10 +3390,7 @@
             "reason": "The canonical parser envelope is shared while lossless CAM facts remain Gerber-native.",
             "evidenceToken": "y",
             "evidenceTokens": ["GerberParser", "fromLayers", "y"],
-            "tests": [
-                "tests/api-result-contract-resolver.test.mjs",
-                "tests/gerber-parser.test.mjs"
-            ],
+            "tests": ["tests/gerber-parser.test.mjs"],
             "documentation": ["docs/api.md", "docs/model-format.md"]
         },
         {
@@ -3513,10 +3416,7 @@
             "reason": "The canonical parser envelope is shared while lossless CAM facts remain Gerber-native.",
             "evidenceToken": "y1",
             "evidenceTokens": ["GerberParser", "fromLayers", "y1"],
-            "tests": [
-                "tests/api-result-contract-resolver.test.mjs",
-                "tests/gerber-parser.test.mjs"
-            ],
+            "tests": ["tests/gerber-parser.test.mjs"],
             "documentation": ["docs/api.md", "docs/model-format.md"]
         },
         {
@@ -3568,10 +3468,7 @@
             "reason": "The canonical parser envelope is shared while lossless CAM facts remain Gerber-native.",
             "evidenceToken": "x",
             "evidenceTokens": ["GerberParser", "fromLayers", "x"],
-            "tests": [
-                "tests/api-result-contract-resolver.test.mjs",
-                "tests/gerber-parser.test.mjs"
-            ],
+            "tests": ["tests/gerber-parser.test.mjs"],
             "documentation": ["docs/api.md", "docs/model-format.md"]
         },
         {
@@ -3649,10 +3546,7 @@
             "reason": "The canonical parser envelope is shared while lossless CAM facts remain Gerber-native.",
             "evidenceToken": "y",
             "evidenceTokens": ["GerberParser", "fromLayers", "y"],
-            "tests": [
-                "tests/api-result-contract-resolver.test.mjs",
-                "tests/gerber-parser.test.mjs"
-            ],
+            "tests": ["tests/gerber-parser.test.mjs"],
             "documentation": ["docs/api.md", "docs/model-format.md"]
         },
         {
@@ -3678,10 +3572,7 @@
             "reason": "The canonical parser envelope is shared while lossless CAM facts remain Gerber-native.",
             "evidenceToken": "y1",
             "evidenceTokens": ["GerberParser", "fromLayers", "y1"],
-            "tests": [
-                "tests/api-result-contract-resolver.test.mjs",
-                "tests/gerber-parser.test.mjs"
-            ],
+            "tests": ["tests/gerber-parser.test.mjs"],
             "documentation": ["docs/api.md", "docs/model-format.md"]
         },
         {
@@ -3759,10 +3650,7 @@
             "reason": "The canonical parser envelope is shared while lossless CAM facts remain Gerber-native.",
             "evidenceToken": "shape",
             "evidenceTokens": ["GerberParser", "fromLayers", "shape"],
-            "tests": [
-                "tests/api-result-contract-resolver.test.mjs",
-                "tests/gerber-parser.test.mjs"
-            ],
+            "tests": ["tests/gerber-parser.test.mjs"],
             "documentation": ["docs/api.md", "docs/model-format.md"]
         },
         {
@@ -3892,10 +3780,7 @@
             "reason": "The canonical parser envelope is shared while lossless CAM facts remain Gerber-native.",
             "evidenceToken": "type",
             "evidenceTokens": ["GerberParser", "fromLayers", "type"],
-            "tests": [
-                "tests/api-result-contract-resolver.test.mjs",
-                "tests/gerber-parser.test.mjs"
-            ],
+            "tests": ["tests/gerber-parser.test.mjs"],
             "documentation": ["docs/api.md", "docs/model-format.md"]
         },
         {
@@ -3921,10 +3806,7 @@
             "reason": "The canonical parser envelope is shared while lossless CAM facts remain Gerber-native.",
             "evidenceToken": "width",
             "evidenceTokens": ["GerberParser", "fromLayers", "width"],
-            "tests": [
-                "tests/api-result-contract-resolver.test.mjs",
-                "tests/gerber-parser.test.mjs"
-            ],
+            "tests": ["tests/gerber-parser.test.mjs"],
             "documentation": ["docs/api.md", "docs/model-format.md"]
         },
         {
@@ -3950,10 +3832,7 @@
             "reason": "The canonical parser envelope is shared while lossless CAM facts remain Gerber-native.",
             "evidenceToken": "x",
             "evidenceTokens": ["GerberParser", "fromLayers", "x"],
-            "tests": [
-                "tests/api-result-contract-resolver.test.mjs",
-                "tests/gerber-parser.test.mjs"
-            ],
+            "tests": ["tests/gerber-parser.test.mjs"],
             "documentation": ["docs/api.md", "docs/model-format.md"]
         },
         {
@@ -4031,10 +3910,7 @@
             "reason": "The canonical parser envelope is shared while lossless CAM facts remain Gerber-native.",
             "evidenceToken": "y",
             "evidenceTokens": ["GerberParser", "fromLayers", "y"],
-            "tests": [
-                "tests/api-result-contract-resolver.test.mjs",
-                "tests/gerber-parser.test.mjs"
-            ],
+            "tests": ["tests/gerber-parser.test.mjs"],
             "documentation": ["docs/api.md", "docs/model-format.md"]
         },
         {
@@ -4060,10 +3936,7 @@
             "reason": "The canonical parser envelope is shared while lossless CAM facts remain Gerber-native.",
             "evidenceToken": "y1",
             "evidenceTokens": ["GerberParser", "fromLayers", "y1"],
-            "tests": [
-                "tests/api-result-contract-resolver.test.mjs",
-                "tests/gerber-parser.test.mjs"
-            ],
+            "tests": ["tests/gerber-parser.test.mjs"],
             "documentation": ["docs/api.md", "docs/model-format.md"]
         },
         {
@@ -4269,7 +4142,6 @@
             "evidenceToken": "parseArrayBuffer",
             "evidenceTokens": ["GerberParser", "parseArrayBuffer"],
             "tests": [
-                "tests/api-result-contract-resolver.test.mjs",
                 "tests/gerber-parity.test.mjs",
                 "tests/gerber-parser.test.mjs"
             ],
@@ -4303,7 +4175,6 @@
             "evidenceToken": "parseArrayBuffer",
             "evidenceTokens": ["GerberParser", "parseArrayBuffer"],
             "tests": [
-                "tests/api-result-contract-resolver.test.mjs",
                 "tests/gerber-parity.test.mjs",
                 "tests/gerber-parser.test.mjs"
             ],
@@ -4337,7 +4208,6 @@
             "evidenceToken": "parseArrayBuffer",
             "evidenceTokens": ["GerberParser", "parseArrayBuffer"],
             "tests": [
-                "tests/api-result-contract-resolver.test.mjs",
                 "tests/gerber-parity.test.mjs",
                 "tests/gerber-parser.test.mjs"
             ],
@@ -4371,7 +4241,6 @@
             "evidenceToken": "parseArrayBuffer",
             "evidenceTokens": ["GerberParser", "parseArrayBuffer"],
             "tests": [
-                "tests/api-result-contract-resolver.test.mjs",
                 "tests/gerber-parity.test.mjs",
                 "tests/gerber-parser.test.mjs"
             ],
@@ -4546,7 +4415,6 @@
             "evidenceToken": "pcb",
             "evidenceTokens": ["GerberParser", "parseArrayBuffer", "pcb"],
             "tests": [
-                "tests/api-result-contract-resolver.test.mjs",
                 "tests/gerber-parity.test.mjs",
                 "tests/gerber-parser.test.mjs"
             ],
@@ -4716,7 +4584,6 @@
             "evidenceToken": "type",
             "evidenceTokens": ["GerberParser", "parseArrayBuffer", "type"],
             "tests": [
-                "tests/api-result-contract-resolver.test.mjs",
                 "tests/gerber-parity.test.mjs",
                 "tests/gerber-parser.test.mjs"
             ],
@@ -4804,7 +4671,6 @@
             "evidenceToken": "y1",
             "evidenceTokens": ["GerberParser", "parseArrayBuffer", "y1"],
             "tests": [
-                "tests/api-result-contract-resolver.test.mjs",
                 "tests/gerber-parity.test.mjs",
                 "tests/gerber-parser.test.mjs"
             ],
@@ -5068,7 +4934,6 @@
                 "fabrication"
             ],
             "tests": [
-                "tests/api-result-contract-resolver.test.mjs",
                 "tests/gerber-parity.test.mjs",
                 "tests/gerber-parser.test.mjs"
             ],
@@ -5098,7 +4963,6 @@
             "evidenceToken": "layers",
             "evidenceTokens": ["GerberParser", "parseArrayBuffer", "layers"],
             "tests": [
-                "tests/api-result-contract-resolver.test.mjs",
                 "tests/gerber-parity.test.mjs",
                 "tests/gerber-parser.test.mjs"
             ],
@@ -5131,10 +4995,7 @@
                 "parseArrayBuffer",
                 "attributes"
             ],
-            "tests": [
-                "tests/api-result-contract-resolver.test.mjs",
-                "tests/gerber-parity.test.mjs"
-            ],
+            "tests": ["tests/gerber-parity.test.mjs"],
             "documentation": ["docs/api.md", "docs/model-format.md"]
         },
         {
@@ -5218,10 +5079,7 @@
             "reason": "The canonical parser envelope is shared while lossless CAM facts remain Gerber-native.",
             "evidenceToken": "object",
             "evidenceTokens": ["GerberParser", "parseArrayBuffer", "object"],
-            "tests": [
-                "tests/api-result-contract-resolver.test.mjs",
-                "tests/gerber-parity.test.mjs"
-            ],
+            "tests": ["tests/gerber-parity.test.mjs"],
             "documentation": ["docs/api.md", "docs/model-format.md"]
         },
         {
@@ -5336,7 +5194,6 @@
             "evidenceToken": "drills",
             "evidenceTokens": ["GerberParser", "parseArrayBuffer", "drills"],
             "tests": [
-                "tests/api-result-contract-resolver.test.mjs",
                 "tests/gerber-parity.test.mjs",
                 "tests/gerber-parser.test.mjs"
             ],
@@ -5366,7 +5223,6 @@
             "evidenceToken": "diameter",
             "evidenceTokens": ["GerberParser", "parseArrayBuffer", "diameter"],
             "tests": [
-                "tests/api-result-contract-resolver.test.mjs",
                 "tests/gerber-parity.test.mjs",
                 "tests/gerber-parser.test.mjs"
             ],
@@ -5454,7 +5310,6 @@
             "evidenceToken": "type",
             "evidenceTokens": ["GerberParser", "parseArrayBuffer", "type"],
             "tests": [
-                "tests/api-result-contract-resolver.test.mjs",
                 "tests/gerber-parity.test.mjs",
                 "tests/gerber-parser.test.mjs"
             ],
@@ -5484,7 +5339,6 @@
             "evidenceToken": "x",
             "evidenceTokens": ["GerberParser", "parseArrayBuffer", "x"],
             "tests": [
-                "tests/api-result-contract-resolver.test.mjs",
                 "tests/gerber-parity.test.mjs",
                 "tests/gerber-parser.test.mjs"
             ],
@@ -5572,7 +5426,6 @@
             "evidenceToken": "y",
             "evidenceTokens": ["GerberParser", "parseArrayBuffer", "y"],
             "tests": [
-                "tests/api-result-contract-resolver.test.mjs",
                 "tests/gerber-parity.test.mjs",
                 "tests/gerber-parser.test.mjs"
             ],
@@ -5602,7 +5455,6 @@
             "evidenceToken": "y1",
             "evidenceTokens": ["GerberParser", "parseArrayBuffer", "y1"],
             "tests": [
-                "tests/api-result-contract-resolver.test.mjs",
                 "tests/gerber-parity.test.mjs",
                 "tests/gerber-parser.test.mjs"
             ],
@@ -5690,7 +5542,6 @@
             "evidenceToken": "id",
             "evidenceTokens": ["GerberParser", "parseArrayBuffer", "id"],
             "tests": [
-                "tests/api-result-contract-resolver.test.mjs",
                 "tests/gerber-parity.test.mjs",
                 "tests/gerber-parser.test.mjs"
             ],
@@ -5754,7 +5605,6 @@
                 "primitives"
             ],
             "tests": [
-                "tests/api-result-contract-resolver.test.mjs",
                 "tests/gerber-parity.test.mjs",
                 "tests/gerber-parser.test.mjs"
             ],
@@ -5787,10 +5637,7 @@
                 "parseArrayBuffer",
                 "attributes"
             ],
-            "tests": [
-                "tests/api-result-contract-resolver.test.mjs",
-                "tests/gerber-parity.test.mjs"
-            ],
+            "tests": ["tests/gerber-parity.test.mjs"],
             "documentation": ["docs/api.md", "docs/model-format.md"]
         },
         {
@@ -5874,10 +5721,7 @@
             "reason": "The canonical parser envelope is shared while lossless CAM facts remain Gerber-native.",
             "evidenceToken": "object",
             "evidenceTokens": ["GerberParser", "parseArrayBuffer", "object"],
-            "tests": [
-                "tests/api-result-contract-resolver.test.mjs",
-                "tests/gerber-parity.test.mjs"
-            ],
+            "tests": ["tests/gerber-parity.test.mjs"],
             "documentation": ["docs/api.md", "docs/model-format.md"]
         },
         {
@@ -5904,7 +5748,6 @@
             "evidenceToken": "diameter",
             "evidenceTokens": ["GerberParser", "parseArrayBuffer", "diameter"],
             "tests": [
-                "tests/api-result-contract-resolver.test.mjs",
                 "tests/gerber-parity.test.mjs",
                 "tests/gerber-parser.test.mjs"
             ],
@@ -5963,7 +5806,6 @@
             "evidenceToken": "i",
             "evidenceTokens": ["GerberParser", "parseArrayBuffer", "i"],
             "tests": [
-                "tests/api-result-contract-resolver.test.mjs",
                 "tests/gerber-parity.test.mjs",
                 "tests/gerber-parser.test.mjs"
             ],
@@ -5993,7 +5835,6 @@
             "evidenceToken": "j",
             "evidenceTokens": ["GerberParser", "parseArrayBuffer", "j"],
             "tests": [
-                "tests/api-result-contract-resolver.test.mjs",
                 "tests/gerber-parity.test.mjs",
                 "tests/gerber-parser.test.mjs"
             ],
@@ -6075,7 +5916,6 @@
             "evidenceToken": "x",
             "evidenceTokens": ["GerberParser", "parseArrayBuffer", "x"],
             "tests": [
-                "tests/api-result-contract-resolver.test.mjs",
                 "tests/gerber-parity.test.mjs",
                 "tests/gerber-parser.test.mjs"
             ],
@@ -6105,7 +5945,6 @@
             "evidenceToken": "y",
             "evidenceTokens": ["GerberParser", "parseArrayBuffer", "y"],
             "tests": [
-                "tests/api-result-contract-resolver.test.mjs",
                 "tests/gerber-parity.test.mjs",
                 "tests/gerber-parser.test.mjs"
             ],
@@ -6135,7 +5974,6 @@
             "evidenceToken": "polarity",
             "evidenceTokens": ["GerberParser", "parseArrayBuffer", "polarity"],
             "tests": [
-                "tests/api-result-contract-resolver.test.mjs",
                 "tests/gerber-parity.test.mjs",
                 "tests/gerber-parser.test.mjs"
             ],
@@ -6169,7 +6007,6 @@
                 "primitives"
             ],
             "tests": [
-                "tests/api-result-contract-resolver.test.mjs",
                 "tests/gerber-parity.test.mjs",
                 "tests/gerber-parser.test.mjs"
             ],
@@ -6225,7 +6062,6 @@
             "evidenceToken": "x",
             "evidenceTokens": ["GerberParser", "parseArrayBuffer", "x"],
             "tests": [
-                "tests/api-result-contract-resolver.test.mjs",
                 "tests/gerber-parity.test.mjs",
                 "tests/gerber-parser.test.mjs"
             ],
@@ -6255,7 +6091,6 @@
             "evidenceToken": "y",
             "evidenceTokens": ["GerberParser", "parseArrayBuffer", "y"],
             "tests": [
-                "tests/api-result-contract-resolver.test.mjs",
                 "tests/gerber-parity.test.mjs",
                 "tests/gerber-parser.test.mjs"
             ],
@@ -6289,7 +6124,6 @@
                 "primitives"
             ],
             "tests": [
-                "tests/api-result-contract-resolver.test.mjs",
                 "tests/gerber-parity.test.mjs",
                 "tests/gerber-parser.test.mjs"
             ],
@@ -6345,7 +6179,6 @@
             "evidenceToken": "x",
             "evidenceTokens": ["GerberParser", "parseArrayBuffer", "x"],
             "tests": [
-                "tests/api-result-contract-resolver.test.mjs",
                 "tests/gerber-parity.test.mjs",
                 "tests/gerber-parser.test.mjs"
             ],
@@ -6375,7 +6208,6 @@
             "evidenceToken": "y",
             "evidenceTokens": ["GerberParser", "parseArrayBuffer", "y"],
             "tests": [
-                "tests/api-result-contract-resolver.test.mjs",
                 "tests/gerber-parity.test.mjs",
                 "tests/gerber-parser.test.mjs"
             ],
@@ -6409,7 +6241,6 @@
                 "primitives"
             ],
             "tests": [
-                "tests/api-result-contract-resolver.test.mjs",
                 "tests/gerber-parity.test.mjs",
                 "tests/gerber-parser.test.mjs"
             ],
@@ -6439,7 +6270,6 @@
             "evidenceToken": "x",
             "evidenceTokens": ["GerberParser", "parseArrayBuffer", "x"],
             "tests": [
-                "tests/api-result-contract-resolver.test.mjs",
                 "tests/gerber-parity.test.mjs",
                 "tests/gerber-parser.test.mjs"
             ],
@@ -6527,7 +6357,6 @@
             "evidenceToken": "y",
             "evidenceTokens": ["GerberParser", "parseArrayBuffer", "y"],
             "tests": [
-                "tests/api-result-contract-resolver.test.mjs",
                 "tests/gerber-parity.test.mjs",
                 "tests/gerber-parser.test.mjs"
             ],
@@ -6557,7 +6386,6 @@
             "evidenceToken": "y1",
             "evidenceTokens": ["GerberParser", "parseArrayBuffer", "y1"],
             "tests": [
-                "tests/api-result-contract-resolver.test.mjs",
                 "tests/gerber-parity.test.mjs",
                 "tests/gerber-parser.test.mjs"
             ],
@@ -6616,7 +6444,6 @@
             "evidenceToken": "x",
             "evidenceTokens": ["GerberParser", "parseArrayBuffer", "x"],
             "tests": [
-                "tests/api-result-contract-resolver.test.mjs",
                 "tests/gerber-parity.test.mjs",
                 "tests/gerber-parser.test.mjs"
             ],
@@ -6704,7 +6531,6 @@
             "evidenceToken": "y",
             "evidenceTokens": ["GerberParser", "parseArrayBuffer", "y"],
             "tests": [
-                "tests/api-result-contract-resolver.test.mjs",
                 "tests/gerber-parity.test.mjs",
                 "tests/gerber-parser.test.mjs"
             ],
@@ -6734,7 +6560,6 @@
             "evidenceToken": "y1",
             "evidenceTokens": ["GerberParser", "parseArrayBuffer", "y1"],
             "tests": [
-                "tests/api-result-contract-resolver.test.mjs",
                 "tests/gerber-parity.test.mjs",
                 "tests/gerber-parser.test.mjs"
             ],
@@ -6819,7 +6644,6 @@
             "evidenceToken": "shape",
             "evidenceTokens": ["GerberParser", "parseArrayBuffer", "shape"],
             "tests": [
-                "tests/api-result-contract-resolver.test.mjs",
                 "tests/gerber-parity.test.mjs",
                 "tests/gerber-parser.test.mjs"
             ],
@@ -6953,7 +6777,6 @@
             "evidenceToken": "type",
             "evidenceTokens": ["GerberParser", "parseArrayBuffer", "type"],
             "tests": [
-                "tests/api-result-contract-resolver.test.mjs",
                 "tests/gerber-parity.test.mjs",
                 "tests/gerber-parser.test.mjs"
             ],
@@ -6983,7 +6806,6 @@
             "evidenceToken": "width",
             "evidenceTokens": ["GerberParser", "parseArrayBuffer", "width"],
             "tests": [
-                "tests/api-result-contract-resolver.test.mjs",
                 "tests/gerber-parity.test.mjs",
                 "tests/gerber-parser.test.mjs"
             ],
@@ -7013,7 +6835,6 @@
             "evidenceToken": "x",
             "evidenceTokens": ["GerberParser", "parseArrayBuffer", "x"],
             "tests": [
-                "tests/api-result-contract-resolver.test.mjs",
                 "tests/gerber-parity.test.mjs",
                 "tests/gerber-parser.test.mjs"
             ],
@@ -7101,7 +6922,6 @@
             "evidenceToken": "y",
             "evidenceTokens": ["GerberParser", "parseArrayBuffer", "y"],
             "tests": [
-                "tests/api-result-contract-resolver.test.mjs",
                 "tests/gerber-parity.test.mjs",
                 "tests/gerber-parser.test.mjs"
             ],
@@ -7131,7 +6951,6 @@
             "evidenceToken": "y1",
             "evidenceTokens": ["GerberParser", "parseArrayBuffer", "y1"],
             "tests": [
-                "tests/api-result-contract-resolver.test.mjs",
                 "tests/gerber-parity.test.mjs",
                 "tests/gerber-parser.test.mjs"
             ],
@@ -10499,7 +10318,6 @@
             "evidenceToken": "PcbScene3dBuilder",
             "evidenceTokens": ["PcbScene3dBuilder"],
             "tests": [
-                "tests/api-result-contract-resolver.test.mjs",
                 "tests/gerber-scene3d.test.mjs",
                 "tests/package-layout.test.mjs"
             ],
@@ -10544,10 +10362,7 @@
             "reason": "Bare-board scene data uses the common facade without inventing fabrication semantics.",
             "evidenceToken": "build",
             "evidenceTokens": ["PcbScene3dBuilder", "build"],
-            "tests": [
-                "tests/api-result-contract-resolver.test.mjs",
-                "tests/gerber-scene3d.test.mjs"
-            ],
+            "tests": ["tests/gerber-scene3d.test.mjs"],
             "documentation": ["docs/api.md", "docs/model-format.md"]
         },
         {
@@ -10577,10 +10392,7 @@
             "reason": "Bare-board scene data uses the common facade without inventing fabrication semantics.",
             "evidenceToken": "build",
             "evidenceTokens": ["PcbScene3dBuilder", "build"],
-            "tests": [
-                "tests/api-result-contract-resolver.test.mjs",
-                "tests/gerber-scene3d.test.mjs"
-            ],
+            "tests": ["tests/gerber-scene3d.test.mjs"],
             "documentation": ["docs/api.md", "docs/model-format.md"]
         },
         {
@@ -10610,10 +10422,7 @@
             "reason": "Bare-board scene data uses the common facade without inventing fabrication semantics.",
             "evidenceToken": "build",
             "evidenceTokens": ["PcbScene3dBuilder", "build"],
-            "tests": [
-                "tests/api-result-contract-resolver.test.mjs",
-                "tests/gerber-scene3d.test.mjs"
-            ],
+            "tests": ["tests/gerber-scene3d.test.mjs"],
             "documentation": ["docs/api.md", "docs/model-format.md"]
         },
         {
@@ -10800,10 +10609,7 @@
             "reason": "Bare-board scene data uses the common facade without inventing fabrication semantics.",
             "evidenceToken": "layerId",
             "evidenceTokens": ["PcbScene3dBuilder", "build", "layerId"],
-            "tests": [
-                "tests/api-result-contract-resolver.test.mjs",
-                "tests/gerber-scene3d.test.mjs"
-            ],
+            "tests": ["tests/gerber-scene3d.test.mjs"],
             "documentation": ["docs/api.md", "docs/model-format.md"]
         },
         {
@@ -10855,10 +10661,7 @@
             "reason": "Bare-board scene data uses the common facade without inventing fabrication semantics.",
             "evidenceToken": "type",
             "evidenceTokens": ["PcbScene3dBuilder", "build", "type"],
-            "tests": [
-                "tests/api-result-contract-resolver.test.mjs",
-                "tests/gerber-scene3d.test.mjs"
-            ],
+            "tests": ["tests/gerber-scene3d.test.mjs"],
             "documentation": ["docs/api.md", "docs/model-format.md"]
         },
         {
@@ -10884,10 +10687,7 @@
             "reason": "Bare-board scene data uses the common facade without inventing fabrication semantics.",
             "evidenceToken": "width",
             "evidenceTokens": ["PcbScene3dBuilder", "build", "width"],
-            "tests": [
-                "tests/api-result-contract-resolver.test.mjs",
-                "tests/gerber-scene3d.test.mjs"
-            ],
+            "tests": ["tests/gerber-scene3d.test.mjs"],
             "documentation": ["docs/api.md", "docs/model-format.md"]
         },
         {
@@ -10913,10 +10713,7 @@
             "reason": "Bare-board scene data uses the common facade without inventing fabrication semantics.",
             "evidenceToken": "x",
             "evidenceTokens": ["PcbScene3dBuilder", "build", "x"],
-            "tests": [
-                "tests/api-result-contract-resolver.test.mjs",
-                "tests/gerber-scene3d.test.mjs"
-            ],
+            "tests": ["tests/gerber-scene3d.test.mjs"],
             "documentation": ["docs/api.md", "docs/model-format.md"]
         },
         {
@@ -10994,10 +10791,7 @@
             "reason": "Bare-board scene data uses the common facade without inventing fabrication semantics.",
             "evidenceToken": "y",
             "evidenceTokens": ["PcbScene3dBuilder", "build", "y"],
-            "tests": [
-                "tests/api-result-contract-resolver.test.mjs",
-                "tests/gerber-scene3d.test.mjs"
-            ],
+            "tests": ["tests/gerber-scene3d.test.mjs"],
             "documentation": ["docs/api.md", "docs/model-format.md"]
         },
         {
@@ -11023,10 +10817,7 @@
             "reason": "Bare-board scene data uses the common facade without inventing fabrication semantics.",
             "evidenceToken": "y1",
             "evidenceTokens": ["PcbScene3dBuilder", "build", "y1"],
-            "tests": [
-                "tests/api-result-contract-resolver.test.mjs",
-                "tests/gerber-scene3d.test.mjs"
-            ],
+            "tests": ["tests/gerber-scene3d.test.mjs"],
             "documentation": ["docs/api.md", "docs/model-format.md"]
         },
         {
@@ -11182,10 +10973,7 @@
             "reason": "Bare-board scene data uses the common facade without inventing fabrication semantics.",
             "evidenceToken": "layerId",
             "evidenceTokens": ["PcbScene3dBuilder", "build", "layerId"],
-            "tests": [
-                "tests/api-result-contract-resolver.test.mjs",
-                "tests/gerber-scene3d.test.mjs"
-            ],
+            "tests": ["tests/gerber-scene3d.test.mjs"],
             "documentation": ["docs/api.md", "docs/model-format.md"]
         },
         {
@@ -11237,10 +11025,7 @@
             "reason": "Bare-board scene data uses the common facade without inventing fabrication semantics.",
             "evidenceToken": "type",
             "evidenceTokens": ["PcbScene3dBuilder", "build", "type"],
-            "tests": [
-                "tests/api-result-contract-resolver.test.mjs",
-                "tests/gerber-scene3d.test.mjs"
-            ],
+            "tests": ["tests/gerber-scene3d.test.mjs"],
             "documentation": ["docs/api.md", "docs/model-format.md"]
         },
         {
@@ -11266,10 +11051,7 @@
             "reason": "Bare-board scene data uses the common facade without inventing fabrication semantics.",
             "evidenceToken": "width",
             "evidenceTokens": ["PcbScene3dBuilder", "build", "width"],
-            "tests": [
-                "tests/api-result-contract-resolver.test.mjs",
-                "tests/gerber-scene3d.test.mjs"
-            ],
+            "tests": ["tests/gerber-scene3d.test.mjs"],
             "documentation": ["docs/api.md", "docs/model-format.md"]
         },
         {
@@ -11295,10 +11077,7 @@
             "reason": "Bare-board scene data uses the common facade without inventing fabrication semantics.",
             "evidenceToken": "x",
             "evidenceTokens": ["PcbScene3dBuilder", "build", "x"],
-            "tests": [
-                "tests/api-result-contract-resolver.test.mjs",
-                "tests/gerber-scene3d.test.mjs"
-            ],
+            "tests": ["tests/gerber-scene3d.test.mjs"],
             "documentation": ["docs/api.md", "docs/model-format.md"]
         },
         {
@@ -11376,10 +11155,7 @@
             "reason": "Bare-board scene data uses the common facade without inventing fabrication semantics.",
             "evidenceToken": "y",
             "evidenceTokens": ["PcbScene3dBuilder", "build", "y"],
-            "tests": [
-                "tests/api-result-contract-resolver.test.mjs",
-                "tests/gerber-scene3d.test.mjs"
-            ],
+            "tests": ["tests/gerber-scene3d.test.mjs"],
             "documentation": ["docs/api.md", "docs/model-format.md"]
         },
         {
@@ -11405,10 +11181,7 @@
             "reason": "Bare-board scene data uses the common facade without inventing fabrication semantics.",
             "evidenceToken": "y1",
             "evidenceTokens": ["PcbScene3dBuilder", "build", "y1"],
-            "tests": [
-                "tests/api-result-contract-resolver.test.mjs",
-                "tests/gerber-scene3d.test.mjs"
-            ],
+            "tests": ["tests/gerber-scene3d.test.mjs"],
             "documentation": ["docs/api.md", "docs/model-format.md"]
         },
         {
@@ -11598,10 +11371,7 @@
             "reason": "Bare-board scene data uses the common facade without inventing fabrication semantics.",
             "evidenceToken": "detail",
             "evidenceTokens": ["PcbScene3dBuilder", "build", "detail"],
-            "tests": [
-                "tests/api-result-contract-resolver.test.mjs",
-                "tests/gerber-scene3d.test.mjs"
-            ],
+            "tests": ["tests/gerber-scene3d.test.mjs"],
             "documentation": ["docs/api.md", "docs/model-format.md"]
         },
         {
@@ -11653,10 +11423,7 @@
             "reason": "Bare-board scene data uses the common facade without inventing fabrication semantics.",
             "evidenceToken": "layerId",
             "evidenceTokens": ["PcbScene3dBuilder", "build", "layerId"],
-            "tests": [
-                "tests/api-result-contract-resolver.test.mjs",
-                "tests/gerber-scene3d.test.mjs"
-            ],
+            "tests": ["tests/gerber-scene3d.test.mjs"],
             "documentation": ["docs/api.md", "docs/model-format.md"]
         },
         {
@@ -11708,10 +11475,7 @@
             "reason": "Bare-board scene data uses the common facade without inventing fabrication semantics.",
             "evidenceToken": "type",
             "evidenceTokens": ["PcbScene3dBuilder", "build", "type"],
-            "tests": [
-                "tests/api-result-contract-resolver.test.mjs",
-                "tests/gerber-scene3d.test.mjs"
-            ],
+            "tests": ["tests/gerber-scene3d.test.mjs"],
             "documentation": ["docs/api.md", "docs/model-format.md"]
         },
         {
@@ -11737,10 +11501,7 @@
             "reason": "Bare-board scene data uses the common facade without inventing fabrication semantics.",
             "evidenceToken": "width",
             "evidenceTokens": ["PcbScene3dBuilder", "build", "width"],
-            "tests": [
-                "tests/api-result-contract-resolver.test.mjs",
-                "tests/gerber-scene3d.test.mjs"
-            ],
+            "tests": ["tests/gerber-scene3d.test.mjs"],
             "documentation": ["docs/api.md", "docs/model-format.md"]
         },
         {
@@ -11766,10 +11527,7 @@
             "reason": "Bare-board scene data uses the common facade without inventing fabrication semantics.",
             "evidenceToken": "x",
             "evidenceTokens": ["PcbScene3dBuilder", "build", "x"],
-            "tests": [
-                "tests/api-result-contract-resolver.test.mjs",
-                "tests/gerber-scene3d.test.mjs"
-            ],
+            "tests": ["tests/gerber-scene3d.test.mjs"],
             "documentation": ["docs/api.md", "docs/model-format.md"]
         },
         {
@@ -11847,10 +11605,7 @@
             "reason": "Bare-board scene data uses the common facade without inventing fabrication semantics.",
             "evidenceToken": "y",
             "evidenceTokens": ["PcbScene3dBuilder", "build", "y"],
-            "tests": [
-                "tests/api-result-contract-resolver.test.mjs",
-                "tests/gerber-scene3d.test.mjs"
-            ],
+            "tests": ["tests/gerber-scene3d.test.mjs"],
             "documentation": ["docs/api.md", "docs/model-format.md"]
         },
         {
@@ -11876,10 +11631,7 @@
             "reason": "Bare-board scene data uses the common facade without inventing fabrication semantics.",
             "evidenceToken": "y1",
             "evidenceTokens": ["PcbScene3dBuilder", "build", "y1"],
-            "tests": [
-                "tests/api-result-contract-resolver.test.mjs",
-                "tests/gerber-scene3d.test.mjs"
-            ],
+            "tests": ["tests/gerber-scene3d.test.mjs"],
             "documentation": ["docs/api.md", "docs/model-format.md"]
         },
         {
@@ -12195,10 +11947,7 @@
             "reason": "Bare-board scene data uses the common facade without inventing fabrication semantics.",
             "evidenceToken": "x",
             "evidenceTokens": ["PcbScene3dBuilder", "build", "x"],
-            "tests": [
-                "tests/api-result-contract-resolver.test.mjs",
-                "tests/gerber-scene3d.test.mjs"
-            ],
+            "tests": ["tests/gerber-scene3d.test.mjs"],
             "documentation": ["docs/api.md", "docs/model-format.md"]
         },
         {
@@ -12224,10 +11973,7 @@
             "reason": "Bare-board scene data uses the common facade without inventing fabrication semantics.",
             "evidenceToken": "y",
             "evidenceTokens": ["PcbScene3dBuilder", "build", "y"],
-            "tests": [
-                "tests/api-result-contract-resolver.test.mjs",
-                "tests/gerber-scene3d.test.mjs"
-            ],
+            "tests": ["tests/gerber-scene3d.test.mjs"],
             "documentation": ["docs/api.md", "docs/model-format.md"]
         },
         {
@@ -12305,10 +12051,7 @@
             "reason": "Bare-board scene data uses the common facade without inventing fabrication semantics.",
             "evidenceToken": "layerId",
             "evidenceTokens": ["PcbScene3dBuilder", "build", "layerId"],
-            "tests": [
-                "tests/api-result-contract-resolver.test.mjs",
-                "tests/gerber-scene3d.test.mjs"
-            ],
+            "tests": ["tests/gerber-scene3d.test.mjs"],
             "documentation": ["docs/api.md", "docs/model-format.md"]
         },
         {
@@ -12360,10 +12103,7 @@
             "reason": "Bare-board scene data uses the common facade without inventing fabrication semantics.",
             "evidenceToken": "layerId",
             "evidenceTokens": ["PcbScene3dBuilder", "build", "layerId"],
-            "tests": [
-                "tests/api-result-contract-resolver.test.mjs",
-                "tests/gerber-scene3d.test.mjs"
-            ],
+            "tests": ["tests/gerber-scene3d.test.mjs"],
             "documentation": ["docs/api.md", "docs/model-format.md"]
         },
         {
@@ -12415,10 +12155,7 @@
             "reason": "Bare-board scene data uses the common facade without inventing fabrication semantics.",
             "evidenceToken": "type",
             "evidenceTokens": ["PcbScene3dBuilder", "build", "type"],
-            "tests": [
-                "tests/api-result-contract-resolver.test.mjs",
-                "tests/gerber-scene3d.test.mjs"
-            ],
+            "tests": ["tests/gerber-scene3d.test.mjs"],
             "documentation": ["docs/api.md", "docs/model-format.md"]
         },
         {
@@ -12444,10 +12181,7 @@
             "reason": "Bare-board scene data uses the common facade without inventing fabrication semantics.",
             "evidenceToken": "width",
             "evidenceTokens": ["PcbScene3dBuilder", "build", "width"],
-            "tests": [
-                "tests/api-result-contract-resolver.test.mjs",
-                "tests/gerber-scene3d.test.mjs"
-            ],
+            "tests": ["tests/gerber-scene3d.test.mjs"],
             "documentation": ["docs/api.md", "docs/model-format.md"]
         },
         {
@@ -12473,10 +12207,7 @@
             "reason": "Bare-board scene data uses the common facade without inventing fabrication semantics.",
             "evidenceToken": "x",
             "evidenceTokens": ["PcbScene3dBuilder", "build", "x"],
-            "tests": [
-                "tests/api-result-contract-resolver.test.mjs",
-                "tests/gerber-scene3d.test.mjs"
-            ],
+            "tests": ["tests/gerber-scene3d.test.mjs"],
             "documentation": ["docs/api.md", "docs/model-format.md"]
         },
         {
@@ -12554,10 +12285,7 @@
             "reason": "Bare-board scene data uses the common facade without inventing fabrication semantics.",
             "evidenceToken": "y",
             "evidenceTokens": ["PcbScene3dBuilder", "build", "y"],
-            "tests": [
-                "tests/api-result-contract-resolver.test.mjs",
-                "tests/gerber-scene3d.test.mjs"
-            ],
+            "tests": ["tests/gerber-scene3d.test.mjs"],
             "documentation": ["docs/api.md", "docs/model-format.md"]
         },
         {
@@ -12583,10 +12311,7 @@
             "reason": "Bare-board scene data uses the common facade without inventing fabrication semantics.",
             "evidenceToken": "y1",
             "evidenceTokens": ["PcbScene3dBuilder", "build", "y1"],
-            "tests": [
-                "tests/api-result-contract-resolver.test.mjs",
-                "tests/gerber-scene3d.test.mjs"
-            ],
+            "tests": ["tests/gerber-scene3d.test.mjs"],
             "documentation": ["docs/api.md", "docs/model-format.md"]
         },
         {
@@ -12638,10 +12363,7 @@
             "reason": "Bare-board scene data uses the common facade without inventing fabrication semantics.",
             "evidenceToken": "type",
             "evidenceTokens": ["PcbScene3dBuilder", "build", "type"],
-            "tests": [
-                "tests/api-result-contract-resolver.test.mjs",
-                "tests/gerber-scene3d.test.mjs"
-            ],
+            "tests": ["tests/gerber-scene3d.test.mjs"],
             "documentation": ["docs/api.md", "docs/model-format.md"]
         },
         {
@@ -12771,10 +12493,7 @@
             "reason": "Bare-board scene data uses the common facade without inventing fabrication semantics.",
             "evidenceToken": "x",
             "evidenceTokens": ["PcbScene3dBuilder", "build", "x"],
-            "tests": [
-                "tests/api-result-contract-resolver.test.mjs",
-                "tests/gerber-scene3d.test.mjs"
-            ],
+            "tests": ["tests/gerber-scene3d.test.mjs"],
             "documentation": ["docs/api.md", "docs/model-format.md"]
         },
         {
@@ -12800,10 +12519,7 @@
             "reason": "Bare-board scene data uses the common facade without inventing fabrication semantics.",
             "evidenceToken": "y",
             "evidenceTokens": ["PcbScene3dBuilder", "build", "y"],
-            "tests": [
-                "tests/api-result-contract-resolver.test.mjs",
-                "tests/gerber-scene3d.test.mjs"
-            ],
+            "tests": ["tests/gerber-scene3d.test.mjs"],
             "documentation": ["docs/api.md", "docs/model-format.md"]
         },
         {
@@ -12933,10 +12649,7 @@
             "reason": "Bare-board scene data uses the common facade without inventing fabrication semantics.",
             "evidenceToken": "tracks",
             "evidenceTokens": ["PcbScene3dBuilder", "build", "tracks"],
-            "tests": [
-                "tests/api-result-contract-resolver.test.mjs",
-                "tests/gerber-scene3d.test.mjs"
-            ],
+            "tests": ["tests/gerber-scene3d.test.mjs"],
             "documentation": ["docs/api.md", "docs/model-format.md"]
         },
         {
@@ -13040,10 +12753,7 @@
             "reason": "Bare-board scene data uses the common facade without inventing fabrication semantics.",
             "evidenceToken": "x",
             "evidenceTokens": ["PcbScene3dBuilder", "build", "x"],
-            "tests": [
-                "tests/api-result-contract-resolver.test.mjs",
-                "tests/gerber-scene3d.test.mjs"
-            ],
+            "tests": ["tests/gerber-scene3d.test.mjs"],
             "documentation": ["docs/api.md", "docs/model-format.md"]
         },
         {
@@ -13069,10 +12779,7 @@
             "reason": "Bare-board scene data uses the common facade without inventing fabrication semantics.",
             "evidenceToken": "y",
             "evidenceTokens": ["PcbScene3dBuilder", "build", "y"],
-            "tests": [
-                "tests/api-result-contract-resolver.test.mjs",
-                "tests/gerber-scene3d.test.mjs"
-            ],
+            "tests": ["tests/gerber-scene3d.test.mjs"],
             "documentation": ["docs/api.md", "docs/model-format.md"]
         },
         {
@@ -13202,10 +12909,7 @@
             "reason": "Bare-board scene data uses the common facade without inventing fabrication semantics.",
             "evidenceToken": "tracks",
             "evidenceTokens": ["PcbScene3dBuilder", "build", "tracks"],
-            "tests": [
-                "tests/api-result-contract-resolver.test.mjs",
-                "tests/gerber-scene3d.test.mjs"
-            ],
+            "tests": ["tests/gerber-scene3d.test.mjs"],
             "documentation": ["docs/api.md", "docs/model-format.md"]
         },
         {
@@ -13231,10 +12935,7 @@
             "reason": "Bare-board scene data uses the common facade without inventing fabrication semantics.",
             "evidenceToken": "tracks",
             "evidenceTokens": ["PcbScene3dBuilder", "build", "tracks"],
-            "tests": [
-                "tests/api-result-contract-resolver.test.mjs",
-                "tests/gerber-scene3d.test.mjs"
-            ],
+            "tests": ["tests/gerber-scene3d.test.mjs"],
             "documentation": ["docs/api.md", "docs/model-format.md"]
         },
         {
@@ -13260,10 +12961,7 @@
             "reason": "Bare-board scene data uses the common facade without inventing fabrication semantics.",
             "evidenceToken": "layerId",
             "evidenceTokens": ["PcbScene3dBuilder", "build", "layerId"],
-            "tests": [
-                "tests/api-result-contract-resolver.test.mjs",
-                "tests/gerber-scene3d.test.mjs"
-            ],
+            "tests": ["tests/gerber-scene3d.test.mjs"],
             "documentation": ["docs/api.md", "docs/model-format.md"]
         },
         {
@@ -13315,10 +13013,7 @@
             "reason": "Bare-board scene data uses the common facade without inventing fabrication semantics.",
             "evidenceToken": "type",
             "evidenceTokens": ["PcbScene3dBuilder", "build", "type"],
-            "tests": [
-                "tests/api-result-contract-resolver.test.mjs",
-                "tests/gerber-scene3d.test.mjs"
-            ],
+            "tests": ["tests/gerber-scene3d.test.mjs"],
             "documentation": ["docs/api.md", "docs/model-format.md"]
         },
         {
@@ -13344,10 +13039,7 @@
             "reason": "Bare-board scene data uses the common facade without inventing fabrication semantics.",
             "evidenceToken": "width",
             "evidenceTokens": ["PcbScene3dBuilder", "build", "width"],
-            "tests": [
-                "tests/api-result-contract-resolver.test.mjs",
-                "tests/gerber-scene3d.test.mjs"
-            ],
+            "tests": ["tests/gerber-scene3d.test.mjs"],
             "documentation": ["docs/api.md", "docs/model-format.md"]
         },
         {
@@ -13373,10 +13065,7 @@
             "reason": "Bare-board scene data uses the common facade without inventing fabrication semantics.",
             "evidenceToken": "x",
             "evidenceTokens": ["PcbScene3dBuilder", "build", "x"],
-            "tests": [
-                "tests/api-result-contract-resolver.test.mjs",
-                "tests/gerber-scene3d.test.mjs"
-            ],
+            "tests": ["tests/gerber-scene3d.test.mjs"],
             "documentation": ["docs/api.md", "docs/model-format.md"]
         },
         {
@@ -13454,10 +13143,7 @@
             "reason": "Bare-board scene data uses the common facade without inventing fabrication semantics.",
             "evidenceToken": "y",
             "evidenceTokens": ["PcbScene3dBuilder", "build", "y"],
-            "tests": [
-                "tests/api-result-contract-resolver.test.mjs",
-                "tests/gerber-scene3d.test.mjs"
-            ],
+            "tests": ["tests/gerber-scene3d.test.mjs"],
             "documentation": ["docs/api.md", "docs/model-format.md"]
         },
         {
@@ -13483,10 +13169,7 @@
             "reason": "Bare-board scene data uses the common facade without inventing fabrication semantics.",
             "evidenceToken": "y1",
             "evidenceTokens": ["PcbScene3dBuilder", "build", "y1"],
-            "tests": [
-                "tests/api-result-contract-resolver.test.mjs",
-                "tests/gerber-scene3d.test.mjs"
-            ],
+            "tests": ["tests/gerber-scene3d.test.mjs"],
             "documentation": ["docs/api.md", "docs/model-format.md"]
         },
         {
@@ -13620,10 +13303,7 @@
             "reason": "Bare-board scene data uses the common facade without inventing fabrication semantics.",
             "evidenceToken": "layers",
             "evidenceTokens": ["PcbScene3dBuilder", "build", "layers"],
-            "tests": [
-                "tests/api-result-contract-resolver.test.mjs",
-                "tests/gerber-scene3d.test.mjs"
-            ],
+            "tests": ["tests/gerber-scene3d.test.mjs"],
             "documentation": ["docs/api.md", "docs/model-format.md"]
         },
         {
@@ -13675,10 +13355,7 @@
             "reason": "Bare-board scene data uses the common facade without inventing fabrication semantics.",
             "evidenceToken": "id",
             "evidenceTokens": ["PcbScene3dBuilder", "build", "id"],
-            "tests": [
-                "tests/api-result-contract-resolver.test.mjs",
-                "tests/gerber-scene3d.test.mjs"
-            ],
+            "tests": ["tests/gerber-scene3d.test.mjs"],
             "documentation": ["docs/api.md", "docs/model-format.md"]
         },
         {
@@ -13968,10 +13645,7 @@
             "reason": "Bare-board scene data uses the common facade without inventing fabrication semantics.",
             "evidenceToken": "x",
             "evidenceTokens": ["PcbScene3dBuilder", "build", "x"],
-            "tests": [
-                "tests/api-result-contract-resolver.test.mjs",
-                "tests/gerber-scene3d.test.mjs"
-            ],
+            "tests": ["tests/gerber-scene3d.test.mjs"],
             "documentation": ["docs/api.md", "docs/model-format.md"]
         },
         {
@@ -13997,10 +13671,7 @@
             "reason": "Bare-board scene data uses the common facade without inventing fabrication semantics.",
             "evidenceToken": "y",
             "evidenceTokens": ["PcbScene3dBuilder", "build", "y"],
-            "tests": [
-                "tests/api-result-contract-resolver.test.mjs",
-                "tests/gerber-scene3d.test.mjs"
-            ],
+            "tests": ["tests/gerber-scene3d.test.mjs"],
             "documentation": ["docs/api.md", "docs/model-format.md"]
         },
         {
@@ -14078,10 +13749,7 @@
             "reason": "Bare-board scene data uses the common facade without inventing fabrication semantics.",
             "evidenceToken": "tracks",
             "evidenceTokens": ["PcbScene3dBuilder", "build", "tracks"],
-            "tests": [
-                "tests/api-result-contract-resolver.test.mjs",
-                "tests/gerber-scene3d.test.mjs"
-            ],
+            "tests": ["tests/gerber-scene3d.test.mjs"],
             "documentation": ["docs/api.md", "docs/model-format.md"]
         },
         {
@@ -14107,10 +13775,7 @@
             "reason": "Bare-board scene data uses the common facade without inventing fabrication semantics.",
             "evidenceToken": "layerId",
             "evidenceTokens": ["PcbScene3dBuilder", "build", "layerId"],
-            "tests": [
-                "tests/api-result-contract-resolver.test.mjs",
-                "tests/gerber-scene3d.test.mjs"
-            ],
+            "tests": ["tests/gerber-scene3d.test.mjs"],
             "documentation": ["docs/api.md", "docs/model-format.md"]
         },
         {
@@ -14162,10 +13827,7 @@
             "reason": "Bare-board scene data uses the common facade without inventing fabrication semantics.",
             "evidenceToken": "type",
             "evidenceTokens": ["PcbScene3dBuilder", "build", "type"],
-            "tests": [
-                "tests/api-result-contract-resolver.test.mjs",
-                "tests/gerber-scene3d.test.mjs"
-            ],
+            "tests": ["tests/gerber-scene3d.test.mjs"],
             "documentation": ["docs/api.md", "docs/model-format.md"]
         },
         {
@@ -14191,10 +13853,7 @@
             "reason": "Bare-board scene data uses the common facade without inventing fabrication semantics.",
             "evidenceToken": "width",
             "evidenceTokens": ["PcbScene3dBuilder", "build", "width"],
-            "tests": [
-                "tests/api-result-contract-resolver.test.mjs",
-                "tests/gerber-scene3d.test.mjs"
-            ],
+            "tests": ["tests/gerber-scene3d.test.mjs"],
             "documentation": ["docs/api.md", "docs/model-format.md"]
         },
         {
@@ -14220,10 +13879,7 @@
             "reason": "Bare-board scene data uses the common facade without inventing fabrication semantics.",
             "evidenceToken": "x",
             "evidenceTokens": ["PcbScene3dBuilder", "build", "x"],
-            "tests": [
-                "tests/api-result-contract-resolver.test.mjs",
-                "tests/gerber-scene3d.test.mjs"
-            ],
+            "tests": ["tests/gerber-scene3d.test.mjs"],
             "documentation": ["docs/api.md", "docs/model-format.md"]
         },
         {
@@ -14301,10 +13957,7 @@
             "reason": "Bare-board scene data uses the common facade without inventing fabrication semantics.",
             "evidenceToken": "y",
             "evidenceTokens": ["PcbScene3dBuilder", "build", "y"],
-            "tests": [
-                "tests/api-result-contract-resolver.test.mjs",
-                "tests/gerber-scene3d.test.mjs"
-            ],
+            "tests": ["tests/gerber-scene3d.test.mjs"],
             "documentation": ["docs/api.md", "docs/model-format.md"]
         },
         {
@@ -14330,10 +13983,7 @@
             "reason": "Bare-board scene data uses the common facade without inventing fabrication semantics.",
             "evidenceToken": "y1",
             "evidenceTokens": ["PcbScene3dBuilder", "build", "y1"],
-            "tests": [
-                "tests/api-result-contract-resolver.test.mjs",
-                "tests/gerber-scene3d.test.mjs"
-            ],
+            "tests": ["tests/gerber-scene3d.test.mjs"],
             "documentation": ["docs/api.md", "docs/model-format.md"]
         },
         {
@@ -14463,10 +14113,7 @@
             "reason": "Bare-board scene data uses the common facade without inventing fabrication semantics.",
             "evidenceToken": "layerId",
             "evidenceTokens": ["PcbScene3dBuilder", "build", "layerId"],
-            "tests": [
-                "tests/api-result-contract-resolver.test.mjs",
-                "tests/gerber-scene3d.test.mjs"
-            ],
+            "tests": ["tests/gerber-scene3d.test.mjs"],
             "documentation": ["docs/api.md", "docs/model-format.md"]
         },
         {
@@ -14518,10 +14165,7 @@
             "reason": "Bare-board scene data uses the common facade without inventing fabrication semantics.",
             "evidenceToken": "layerId",
             "evidenceTokens": ["PcbScene3dBuilder", "build", "layerId"],
-            "tests": [
-                "tests/api-result-contract-resolver.test.mjs",
-                "tests/gerber-scene3d.test.mjs"
-            ],
+            "tests": ["tests/gerber-scene3d.test.mjs"],
             "documentation": ["docs/api.md", "docs/model-format.md"]
         },
         {
@@ -14573,10 +14217,7 @@
             "reason": "Bare-board scene data uses the common facade without inventing fabrication semantics.",
             "evidenceToken": "type",
             "evidenceTokens": ["PcbScene3dBuilder", "build", "type"],
-            "tests": [
-                "tests/api-result-contract-resolver.test.mjs",
-                "tests/gerber-scene3d.test.mjs"
-            ],
+            "tests": ["tests/gerber-scene3d.test.mjs"],
             "documentation": ["docs/api.md", "docs/model-format.md"]
         },
         {
@@ -14602,10 +14243,7 @@
             "reason": "Bare-board scene data uses the common facade without inventing fabrication semantics.",
             "evidenceToken": "width",
             "evidenceTokens": ["PcbScene3dBuilder", "build", "width"],
-            "tests": [
-                "tests/api-result-contract-resolver.test.mjs",
-                "tests/gerber-scene3d.test.mjs"
-            ],
+            "tests": ["tests/gerber-scene3d.test.mjs"],
             "documentation": ["docs/api.md", "docs/model-format.md"]
         },
         {
@@ -14631,10 +14269,7 @@
             "reason": "Bare-board scene data uses the common facade without inventing fabrication semantics.",
             "evidenceToken": "x",
             "evidenceTokens": ["PcbScene3dBuilder", "build", "x"],
-            "tests": [
-                "tests/api-result-contract-resolver.test.mjs",
-                "tests/gerber-scene3d.test.mjs"
-            ],
+            "tests": ["tests/gerber-scene3d.test.mjs"],
             "documentation": ["docs/api.md", "docs/model-format.md"]
         },
         {
@@ -14712,10 +14347,7 @@
             "reason": "Bare-board scene data uses the common facade without inventing fabrication semantics.",
             "evidenceToken": "y",
             "evidenceTokens": ["PcbScene3dBuilder", "build", "y"],
-            "tests": [
-                "tests/api-result-contract-resolver.test.mjs",
-                "tests/gerber-scene3d.test.mjs"
-            ],
+            "tests": ["tests/gerber-scene3d.test.mjs"],
             "documentation": ["docs/api.md", "docs/model-format.md"]
         },
         {
@@ -14741,10 +14373,7 @@
             "reason": "Bare-board scene data uses the common facade without inventing fabrication semantics.",
             "evidenceToken": "y1",
             "evidenceTokens": ["PcbScene3dBuilder", "build", "y1"],
-            "tests": [
-                "tests/api-result-contract-resolver.test.mjs",
-                "tests/gerber-scene3d.test.mjs"
-            ],
+            "tests": ["tests/gerber-scene3d.test.mjs"],
             "documentation": ["docs/api.md", "docs/model-format.md"]
         },
         {
@@ -14796,10 +14425,7 @@
             "reason": "Bare-board scene data uses the common facade without inventing fabrication semantics.",
             "evidenceToken": "type",
             "evidenceTokens": ["PcbScene3dBuilder", "build", "type"],
-            "tests": [
-                "tests/api-result-contract-resolver.test.mjs",
-                "tests/gerber-scene3d.test.mjs"
-            ],
+            "tests": ["tests/gerber-scene3d.test.mjs"],
             "documentation": ["docs/api.md", "docs/model-format.md"]
         },
         {
@@ -20473,7 +20099,6 @@
             "evidenceToken": "GerberParser",
             "evidenceTokens": ["GerberParser"],
             "tests": [
-                "tests/api-result-contract-resolver.test.mjs",
                 "tests/gerber-parity.test.mjs",
                 "tests/gerber-parser.test.mjs",
                 "tests/package-layout.test.mjs"
@@ -20526,10 +20151,7 @@
             "reason": "The canonical parser envelope is shared while lossless CAM facts remain Gerber-native.",
             "evidenceToken": "fromLayers",
             "evidenceTokens": ["GerberParser", "fromLayers"],
-            "tests": [
-                "tests/api-result-contract-resolver.test.mjs",
-                "tests/gerber-parser.test.mjs"
-            ],
+            "tests": ["tests/gerber-parser.test.mjs"],
             "documentation": ["docs/api.md", "docs/model-format.md"]
         },
         {
@@ -20559,10 +20181,7 @@
             "reason": "The canonical parser envelope is shared while lossless CAM facts remain Gerber-native.",
             "evidenceToken": "fromLayers",
             "evidenceTokens": ["GerberParser", "fromLayers"],
-            "tests": [
-                "tests/api-result-contract-resolver.test.mjs",
-                "tests/gerber-parser.test.mjs"
-            ],
+            "tests": ["tests/gerber-parser.test.mjs"],
             "documentation": ["docs/api.md", "docs/model-format.md"]
         },
         {
@@ -20592,10 +20211,7 @@
             "reason": "The canonical parser envelope is shared while lossless CAM facts remain Gerber-native.",
             "evidenceToken": "fromLayers",
             "evidenceTokens": ["GerberParser", "fromLayers"],
-            "tests": [
-                "tests/api-result-contract-resolver.test.mjs",
-                "tests/gerber-parser.test.mjs"
-            ],
+            "tests": ["tests/gerber-parser.test.mjs"],
             "documentation": ["docs/api.md", "docs/model-format.md"]
         },
         {
@@ -20625,10 +20241,7 @@
             "reason": "The canonical parser envelope is shared while lossless CAM facts remain Gerber-native.",
             "evidenceToken": "fromLayers",
             "evidenceTokens": ["GerberParser", "fromLayers"],
-            "tests": [
-                "tests/api-result-contract-resolver.test.mjs",
-                "tests/gerber-parser.test.mjs"
-            ],
+            "tests": ["tests/gerber-parser.test.mjs"],
             "documentation": ["docs/api.md", "docs/model-format.md"]
         },
         {
@@ -20785,10 +20398,7 @@
             "reason": "The canonical parser envelope is shared while lossless CAM facts remain Gerber-native.",
             "evidenceToken": "pcb",
             "evidenceTokens": ["GerberParser", "fromLayers", "pcb"],
-            "tests": [
-                "tests/api-result-contract-resolver.test.mjs",
-                "tests/gerber-parser.test.mjs"
-            ],
+            "tests": ["tests/gerber-parser.test.mjs"],
             "documentation": ["docs/api.md", "docs/model-format.md"]
         },
         {
@@ -20944,10 +20554,7 @@
             "reason": "The canonical parser envelope is shared while lossless CAM facts remain Gerber-native.",
             "evidenceToken": "type",
             "evidenceTokens": ["GerberParser", "fromLayers", "type"],
-            "tests": [
-                "tests/api-result-contract-resolver.test.mjs",
-                "tests/gerber-parser.test.mjs"
-            ],
+            "tests": ["tests/gerber-parser.test.mjs"],
             "documentation": ["docs/api.md", "docs/model-format.md"]
         },
         {
@@ -21025,10 +20632,7 @@
             "reason": "The canonical parser envelope is shared while lossless CAM facts remain Gerber-native.",
             "evidenceToken": "y1",
             "evidenceTokens": ["GerberParser", "fromLayers", "y1"],
-            "tests": [
-                "tests/api-result-contract-resolver.test.mjs",
-                "tests/gerber-parser.test.mjs"
-            ],
+            "tests": ["tests/gerber-parser.test.mjs"],
             "documentation": ["docs/api.md", "docs/model-format.md"]
         },
         {
@@ -21262,10 +20866,7 @@
             "reason": "The canonical parser envelope is shared while lossless CAM facts remain Gerber-native.",
             "evidenceToken": "fabrication",
             "evidenceTokens": ["GerberParser", "fromLayers", "fabrication"],
-            "tests": [
-                "tests/api-result-contract-resolver.test.mjs",
-                "tests/gerber-parser.test.mjs"
-            ],
+            "tests": ["tests/gerber-parser.test.mjs"],
             "documentation": ["docs/api.md", "docs/model-format.md"]
         },
         {
@@ -21291,10 +20892,7 @@
             "reason": "The canonical parser envelope is shared while lossless CAM facts remain Gerber-native.",
             "evidenceToken": "layers",
             "evidenceTokens": ["GerberParser", "fromLayers", "layers"],
-            "tests": [
-                "tests/api-result-contract-resolver.test.mjs",
-                "tests/gerber-parser.test.mjs"
-            ],
+            "tests": ["tests/gerber-parser.test.mjs"],
             "documentation": ["docs/api.md", "docs/model-format.md"]
         },
         {
@@ -21319,8 +20917,8 @@
             },
             "reason": "The canonical parser envelope is shared while lossless CAM facts remain Gerber-native.",
             "evidenceToken": "attributes",
-            "evidenceTokens": ["GerberParser", "fromLayers", "attributes"],
-            "tests": ["tests/api-result-contract-resolver.test.mjs"],
+            "evidenceTokens": ["GerberParser", "attributes"],
+            "tests": ["tests/gerber-parity.test.mjs"],
             "documentation": ["docs/api.md", "docs/model-format.md"]
         },
         {
@@ -21397,8 +20995,8 @@
             },
             "reason": "The canonical parser envelope is shared while lossless CAM facts remain Gerber-native.",
             "evidenceToken": "object",
-            "evidenceTokens": ["GerberParser", "fromLayers", "object"],
-            "tests": ["tests/api-result-contract-resolver.test.mjs"],
+            "evidenceTokens": ["GerberParser", "object"],
+            "tests": ["tests/gerber-parity.test.mjs"],
             "documentation": ["docs/api.md", "docs/model-format.md"]
         },
         {
@@ -21502,10 +21100,7 @@
             "reason": "The canonical parser envelope is shared while lossless CAM facts remain Gerber-native.",
             "evidenceToken": "drills",
             "evidenceTokens": ["GerberParser", "fromLayers", "drills"],
-            "tests": [
-                "tests/api-result-contract-resolver.test.mjs",
-                "tests/gerber-parser.test.mjs"
-            ],
+            "tests": ["tests/gerber-parser.test.mjs"],
             "documentation": ["docs/api.md", "docs/model-format.md"]
         },
         {
@@ -21531,10 +21126,7 @@
             "reason": "The canonical parser envelope is shared while lossless CAM facts remain Gerber-native.",
             "evidenceToken": "diameter",
             "evidenceTokens": ["GerberParser", "fromLayers", "diameter"],
-            "tests": [
-                "tests/api-result-contract-resolver.test.mjs",
-                "tests/gerber-parser.test.mjs"
-            ],
+            "tests": ["tests/gerber-parser.test.mjs"],
             "documentation": ["docs/api.md", "docs/model-format.md"]
         },
         {
@@ -21612,10 +21204,7 @@
             "reason": "The canonical parser envelope is shared while lossless CAM facts remain Gerber-native.",
             "evidenceToken": "type",
             "evidenceTokens": ["GerberParser", "fromLayers", "type"],
-            "tests": [
-                "tests/api-result-contract-resolver.test.mjs",
-                "tests/gerber-parser.test.mjs"
-            ],
+            "tests": ["tests/gerber-parser.test.mjs"],
             "documentation": ["docs/api.md", "docs/model-format.md"]
         },
         {
@@ -21641,10 +21230,7 @@
             "reason": "The canonical parser envelope is shared while lossless CAM facts remain Gerber-native.",
             "evidenceToken": "x",
             "evidenceTokens": ["GerberParser", "fromLayers", "x"],
-            "tests": [
-                "tests/api-result-contract-resolver.test.mjs",
-                "tests/gerber-parser.test.mjs"
-            ],
+            "tests": ["tests/gerber-parser.test.mjs"],
             "documentation": ["docs/api.md", "docs/model-format.md"]
         },
         {
@@ -21722,10 +21308,7 @@
             "reason": "The canonical parser envelope is shared while lossless CAM facts remain Gerber-native.",
             "evidenceToken": "y",
             "evidenceTokens": ["GerberParser", "fromLayers", "y"],
-            "tests": [
-                "tests/api-result-contract-resolver.test.mjs",
-                "tests/gerber-parser.test.mjs"
-            ],
+            "tests": ["tests/gerber-parser.test.mjs"],
             "documentation": ["docs/api.md", "docs/model-format.md"]
         },
         {
@@ -21751,10 +21334,7 @@
             "reason": "The canonical parser envelope is shared while lossless CAM facts remain Gerber-native.",
             "evidenceToken": "y1",
             "evidenceTokens": ["GerberParser", "fromLayers", "y1"],
-            "tests": [
-                "tests/api-result-contract-resolver.test.mjs",
-                "tests/gerber-parser.test.mjs"
-            ],
+            "tests": ["tests/gerber-parser.test.mjs"],
             "documentation": ["docs/api.md", "docs/model-format.md"]
         },
         {
@@ -21832,10 +21412,7 @@
             "reason": "The canonical parser envelope is shared while lossless CAM facts remain Gerber-native.",
             "evidenceToken": "id",
             "evidenceTokens": ["GerberParser", "fromLayers", "id"],
-            "tests": [
-                "tests/api-result-contract-resolver.test.mjs",
-                "tests/gerber-parser.test.mjs"
-            ],
+            "tests": ["tests/gerber-parser.test.mjs"],
             "documentation": ["docs/api.md", "docs/model-format.md"]
         },
         {
@@ -21887,10 +21464,7 @@
             "reason": "The canonical parser envelope is shared while lossless CAM facts remain Gerber-native.",
             "evidenceToken": "primitives",
             "evidenceTokens": ["GerberParser", "fromLayers", "primitives"],
-            "tests": [
-                "tests/api-result-contract-resolver.test.mjs",
-                "tests/gerber-parser.test.mjs"
-            ],
+            "tests": ["tests/gerber-parser.test.mjs"],
             "documentation": ["docs/api.md", "docs/model-format.md"]
         },
         {
@@ -21915,8 +21489,8 @@
             },
             "reason": "The canonical parser envelope is shared while lossless CAM facts remain Gerber-native.",
             "evidenceToken": "attributes",
-            "evidenceTokens": ["GerberParser", "fromLayers", "attributes"],
-            "tests": ["tests/api-result-contract-resolver.test.mjs"],
+            "evidenceTokens": ["GerberParser", "attributes"],
+            "tests": ["tests/gerber-parity.test.mjs"],
             "documentation": ["docs/api.md", "docs/model-format.md"]
         },
         {
@@ -21993,8 +21567,8 @@
             },
             "reason": "The canonical parser envelope is shared while lossless CAM facts remain Gerber-native.",
             "evidenceToken": "object",
-            "evidenceTokens": ["GerberParser", "fromLayers", "object"],
-            "tests": ["tests/api-result-contract-resolver.test.mjs"],
+            "evidenceTokens": ["GerberParser", "object"],
+            "tests": ["tests/gerber-parity.test.mjs"],
             "documentation": ["docs/api.md", "docs/model-format.md"]
         },
         {
@@ -22020,10 +21594,7 @@
             "reason": "The canonical parser envelope is shared while lossless CAM facts remain Gerber-native.",
             "evidenceToken": "diameter",
             "evidenceTokens": ["GerberParser", "fromLayers", "diameter"],
-            "tests": [
-                "tests/api-result-contract-resolver.test.mjs",
-                "tests/gerber-parser.test.mjs"
-            ],
+            "tests": ["tests/gerber-parser.test.mjs"],
             "documentation": ["docs/api.md", "docs/model-format.md"]
         },
         {
@@ -22075,10 +21646,7 @@
             "reason": "The canonical parser envelope is shared while lossless CAM facts remain Gerber-native.",
             "evidenceToken": "i",
             "evidenceTokens": ["GerberParser", "fromLayers", "i"],
-            "tests": [
-                "tests/api-result-contract-resolver.test.mjs",
-                "tests/gerber-parser.test.mjs"
-            ],
+            "tests": ["tests/gerber-parser.test.mjs"],
             "documentation": ["docs/api.md", "docs/model-format.md"]
         },
         {
@@ -22104,10 +21672,7 @@
             "reason": "The canonical parser envelope is shared while lossless CAM facts remain Gerber-native.",
             "evidenceToken": "j",
             "evidenceTokens": ["GerberParser", "fromLayers", "j"],
-            "tests": [
-                "tests/api-result-contract-resolver.test.mjs",
-                "tests/gerber-parser.test.mjs"
-            ],
+            "tests": ["tests/gerber-parser.test.mjs"],
             "documentation": ["docs/api.md", "docs/model-format.md"]
         },
         {
@@ -22188,10 +21753,7 @@
             "reason": "The canonical parser envelope is shared while lossless CAM facts remain Gerber-native.",
             "evidenceToken": "x",
             "evidenceTokens": ["GerberParser", "fromLayers", "x"],
-            "tests": [
-                "tests/api-result-contract-resolver.test.mjs",
-                "tests/gerber-parser.test.mjs"
-            ],
+            "tests": ["tests/gerber-parser.test.mjs"],
             "documentation": ["docs/api.md", "docs/model-format.md"]
         },
         {
@@ -22217,10 +21779,7 @@
             "reason": "The canonical parser envelope is shared while lossless CAM facts remain Gerber-native.",
             "evidenceToken": "y",
             "evidenceTokens": ["GerberParser", "fromLayers", "y"],
-            "tests": [
-                "tests/api-result-contract-resolver.test.mjs",
-                "tests/gerber-parser.test.mjs"
-            ],
+            "tests": ["tests/gerber-parser.test.mjs"],
             "documentation": ["docs/api.md", "docs/model-format.md"]
         },
         {
@@ -22246,10 +21805,7 @@
             "reason": "The canonical parser envelope is shared while lossless CAM facts remain Gerber-native.",
             "evidenceToken": "polarity",
             "evidenceTokens": ["GerberParser", "fromLayers", "polarity"],
-            "tests": [
-                "tests/api-result-contract-resolver.test.mjs",
-                "tests/gerber-parser.test.mjs"
-            ],
+            "tests": ["tests/gerber-parser.test.mjs"],
             "documentation": ["docs/api.md", "docs/model-format.md"]
         },
         {
@@ -22275,10 +21831,7 @@
             "reason": "The canonical parser envelope is shared while lossless CAM facts remain Gerber-native.",
             "evidenceToken": "primitives",
             "evidenceTokens": ["GerberParser", "fromLayers", "primitives"],
-            "tests": [
-                "tests/api-result-contract-resolver.test.mjs",
-                "tests/gerber-parser.test.mjs"
-            ],
+            "tests": ["tests/gerber-parser.test.mjs"],
             "documentation": ["docs/api.md", "docs/model-format.md"]
         },
         {
@@ -22330,10 +21883,7 @@
             "reason": "The canonical parser envelope is shared while lossless CAM facts remain Gerber-native.",
             "evidenceToken": "x",
             "evidenceTokens": ["GerberParser", "fromLayers", "x"],
-            "tests": [
-                "tests/api-result-contract-resolver.test.mjs",
-                "tests/gerber-parser.test.mjs"
-            ],
+            "tests": ["tests/gerber-parser.test.mjs"],
             "documentation": ["docs/api.md", "docs/model-format.md"]
         },
         {
@@ -22359,10 +21909,7 @@
             "reason": "The canonical parser envelope is shared while lossless CAM facts remain Gerber-native.",
             "evidenceToken": "y",
             "evidenceTokens": ["GerberParser", "fromLayers", "y"],
-            "tests": [
-                "tests/api-result-contract-resolver.test.mjs",
-                "tests/gerber-parser.test.mjs"
-            ],
+            "tests": ["tests/gerber-parser.test.mjs"],
             "documentation": ["docs/api.md", "docs/model-format.md"]
         },
         {
@@ -22388,10 +21935,7 @@
             "reason": "The canonical parser envelope is shared while lossless CAM facts remain Gerber-native.",
             "evidenceToken": "primitives",
             "evidenceTokens": ["GerberParser", "fromLayers", "primitives"],
-            "tests": [
-                "tests/api-result-contract-resolver.test.mjs",
-                "tests/gerber-parser.test.mjs"
-            ],
+            "tests": ["tests/gerber-parser.test.mjs"],
             "documentation": ["docs/api.md", "docs/model-format.md"]
         },
         {
@@ -22443,10 +21987,7 @@
             "reason": "The canonical parser envelope is shared while lossless CAM facts remain Gerber-native.",
             "evidenceToken": "x",
             "evidenceTokens": ["GerberParser", "fromLayers", "x"],
-            "tests": [
-                "tests/api-result-contract-resolver.test.mjs",
-                "tests/gerber-parser.test.mjs"
-            ],
+            "tests": ["tests/gerber-parser.test.mjs"],
             "documentation": ["docs/api.md", "docs/model-format.md"]
         },
         {
@@ -22472,10 +22013,7 @@
             "reason": "The canonical parser envelope is shared while lossless CAM facts remain Gerber-native.",
             "evidenceToken": "y",
             "evidenceTokens": ["GerberParser", "fromLayers", "y"],
-            "tests": [
-                "tests/api-result-contract-resolver.test.mjs",
-                "tests/gerber-parser.test.mjs"
-            ],
+            "tests": ["tests/gerber-parser.test.mjs"],
             "documentation": ["docs/api.md", "docs/model-format.md"]
         },
         {
@@ -22501,10 +22039,7 @@
             "reason": "The canonical parser envelope is shared while lossless CAM facts remain Gerber-native.",
             "evidenceToken": "primitives",
             "evidenceTokens": ["GerberParser", "fromLayers", "primitives"],
-            "tests": [
-                "tests/api-result-contract-resolver.test.mjs",
-                "tests/gerber-parser.test.mjs"
-            ],
+            "tests": ["tests/gerber-parser.test.mjs"],
             "documentation": ["docs/api.md", "docs/model-format.md"]
         },
         {
@@ -22530,10 +22065,7 @@
             "reason": "The canonical parser envelope is shared while lossless CAM facts remain Gerber-native.",
             "evidenceToken": "x",
             "evidenceTokens": ["GerberParser", "fromLayers", "x"],
-            "tests": [
-                "tests/api-result-contract-resolver.test.mjs",
-                "tests/gerber-parser.test.mjs"
-            ],
+            "tests": ["tests/gerber-parser.test.mjs"],
             "documentation": ["docs/api.md", "docs/model-format.md"]
         },
         {
@@ -22611,10 +22143,7 @@
             "reason": "The canonical parser envelope is shared while lossless CAM facts remain Gerber-native.",
             "evidenceToken": "y",
             "evidenceTokens": ["GerberParser", "fromLayers", "y"],
-            "tests": [
-                "tests/api-result-contract-resolver.test.mjs",
-                "tests/gerber-parser.test.mjs"
-            ],
+            "tests": ["tests/gerber-parser.test.mjs"],
             "documentation": ["docs/api.md", "docs/model-format.md"]
         },
         {
@@ -22640,10 +22169,7 @@
             "reason": "The canonical parser envelope is shared while lossless CAM facts remain Gerber-native.",
             "evidenceToken": "y1",
             "evidenceTokens": ["GerberParser", "fromLayers", "y1"],
-            "tests": [
-                "tests/api-result-contract-resolver.test.mjs",
-                "tests/gerber-parser.test.mjs"
-            ],
+            "tests": ["tests/gerber-parser.test.mjs"],
             "documentation": ["docs/api.md", "docs/model-format.md"]
         },
         {
@@ -22695,10 +22221,7 @@
             "reason": "The canonical parser envelope is shared while lossless CAM facts remain Gerber-native.",
             "evidenceToken": "x",
             "evidenceTokens": ["GerberParser", "fromLayers", "x"],
-            "tests": [
-                "tests/api-result-contract-resolver.test.mjs",
-                "tests/gerber-parser.test.mjs"
-            ],
+            "tests": ["tests/gerber-parser.test.mjs"],
             "documentation": ["docs/api.md", "docs/model-format.md"]
         },
         {
@@ -22776,10 +22299,7 @@
             "reason": "The canonical parser envelope is shared while lossless CAM facts remain Gerber-native.",
             "evidenceToken": "y",
             "evidenceTokens": ["GerberParser", "fromLayers", "y"],
-            "tests": [
-                "tests/api-result-contract-resolver.test.mjs",
-                "tests/gerber-parser.test.mjs"
-            ],
+            "tests": ["tests/gerber-parser.test.mjs"],
             "documentation": ["docs/api.md", "docs/model-format.md"]
         },
         {
@@ -22805,10 +22325,7 @@
             "reason": "The canonical parser envelope is shared while lossless CAM facts remain Gerber-native.",
             "evidenceToken": "y1",
             "evidenceTokens": ["GerberParser", "fromLayers", "y1"],
-            "tests": [
-                "tests/api-result-contract-resolver.test.mjs",
-                "tests/gerber-parser.test.mjs"
-            ],
+            "tests": ["tests/gerber-parser.test.mjs"],
             "documentation": ["docs/api.md", "docs/model-format.md"]
         },
         {
@@ -22886,10 +22403,7 @@
             "reason": "The canonical parser envelope is shared while lossless CAM facts remain Gerber-native.",
             "evidenceToken": "shape",
             "evidenceTokens": ["GerberParser", "fromLayers", "shape"],
-            "tests": [
-                "tests/api-result-contract-resolver.test.mjs",
-                "tests/gerber-parser.test.mjs"
-            ],
+            "tests": ["tests/gerber-parser.test.mjs"],
             "documentation": ["docs/api.md", "docs/model-format.md"]
         },
         {
@@ -23019,10 +22533,7 @@
             "reason": "The canonical parser envelope is shared while lossless CAM facts remain Gerber-native.",
             "evidenceToken": "type",
             "evidenceTokens": ["GerberParser", "fromLayers", "type"],
-            "tests": [
-                "tests/api-result-contract-resolver.test.mjs",
-                "tests/gerber-parser.test.mjs"
-            ],
+            "tests": ["tests/gerber-parser.test.mjs"],
             "documentation": ["docs/api.md", "docs/model-format.md"]
         },
         {
@@ -23048,10 +22559,7 @@
             "reason": "The canonical parser envelope is shared while lossless CAM facts remain Gerber-native.",
             "evidenceToken": "width",
             "evidenceTokens": ["GerberParser", "fromLayers", "width"],
-            "tests": [
-                "tests/api-result-contract-resolver.test.mjs",
-                "tests/gerber-parser.test.mjs"
-            ],
+            "tests": ["tests/gerber-parser.test.mjs"],
             "documentation": ["docs/api.md", "docs/model-format.md"]
         },
         {
@@ -23077,10 +22585,7 @@
             "reason": "The canonical parser envelope is shared while lossless CAM facts remain Gerber-native.",
             "evidenceToken": "x",
             "evidenceTokens": ["GerberParser", "fromLayers", "x"],
-            "tests": [
-                "tests/api-result-contract-resolver.test.mjs",
-                "tests/gerber-parser.test.mjs"
-            ],
+            "tests": ["tests/gerber-parser.test.mjs"],
             "documentation": ["docs/api.md", "docs/model-format.md"]
         },
         {
@@ -23158,10 +22663,7 @@
             "reason": "The canonical parser envelope is shared while lossless CAM facts remain Gerber-native.",
             "evidenceToken": "y",
             "evidenceTokens": ["GerberParser", "fromLayers", "y"],
-            "tests": [
-                "tests/api-result-contract-resolver.test.mjs",
-                "tests/gerber-parser.test.mjs"
-            ],
+            "tests": ["tests/gerber-parser.test.mjs"],
             "documentation": ["docs/api.md", "docs/model-format.md"]
         },
         {
@@ -23187,10 +22689,7 @@
             "reason": "The canonical parser envelope is shared while lossless CAM facts remain Gerber-native.",
             "evidenceToken": "y1",
             "evidenceTokens": ["GerberParser", "fromLayers", "y1"],
-            "tests": [
-                "tests/api-result-contract-resolver.test.mjs",
-                "tests/gerber-parser.test.mjs"
-            ],
+            "tests": ["tests/gerber-parser.test.mjs"],
             "documentation": ["docs/api.md", "docs/model-format.md"]
         },
         {
@@ -23396,7 +22895,6 @@
             "evidenceToken": "parseArrayBuffer",
             "evidenceTokens": ["GerberParser", "parseArrayBuffer"],
             "tests": [
-                "tests/api-result-contract-resolver.test.mjs",
                 "tests/gerber-parity.test.mjs",
                 "tests/gerber-parser.test.mjs"
             ],
@@ -23430,7 +22928,6 @@
             "evidenceToken": "parseArrayBuffer",
             "evidenceTokens": ["GerberParser", "parseArrayBuffer"],
             "tests": [
-                "tests/api-result-contract-resolver.test.mjs",
                 "tests/gerber-parity.test.mjs",
                 "tests/gerber-parser.test.mjs"
             ],
@@ -23464,7 +22961,6 @@
             "evidenceToken": "parseArrayBuffer",
             "evidenceTokens": ["GerberParser", "parseArrayBuffer"],
             "tests": [
-                "tests/api-result-contract-resolver.test.mjs",
                 "tests/gerber-parity.test.mjs",
                 "tests/gerber-parser.test.mjs"
             ],
@@ -23498,7 +22994,6 @@
             "evidenceToken": "parseArrayBuffer",
             "evidenceTokens": ["GerberParser", "parseArrayBuffer"],
             "tests": [
-                "tests/api-result-contract-resolver.test.mjs",
                 "tests/gerber-parity.test.mjs",
                 "tests/gerber-parser.test.mjs"
             ],
@@ -23673,7 +23168,6 @@
             "evidenceToken": "pcb",
             "evidenceTokens": ["GerberParser", "parseArrayBuffer", "pcb"],
             "tests": [
-                "tests/api-result-contract-resolver.test.mjs",
                 "tests/gerber-parity.test.mjs",
                 "tests/gerber-parser.test.mjs"
             ],
@@ -23843,7 +23337,6 @@
             "evidenceToken": "type",
             "evidenceTokens": ["GerberParser", "parseArrayBuffer", "type"],
             "tests": [
-                "tests/api-result-contract-resolver.test.mjs",
                 "tests/gerber-parity.test.mjs",
                 "tests/gerber-parser.test.mjs"
             ],
@@ -23931,7 +23424,6 @@
             "evidenceToken": "y1",
             "evidenceTokens": ["GerberParser", "parseArrayBuffer", "y1"],
             "tests": [
-                "tests/api-result-contract-resolver.test.mjs",
                 "tests/gerber-parity.test.mjs",
                 "tests/gerber-parser.test.mjs"
             ],
@@ -24195,7 +23687,6 @@
                 "fabrication"
             ],
             "tests": [
-                "tests/api-result-contract-resolver.test.mjs",
                 "tests/gerber-parity.test.mjs",
                 "tests/gerber-parser.test.mjs"
             ],
@@ -24225,7 +23716,6 @@
             "evidenceToken": "layers",
             "evidenceTokens": ["GerberParser", "parseArrayBuffer", "layers"],
             "tests": [
-                "tests/api-result-contract-resolver.test.mjs",
                 "tests/gerber-parity.test.mjs",
                 "tests/gerber-parser.test.mjs"
             ],
@@ -24258,10 +23748,7 @@
                 "parseArrayBuffer",
                 "attributes"
             ],
-            "tests": [
-                "tests/api-result-contract-resolver.test.mjs",
-                "tests/gerber-parity.test.mjs"
-            ],
+            "tests": ["tests/gerber-parity.test.mjs"],
             "documentation": ["docs/api.md", "docs/model-format.md"]
         },
         {
@@ -24345,10 +23832,7 @@
             "reason": "The canonical parser envelope is shared while lossless CAM facts remain Gerber-native.",
             "evidenceToken": "object",
             "evidenceTokens": ["GerberParser", "parseArrayBuffer", "object"],
-            "tests": [
-                "tests/api-result-contract-resolver.test.mjs",
-                "tests/gerber-parity.test.mjs"
-            ],
+            "tests": ["tests/gerber-parity.test.mjs"],
             "documentation": ["docs/api.md", "docs/model-format.md"]
         },
         {
@@ -24463,7 +23947,6 @@
             "evidenceToken": "drills",
             "evidenceTokens": ["GerberParser", "parseArrayBuffer", "drills"],
             "tests": [
-                "tests/api-result-contract-resolver.test.mjs",
                 "tests/gerber-parity.test.mjs",
                 "tests/gerber-parser.test.mjs"
             ],
@@ -24493,7 +23976,6 @@
             "evidenceToken": "diameter",
             "evidenceTokens": ["GerberParser", "parseArrayBuffer", "diameter"],
             "tests": [
-                "tests/api-result-contract-resolver.test.mjs",
                 "tests/gerber-parity.test.mjs",
                 "tests/gerber-parser.test.mjs"
             ],
@@ -24581,7 +24063,6 @@
             "evidenceToken": "type",
             "evidenceTokens": ["GerberParser", "parseArrayBuffer", "type"],
             "tests": [
-                "tests/api-result-contract-resolver.test.mjs",
                 "tests/gerber-parity.test.mjs",
                 "tests/gerber-parser.test.mjs"
             ],
@@ -24611,7 +24092,6 @@
             "evidenceToken": "x",
             "evidenceTokens": ["GerberParser", "parseArrayBuffer", "x"],
             "tests": [
-                "tests/api-result-contract-resolver.test.mjs",
                 "tests/gerber-parity.test.mjs",
                 "tests/gerber-parser.test.mjs"
             ],
@@ -24699,7 +24179,6 @@
             "evidenceToken": "y",
             "evidenceTokens": ["GerberParser", "parseArrayBuffer", "y"],
             "tests": [
-                "tests/api-result-contract-resolver.test.mjs",
                 "tests/gerber-parity.test.mjs",
                 "tests/gerber-parser.test.mjs"
             ],
@@ -24729,7 +24208,6 @@
             "evidenceToken": "y1",
             "evidenceTokens": ["GerberParser", "parseArrayBuffer", "y1"],
             "tests": [
-                "tests/api-result-contract-resolver.test.mjs",
                 "tests/gerber-parity.test.mjs",
                 "tests/gerber-parser.test.mjs"
             ],
@@ -24817,7 +24295,6 @@
             "evidenceToken": "id",
             "evidenceTokens": ["GerberParser", "parseArrayBuffer", "id"],
             "tests": [
-                "tests/api-result-contract-resolver.test.mjs",
                 "tests/gerber-parity.test.mjs",
                 "tests/gerber-parser.test.mjs"
             ],
@@ -24881,7 +24358,6 @@
                 "primitives"
             ],
             "tests": [
-                "tests/api-result-contract-resolver.test.mjs",
                 "tests/gerber-parity.test.mjs",
                 "tests/gerber-parser.test.mjs"
             ],
@@ -24914,10 +24390,7 @@
                 "parseArrayBuffer",
                 "attributes"
             ],
-            "tests": [
-                "tests/api-result-contract-resolver.test.mjs",
-                "tests/gerber-parity.test.mjs"
-            ],
+            "tests": ["tests/gerber-parity.test.mjs"],
             "documentation": ["docs/api.md", "docs/model-format.md"]
         },
         {
@@ -25001,10 +24474,7 @@
             "reason": "The canonical parser envelope is shared while lossless CAM facts remain Gerber-native.",
             "evidenceToken": "object",
             "evidenceTokens": ["GerberParser", "parseArrayBuffer", "object"],
-            "tests": [
-                "tests/api-result-contract-resolver.test.mjs",
-                "tests/gerber-parity.test.mjs"
-            ],
+            "tests": ["tests/gerber-parity.test.mjs"],
             "documentation": ["docs/api.md", "docs/model-format.md"]
         },
         {
@@ -25031,7 +24501,6 @@
             "evidenceToken": "diameter",
             "evidenceTokens": ["GerberParser", "parseArrayBuffer", "diameter"],
             "tests": [
-                "tests/api-result-contract-resolver.test.mjs",
                 "tests/gerber-parity.test.mjs",
                 "tests/gerber-parser.test.mjs"
             ],
@@ -25090,7 +24559,6 @@
             "evidenceToken": "i",
             "evidenceTokens": ["GerberParser", "parseArrayBuffer", "i"],
             "tests": [
-                "tests/api-result-contract-resolver.test.mjs",
                 "tests/gerber-parity.test.mjs",
                 "tests/gerber-parser.test.mjs"
             ],
@@ -25120,7 +24588,6 @@
             "evidenceToken": "j",
             "evidenceTokens": ["GerberParser", "parseArrayBuffer", "j"],
             "tests": [
-                "tests/api-result-contract-resolver.test.mjs",
                 "tests/gerber-parity.test.mjs",
                 "tests/gerber-parser.test.mjs"
             ],
@@ -25202,7 +24669,6 @@
             "evidenceToken": "x",
             "evidenceTokens": ["GerberParser", "parseArrayBuffer", "x"],
             "tests": [
-                "tests/api-result-contract-resolver.test.mjs",
                 "tests/gerber-parity.test.mjs",
                 "tests/gerber-parser.test.mjs"
             ],
@@ -25232,7 +24698,6 @@
             "evidenceToken": "y",
             "evidenceTokens": ["GerberParser", "parseArrayBuffer", "y"],
             "tests": [
-                "tests/api-result-contract-resolver.test.mjs",
                 "tests/gerber-parity.test.mjs",
                 "tests/gerber-parser.test.mjs"
             ],
@@ -25262,7 +24727,6 @@
             "evidenceToken": "polarity",
             "evidenceTokens": ["GerberParser", "parseArrayBuffer", "polarity"],
             "tests": [
-                "tests/api-result-contract-resolver.test.mjs",
                 "tests/gerber-parity.test.mjs",
                 "tests/gerber-parser.test.mjs"
             ],
@@ -25296,7 +24760,6 @@
                 "primitives"
             ],
             "tests": [
-                "tests/api-result-contract-resolver.test.mjs",
                 "tests/gerber-parity.test.mjs",
                 "tests/gerber-parser.test.mjs"
             ],
@@ -25352,7 +24815,6 @@
             "evidenceToken": "x",
             "evidenceTokens": ["GerberParser", "parseArrayBuffer", "x"],
             "tests": [
-                "tests/api-result-contract-resolver.test.mjs",
                 "tests/gerber-parity.test.mjs",
                 "tests/gerber-parser.test.mjs"
             ],
@@ -25382,7 +24844,6 @@
             "evidenceToken": "y",
             "evidenceTokens": ["GerberParser", "parseArrayBuffer", "y"],
             "tests": [
-                "tests/api-result-contract-resolver.test.mjs",
                 "tests/gerber-parity.test.mjs",
                 "tests/gerber-parser.test.mjs"
             ],
@@ -25416,7 +24877,6 @@
                 "primitives"
             ],
             "tests": [
-                "tests/api-result-contract-resolver.test.mjs",
                 "tests/gerber-parity.test.mjs",
                 "tests/gerber-parser.test.mjs"
             ],
@@ -25472,7 +24932,6 @@
             "evidenceToken": "x",
             "evidenceTokens": ["GerberParser", "parseArrayBuffer", "x"],
             "tests": [
-                "tests/api-result-contract-resolver.test.mjs",
                 "tests/gerber-parity.test.mjs",
                 "tests/gerber-parser.test.mjs"
             ],
@@ -25502,7 +24961,6 @@
             "evidenceToken": "y",
             "evidenceTokens": ["GerberParser", "parseArrayBuffer", "y"],
             "tests": [
-                "tests/api-result-contract-resolver.test.mjs",
                 "tests/gerber-parity.test.mjs",
                 "tests/gerber-parser.test.mjs"
             ],
@@ -25536,7 +24994,6 @@
                 "primitives"
             ],
             "tests": [
-                "tests/api-result-contract-resolver.test.mjs",
                 "tests/gerber-parity.test.mjs",
                 "tests/gerber-parser.test.mjs"
             ],
@@ -25566,7 +25023,6 @@
             "evidenceToken": "x",
             "evidenceTokens": ["GerberParser", "parseArrayBuffer", "x"],
             "tests": [
-                "tests/api-result-contract-resolver.test.mjs",
                 "tests/gerber-parity.test.mjs",
                 "tests/gerber-parser.test.mjs"
             ],
@@ -25654,7 +25110,6 @@
             "evidenceToken": "y",
             "evidenceTokens": ["GerberParser", "parseArrayBuffer", "y"],
             "tests": [
-                "tests/api-result-contract-resolver.test.mjs",
                 "tests/gerber-parity.test.mjs",
                 "tests/gerber-parser.test.mjs"
             ],
@@ -25684,7 +25139,6 @@
             "evidenceToken": "y1",
             "evidenceTokens": ["GerberParser", "parseArrayBuffer", "y1"],
             "tests": [
-                "tests/api-result-contract-resolver.test.mjs",
                 "tests/gerber-parity.test.mjs",
                 "tests/gerber-parser.test.mjs"
             ],
@@ -25743,7 +25197,6 @@
             "evidenceToken": "x",
             "evidenceTokens": ["GerberParser", "parseArrayBuffer", "x"],
             "tests": [
-                "tests/api-result-contract-resolver.test.mjs",
                 "tests/gerber-parity.test.mjs",
                 "tests/gerber-parser.test.mjs"
             ],
@@ -25831,7 +25284,6 @@
             "evidenceToken": "y",
             "evidenceTokens": ["GerberParser", "parseArrayBuffer", "y"],
             "tests": [
-                "tests/api-result-contract-resolver.test.mjs",
                 "tests/gerber-parity.test.mjs",
                 "tests/gerber-parser.test.mjs"
             ],
@@ -25861,7 +25313,6 @@
             "evidenceToken": "y1",
             "evidenceTokens": ["GerberParser", "parseArrayBuffer", "y1"],
             "tests": [
-                "tests/api-result-contract-resolver.test.mjs",
                 "tests/gerber-parity.test.mjs",
                 "tests/gerber-parser.test.mjs"
             ],
@@ -25946,7 +25397,6 @@
             "evidenceToken": "shape",
             "evidenceTokens": ["GerberParser", "parseArrayBuffer", "shape"],
             "tests": [
-                "tests/api-result-contract-resolver.test.mjs",
                 "tests/gerber-parity.test.mjs",
                 "tests/gerber-parser.test.mjs"
             ],
@@ -26080,7 +25530,6 @@
             "evidenceToken": "type",
             "evidenceTokens": ["GerberParser", "parseArrayBuffer", "type"],
             "tests": [
-                "tests/api-result-contract-resolver.test.mjs",
                 "tests/gerber-parity.test.mjs",
                 "tests/gerber-parser.test.mjs"
             ],
@@ -26110,7 +25559,6 @@
             "evidenceToken": "width",
             "evidenceTokens": ["GerberParser", "parseArrayBuffer", "width"],
             "tests": [
-                "tests/api-result-contract-resolver.test.mjs",
                 "tests/gerber-parity.test.mjs",
                 "tests/gerber-parser.test.mjs"
             ],
@@ -26140,7 +25588,6 @@
             "evidenceToken": "x",
             "evidenceTokens": ["GerberParser", "parseArrayBuffer", "x"],
             "tests": [
-                "tests/api-result-contract-resolver.test.mjs",
                 "tests/gerber-parity.test.mjs",
                 "tests/gerber-parser.test.mjs"
             ],
@@ -26228,7 +25675,6 @@
             "evidenceToken": "y",
             "evidenceTokens": ["GerberParser", "parseArrayBuffer", "y"],
             "tests": [
-                "tests/api-result-contract-resolver.test.mjs",
                 "tests/gerber-parity.test.mjs",
                 "tests/gerber-parser.test.mjs"
             ],
@@ -26258,7 +25704,6 @@
             "evidenceToken": "y1",
             "evidenceTokens": ["GerberParser", "parseArrayBuffer", "y1"],
             "tests": [
-                "tests/api-result-contract-resolver.test.mjs",
                 "tests/gerber-parity.test.mjs",
                 "tests/gerber-parser.test.mjs"
             ],
@@ -29626,7 +29071,6 @@
             "evidenceToken": "PcbScene3dBuilder",
             "evidenceTokens": ["PcbScene3dBuilder"],
             "tests": [
-                "tests/api-result-contract-resolver.test.mjs",
                 "tests/gerber-scene3d.test.mjs",
                 "tests/package-layout.test.mjs"
             ],
@@ -29671,10 +29115,7 @@
             "reason": "Bare-board scene data uses the common facade without inventing fabrication semantics.",
             "evidenceToken": "build",
             "evidenceTokens": ["PcbScene3dBuilder", "build"],
-            "tests": [
-                "tests/api-result-contract-resolver.test.mjs",
-                "tests/gerber-scene3d.test.mjs"
-            ],
+            "tests": ["tests/gerber-scene3d.test.mjs"],
             "documentation": ["docs/api.md", "docs/model-format.md"]
         },
         {
@@ -29704,10 +29145,7 @@
             "reason": "Bare-board scene data uses the common facade without inventing fabrication semantics.",
             "evidenceToken": "build",
             "evidenceTokens": ["PcbScene3dBuilder", "build"],
-            "tests": [
-                "tests/api-result-contract-resolver.test.mjs",
-                "tests/gerber-scene3d.test.mjs"
-            ],
+            "tests": ["tests/gerber-scene3d.test.mjs"],
             "documentation": ["docs/api.md", "docs/model-format.md"]
         },
         {
@@ -29737,10 +29175,7 @@
             "reason": "Bare-board scene data uses the common facade without inventing fabrication semantics.",
             "evidenceToken": "build",
             "evidenceTokens": ["PcbScene3dBuilder", "build"],
-            "tests": [
-                "tests/api-result-contract-resolver.test.mjs",
-                "tests/gerber-scene3d.test.mjs"
-            ],
+            "tests": ["tests/gerber-scene3d.test.mjs"],
             "documentation": ["docs/api.md", "docs/model-format.md"]
         },
         {
@@ -29927,10 +29362,7 @@
             "reason": "Bare-board scene data uses the common facade without inventing fabrication semantics.",
             "evidenceToken": "layerId",
             "evidenceTokens": ["PcbScene3dBuilder", "build", "layerId"],
-            "tests": [
-                "tests/api-result-contract-resolver.test.mjs",
-                "tests/gerber-scene3d.test.mjs"
-            ],
+            "tests": ["tests/gerber-scene3d.test.mjs"],
             "documentation": ["docs/api.md", "docs/model-format.md"]
         },
         {
@@ -29982,10 +29414,7 @@
             "reason": "Bare-board scene data uses the common facade without inventing fabrication semantics.",
             "evidenceToken": "type",
             "evidenceTokens": ["PcbScene3dBuilder", "build", "type"],
-            "tests": [
-                "tests/api-result-contract-resolver.test.mjs",
-                "tests/gerber-scene3d.test.mjs"
-            ],
+            "tests": ["tests/gerber-scene3d.test.mjs"],
             "documentation": ["docs/api.md", "docs/model-format.md"]
         },
         {
@@ -30011,10 +29440,7 @@
             "reason": "Bare-board scene data uses the common facade without inventing fabrication semantics.",
             "evidenceToken": "width",
             "evidenceTokens": ["PcbScene3dBuilder", "build", "width"],
-            "tests": [
-                "tests/api-result-contract-resolver.test.mjs",
-                "tests/gerber-scene3d.test.mjs"
-            ],
+            "tests": ["tests/gerber-scene3d.test.mjs"],
             "documentation": ["docs/api.md", "docs/model-format.md"]
         },
         {
@@ -30040,10 +29466,7 @@
             "reason": "Bare-board scene data uses the common facade without inventing fabrication semantics.",
             "evidenceToken": "x",
             "evidenceTokens": ["PcbScene3dBuilder", "build", "x"],
-            "tests": [
-                "tests/api-result-contract-resolver.test.mjs",
-                "tests/gerber-scene3d.test.mjs"
-            ],
+            "tests": ["tests/gerber-scene3d.test.mjs"],
             "documentation": ["docs/api.md", "docs/model-format.md"]
         },
         {
@@ -30121,10 +29544,7 @@
             "reason": "Bare-board scene data uses the common facade without inventing fabrication semantics.",
             "evidenceToken": "y",
             "evidenceTokens": ["PcbScene3dBuilder", "build", "y"],
-            "tests": [
-                "tests/api-result-contract-resolver.test.mjs",
-                "tests/gerber-scene3d.test.mjs"
-            ],
+            "tests": ["tests/gerber-scene3d.test.mjs"],
             "documentation": ["docs/api.md", "docs/model-format.md"]
         },
         {
@@ -30150,10 +29570,7 @@
             "reason": "Bare-board scene data uses the common facade without inventing fabrication semantics.",
             "evidenceToken": "y1",
             "evidenceTokens": ["PcbScene3dBuilder", "build", "y1"],
-            "tests": [
-                "tests/api-result-contract-resolver.test.mjs",
-                "tests/gerber-scene3d.test.mjs"
-            ],
+            "tests": ["tests/gerber-scene3d.test.mjs"],
             "documentation": ["docs/api.md", "docs/model-format.md"]
         },
         {
@@ -30309,10 +29726,7 @@
             "reason": "Bare-board scene data uses the common facade without inventing fabrication semantics.",
             "evidenceToken": "layerId",
             "evidenceTokens": ["PcbScene3dBuilder", "build", "layerId"],
-            "tests": [
-                "tests/api-result-contract-resolver.test.mjs",
-                "tests/gerber-scene3d.test.mjs"
-            ],
+            "tests": ["tests/gerber-scene3d.test.mjs"],
             "documentation": ["docs/api.md", "docs/model-format.md"]
         },
         {
@@ -30364,10 +29778,7 @@
             "reason": "Bare-board scene data uses the common facade without inventing fabrication semantics.",
             "evidenceToken": "type",
             "evidenceTokens": ["PcbScene3dBuilder", "build", "type"],
-            "tests": [
-                "tests/api-result-contract-resolver.test.mjs",
-                "tests/gerber-scene3d.test.mjs"
-            ],
+            "tests": ["tests/gerber-scene3d.test.mjs"],
             "documentation": ["docs/api.md", "docs/model-format.md"]
         },
         {
@@ -30393,10 +29804,7 @@
             "reason": "Bare-board scene data uses the common facade without inventing fabrication semantics.",
             "evidenceToken": "width",
             "evidenceTokens": ["PcbScene3dBuilder", "build", "width"],
-            "tests": [
-                "tests/api-result-contract-resolver.test.mjs",
-                "tests/gerber-scene3d.test.mjs"
-            ],
+            "tests": ["tests/gerber-scene3d.test.mjs"],
             "documentation": ["docs/api.md", "docs/model-format.md"]
         },
         {
@@ -30422,10 +29830,7 @@
             "reason": "Bare-board scene data uses the common facade without inventing fabrication semantics.",
             "evidenceToken": "x",
             "evidenceTokens": ["PcbScene3dBuilder", "build", "x"],
-            "tests": [
-                "tests/api-result-contract-resolver.test.mjs",
-                "tests/gerber-scene3d.test.mjs"
-            ],
+            "tests": ["tests/gerber-scene3d.test.mjs"],
             "documentation": ["docs/api.md", "docs/model-format.md"]
         },
         {
@@ -30503,10 +29908,7 @@
             "reason": "Bare-board scene data uses the common facade without inventing fabrication semantics.",
             "evidenceToken": "y",
             "evidenceTokens": ["PcbScene3dBuilder", "build", "y"],
-            "tests": [
-                "tests/api-result-contract-resolver.test.mjs",
-                "tests/gerber-scene3d.test.mjs"
-            ],
+            "tests": ["tests/gerber-scene3d.test.mjs"],
             "documentation": ["docs/api.md", "docs/model-format.md"]
         },
         {
@@ -30532,10 +29934,7 @@
             "reason": "Bare-board scene data uses the common facade without inventing fabrication semantics.",
             "evidenceToken": "y1",
             "evidenceTokens": ["PcbScene3dBuilder", "build", "y1"],
-            "tests": [
-                "tests/api-result-contract-resolver.test.mjs",
-                "tests/gerber-scene3d.test.mjs"
-            ],
+            "tests": ["tests/gerber-scene3d.test.mjs"],
             "documentation": ["docs/api.md", "docs/model-format.md"]
         },
         {
@@ -30725,10 +30124,7 @@
             "reason": "Bare-board scene data uses the common facade without inventing fabrication semantics.",
             "evidenceToken": "detail",
             "evidenceTokens": ["PcbScene3dBuilder", "build", "detail"],
-            "tests": [
-                "tests/api-result-contract-resolver.test.mjs",
-                "tests/gerber-scene3d.test.mjs"
-            ],
+            "tests": ["tests/gerber-scene3d.test.mjs"],
             "documentation": ["docs/api.md", "docs/model-format.md"]
         },
         {
@@ -30780,10 +30176,7 @@
             "reason": "Bare-board scene data uses the common facade without inventing fabrication semantics.",
             "evidenceToken": "layerId",
             "evidenceTokens": ["PcbScene3dBuilder", "build", "layerId"],
-            "tests": [
-                "tests/api-result-contract-resolver.test.mjs",
-                "tests/gerber-scene3d.test.mjs"
-            ],
+            "tests": ["tests/gerber-scene3d.test.mjs"],
             "documentation": ["docs/api.md", "docs/model-format.md"]
         },
         {
@@ -30835,10 +30228,7 @@
             "reason": "Bare-board scene data uses the common facade without inventing fabrication semantics.",
             "evidenceToken": "type",
             "evidenceTokens": ["PcbScene3dBuilder", "build", "type"],
-            "tests": [
-                "tests/api-result-contract-resolver.test.mjs",
-                "tests/gerber-scene3d.test.mjs"
-            ],
+            "tests": ["tests/gerber-scene3d.test.mjs"],
             "documentation": ["docs/api.md", "docs/model-format.md"]
         },
         {
@@ -30864,10 +30254,7 @@
             "reason": "Bare-board scene data uses the common facade without inventing fabrication semantics.",
             "evidenceToken": "width",
             "evidenceTokens": ["PcbScene3dBuilder", "build", "width"],
-            "tests": [
-                "tests/api-result-contract-resolver.test.mjs",
-                "tests/gerber-scene3d.test.mjs"
-            ],
+            "tests": ["tests/gerber-scene3d.test.mjs"],
             "documentation": ["docs/api.md", "docs/model-format.md"]
         },
         {
@@ -30893,10 +30280,7 @@
             "reason": "Bare-board scene data uses the common facade without inventing fabrication semantics.",
             "evidenceToken": "x",
             "evidenceTokens": ["PcbScene3dBuilder", "build", "x"],
-            "tests": [
-                "tests/api-result-contract-resolver.test.mjs",
-                "tests/gerber-scene3d.test.mjs"
-            ],
+            "tests": ["tests/gerber-scene3d.test.mjs"],
             "documentation": ["docs/api.md", "docs/model-format.md"]
         },
         {
@@ -30974,10 +30358,7 @@
             "reason": "Bare-board scene data uses the common facade without inventing fabrication semantics.",
             "evidenceToken": "y",
             "evidenceTokens": ["PcbScene3dBuilder", "build", "y"],
-            "tests": [
-                "tests/api-result-contract-resolver.test.mjs",
-                "tests/gerber-scene3d.test.mjs"
-            ],
+            "tests": ["tests/gerber-scene3d.test.mjs"],
             "documentation": ["docs/api.md", "docs/model-format.md"]
         },
         {
@@ -31003,10 +30384,7 @@
             "reason": "Bare-board scene data uses the common facade without inventing fabrication semantics.",
             "evidenceToken": "y1",
             "evidenceTokens": ["PcbScene3dBuilder", "build", "y1"],
-            "tests": [
-                "tests/api-result-contract-resolver.test.mjs",
-                "tests/gerber-scene3d.test.mjs"
-            ],
+            "tests": ["tests/gerber-scene3d.test.mjs"],
             "documentation": ["docs/api.md", "docs/model-format.md"]
         },
         {
@@ -31322,10 +30700,7 @@
             "reason": "Bare-board scene data uses the common facade without inventing fabrication semantics.",
             "evidenceToken": "x",
             "evidenceTokens": ["PcbScene3dBuilder", "build", "x"],
-            "tests": [
-                "tests/api-result-contract-resolver.test.mjs",
-                "tests/gerber-scene3d.test.mjs"
-            ],
+            "tests": ["tests/gerber-scene3d.test.mjs"],
             "documentation": ["docs/api.md", "docs/model-format.md"]
         },
         {
@@ -31351,10 +30726,7 @@
             "reason": "Bare-board scene data uses the common facade without inventing fabrication semantics.",
             "evidenceToken": "y",
             "evidenceTokens": ["PcbScene3dBuilder", "build", "y"],
-            "tests": [
-                "tests/api-result-contract-resolver.test.mjs",
-                "tests/gerber-scene3d.test.mjs"
-            ],
+            "tests": ["tests/gerber-scene3d.test.mjs"],
             "documentation": ["docs/api.md", "docs/model-format.md"]
         },
         {
@@ -31432,10 +30804,7 @@
             "reason": "Bare-board scene data uses the common facade without inventing fabrication semantics.",
             "evidenceToken": "layerId",
             "evidenceTokens": ["PcbScene3dBuilder", "build", "layerId"],
-            "tests": [
-                "tests/api-result-contract-resolver.test.mjs",
-                "tests/gerber-scene3d.test.mjs"
-            ],
+            "tests": ["tests/gerber-scene3d.test.mjs"],
             "documentation": ["docs/api.md", "docs/model-format.md"]
         },
         {
@@ -31487,10 +30856,7 @@
             "reason": "Bare-board scene data uses the common facade without inventing fabrication semantics.",
             "evidenceToken": "layerId",
             "evidenceTokens": ["PcbScene3dBuilder", "build", "layerId"],
-            "tests": [
-                "tests/api-result-contract-resolver.test.mjs",
-                "tests/gerber-scene3d.test.mjs"
-            ],
+            "tests": ["tests/gerber-scene3d.test.mjs"],
             "documentation": ["docs/api.md", "docs/model-format.md"]
         },
         {
@@ -31542,10 +30908,7 @@
             "reason": "Bare-board scene data uses the common facade without inventing fabrication semantics.",
             "evidenceToken": "type",
             "evidenceTokens": ["PcbScene3dBuilder", "build", "type"],
-            "tests": [
-                "tests/api-result-contract-resolver.test.mjs",
-                "tests/gerber-scene3d.test.mjs"
-            ],
+            "tests": ["tests/gerber-scene3d.test.mjs"],
             "documentation": ["docs/api.md", "docs/model-format.md"]
         },
         {
@@ -31571,10 +30934,7 @@
             "reason": "Bare-board scene data uses the common facade without inventing fabrication semantics.",
             "evidenceToken": "width",
             "evidenceTokens": ["PcbScene3dBuilder", "build", "width"],
-            "tests": [
-                "tests/api-result-contract-resolver.test.mjs",
-                "tests/gerber-scene3d.test.mjs"
-            ],
+            "tests": ["tests/gerber-scene3d.test.mjs"],
             "documentation": ["docs/api.md", "docs/model-format.md"]
         },
         {
@@ -31600,10 +30960,7 @@
             "reason": "Bare-board scene data uses the common facade without inventing fabrication semantics.",
             "evidenceToken": "x",
             "evidenceTokens": ["PcbScene3dBuilder", "build", "x"],
-            "tests": [
-                "tests/api-result-contract-resolver.test.mjs",
-                "tests/gerber-scene3d.test.mjs"
-            ],
+            "tests": ["tests/gerber-scene3d.test.mjs"],
             "documentation": ["docs/api.md", "docs/model-format.md"]
         },
         {
@@ -31681,10 +31038,7 @@
             "reason": "Bare-board scene data uses the common facade without inventing fabrication semantics.",
             "evidenceToken": "y",
             "evidenceTokens": ["PcbScene3dBuilder", "build", "y"],
-            "tests": [
-                "tests/api-result-contract-resolver.test.mjs",
-                "tests/gerber-scene3d.test.mjs"
-            ],
+            "tests": ["tests/gerber-scene3d.test.mjs"],
             "documentation": ["docs/api.md", "docs/model-format.md"]
         },
         {
@@ -31710,10 +31064,7 @@
             "reason": "Bare-board scene data uses the common facade without inventing fabrication semantics.",
             "evidenceToken": "y1",
             "evidenceTokens": ["PcbScene3dBuilder", "build", "y1"],
-            "tests": [
-                "tests/api-result-contract-resolver.test.mjs",
-                "tests/gerber-scene3d.test.mjs"
-            ],
+            "tests": ["tests/gerber-scene3d.test.mjs"],
             "documentation": ["docs/api.md", "docs/model-format.md"]
         },
         {
@@ -31765,10 +31116,7 @@
             "reason": "Bare-board scene data uses the common facade without inventing fabrication semantics.",
             "evidenceToken": "type",
             "evidenceTokens": ["PcbScene3dBuilder", "build", "type"],
-            "tests": [
-                "tests/api-result-contract-resolver.test.mjs",
-                "tests/gerber-scene3d.test.mjs"
-            ],
+            "tests": ["tests/gerber-scene3d.test.mjs"],
             "documentation": ["docs/api.md", "docs/model-format.md"]
         },
         {
@@ -31898,10 +31246,7 @@
             "reason": "Bare-board scene data uses the common facade without inventing fabrication semantics.",
             "evidenceToken": "x",
             "evidenceTokens": ["PcbScene3dBuilder", "build", "x"],
-            "tests": [
-                "tests/api-result-contract-resolver.test.mjs",
-                "tests/gerber-scene3d.test.mjs"
-            ],
+            "tests": ["tests/gerber-scene3d.test.mjs"],
             "documentation": ["docs/api.md", "docs/model-format.md"]
         },
         {
@@ -31927,10 +31272,7 @@
             "reason": "Bare-board scene data uses the common facade without inventing fabrication semantics.",
             "evidenceToken": "y",
             "evidenceTokens": ["PcbScene3dBuilder", "build", "y"],
-            "tests": [
-                "tests/api-result-contract-resolver.test.mjs",
-                "tests/gerber-scene3d.test.mjs"
-            ],
+            "tests": ["tests/gerber-scene3d.test.mjs"],
             "documentation": ["docs/api.md", "docs/model-format.md"]
         },
         {
@@ -32060,10 +31402,7 @@
             "reason": "Bare-board scene data uses the common facade without inventing fabrication semantics.",
             "evidenceToken": "tracks",
             "evidenceTokens": ["PcbScene3dBuilder", "build", "tracks"],
-            "tests": [
-                "tests/api-result-contract-resolver.test.mjs",
-                "tests/gerber-scene3d.test.mjs"
-            ],
+            "tests": ["tests/gerber-scene3d.test.mjs"],
             "documentation": ["docs/api.md", "docs/model-format.md"]
         },
         {
@@ -32167,10 +31506,7 @@
             "reason": "Bare-board scene data uses the common facade without inventing fabrication semantics.",
             "evidenceToken": "x",
             "evidenceTokens": ["PcbScene3dBuilder", "build", "x"],
-            "tests": [
-                "tests/api-result-contract-resolver.test.mjs",
-                "tests/gerber-scene3d.test.mjs"
-            ],
+            "tests": ["tests/gerber-scene3d.test.mjs"],
             "documentation": ["docs/api.md", "docs/model-format.md"]
         },
         {
@@ -32196,10 +31532,7 @@
             "reason": "Bare-board scene data uses the common facade without inventing fabrication semantics.",
             "evidenceToken": "y",
             "evidenceTokens": ["PcbScene3dBuilder", "build", "y"],
-            "tests": [
-                "tests/api-result-contract-resolver.test.mjs",
-                "tests/gerber-scene3d.test.mjs"
-            ],
+            "tests": ["tests/gerber-scene3d.test.mjs"],
             "documentation": ["docs/api.md", "docs/model-format.md"]
         },
         {
@@ -32329,10 +31662,7 @@
             "reason": "Bare-board scene data uses the common facade without inventing fabrication semantics.",
             "evidenceToken": "tracks",
             "evidenceTokens": ["PcbScene3dBuilder", "build", "tracks"],
-            "tests": [
-                "tests/api-result-contract-resolver.test.mjs",
-                "tests/gerber-scene3d.test.mjs"
-            ],
+            "tests": ["tests/gerber-scene3d.test.mjs"],
             "documentation": ["docs/api.md", "docs/model-format.md"]
         },
         {
@@ -32358,10 +31688,7 @@
             "reason": "Bare-board scene data uses the common facade without inventing fabrication semantics.",
             "evidenceToken": "tracks",
             "evidenceTokens": ["PcbScene3dBuilder", "build", "tracks"],
-            "tests": [
-                "tests/api-result-contract-resolver.test.mjs",
-                "tests/gerber-scene3d.test.mjs"
-            ],
+            "tests": ["tests/gerber-scene3d.test.mjs"],
             "documentation": ["docs/api.md", "docs/model-format.md"]
         },
         {
@@ -32387,10 +31714,7 @@
             "reason": "Bare-board scene data uses the common facade without inventing fabrication semantics.",
             "evidenceToken": "layerId",
             "evidenceTokens": ["PcbScene3dBuilder", "build", "layerId"],
-            "tests": [
-                "tests/api-result-contract-resolver.test.mjs",
-                "tests/gerber-scene3d.test.mjs"
-            ],
+            "tests": ["tests/gerber-scene3d.test.mjs"],
             "documentation": ["docs/api.md", "docs/model-format.md"]
         },
         {
@@ -32442,10 +31766,7 @@
             "reason": "Bare-board scene data uses the common facade without inventing fabrication semantics.",
             "evidenceToken": "type",
             "evidenceTokens": ["PcbScene3dBuilder", "build", "type"],
-            "tests": [
-                "tests/api-result-contract-resolver.test.mjs",
-                "tests/gerber-scene3d.test.mjs"
-            ],
+            "tests": ["tests/gerber-scene3d.test.mjs"],
             "documentation": ["docs/api.md", "docs/model-format.md"]
         },
         {
@@ -32471,10 +31792,7 @@
             "reason": "Bare-board scene data uses the common facade without inventing fabrication semantics.",
             "evidenceToken": "width",
             "evidenceTokens": ["PcbScene3dBuilder", "build", "width"],
-            "tests": [
-                "tests/api-result-contract-resolver.test.mjs",
-                "tests/gerber-scene3d.test.mjs"
-            ],
+            "tests": ["tests/gerber-scene3d.test.mjs"],
             "documentation": ["docs/api.md", "docs/model-format.md"]
         },
         {
@@ -32500,10 +31818,7 @@
             "reason": "Bare-board scene data uses the common facade without inventing fabrication semantics.",
             "evidenceToken": "x",
             "evidenceTokens": ["PcbScene3dBuilder", "build", "x"],
-            "tests": [
-                "tests/api-result-contract-resolver.test.mjs",
-                "tests/gerber-scene3d.test.mjs"
-            ],
+            "tests": ["tests/gerber-scene3d.test.mjs"],
             "documentation": ["docs/api.md", "docs/model-format.md"]
         },
         {
@@ -32581,10 +31896,7 @@
             "reason": "Bare-board scene data uses the common facade without inventing fabrication semantics.",
             "evidenceToken": "y",
             "evidenceTokens": ["PcbScene3dBuilder", "build", "y"],
-            "tests": [
-                "tests/api-result-contract-resolver.test.mjs",
-                "tests/gerber-scene3d.test.mjs"
-            ],
+            "tests": ["tests/gerber-scene3d.test.mjs"],
             "documentation": ["docs/api.md", "docs/model-format.md"]
         },
         {
@@ -32610,10 +31922,7 @@
             "reason": "Bare-board scene data uses the common facade without inventing fabrication semantics.",
             "evidenceToken": "y1",
             "evidenceTokens": ["PcbScene3dBuilder", "build", "y1"],
-            "tests": [
-                "tests/api-result-contract-resolver.test.mjs",
-                "tests/gerber-scene3d.test.mjs"
-            ],
+            "tests": ["tests/gerber-scene3d.test.mjs"],
             "documentation": ["docs/api.md", "docs/model-format.md"]
         },
         {
@@ -32747,10 +32056,7 @@
             "reason": "Bare-board scene data uses the common facade without inventing fabrication semantics.",
             "evidenceToken": "layers",
             "evidenceTokens": ["PcbScene3dBuilder", "build", "layers"],
-            "tests": [
-                "tests/api-result-contract-resolver.test.mjs",
-                "tests/gerber-scene3d.test.mjs"
-            ],
+            "tests": ["tests/gerber-scene3d.test.mjs"],
             "documentation": ["docs/api.md", "docs/model-format.md"]
         },
         {
@@ -32802,10 +32108,7 @@
             "reason": "Bare-board scene data uses the common facade without inventing fabrication semantics.",
             "evidenceToken": "id",
             "evidenceTokens": ["PcbScene3dBuilder", "build", "id"],
-            "tests": [
-                "tests/api-result-contract-resolver.test.mjs",
-                "tests/gerber-scene3d.test.mjs"
-            ],
+            "tests": ["tests/gerber-scene3d.test.mjs"],
             "documentation": ["docs/api.md", "docs/model-format.md"]
         },
         {
@@ -33095,10 +32398,7 @@
             "reason": "Bare-board scene data uses the common facade without inventing fabrication semantics.",
             "evidenceToken": "x",
             "evidenceTokens": ["PcbScene3dBuilder", "build", "x"],
-            "tests": [
-                "tests/api-result-contract-resolver.test.mjs",
-                "tests/gerber-scene3d.test.mjs"
-            ],
+            "tests": ["tests/gerber-scene3d.test.mjs"],
             "documentation": ["docs/api.md", "docs/model-format.md"]
         },
         {
@@ -33124,10 +32424,7 @@
             "reason": "Bare-board scene data uses the common facade without inventing fabrication semantics.",
             "evidenceToken": "y",
             "evidenceTokens": ["PcbScene3dBuilder", "build", "y"],
-            "tests": [
-                "tests/api-result-contract-resolver.test.mjs",
-                "tests/gerber-scene3d.test.mjs"
-            ],
+            "tests": ["tests/gerber-scene3d.test.mjs"],
             "documentation": ["docs/api.md", "docs/model-format.md"]
         },
         {
@@ -33205,10 +32502,7 @@
             "reason": "Bare-board scene data uses the common facade without inventing fabrication semantics.",
             "evidenceToken": "tracks",
             "evidenceTokens": ["PcbScene3dBuilder", "build", "tracks"],
-            "tests": [
-                "tests/api-result-contract-resolver.test.mjs",
-                "tests/gerber-scene3d.test.mjs"
-            ],
+            "tests": ["tests/gerber-scene3d.test.mjs"],
             "documentation": ["docs/api.md", "docs/model-format.md"]
         },
         {
@@ -33234,10 +32528,7 @@
             "reason": "Bare-board scene data uses the common facade without inventing fabrication semantics.",
             "evidenceToken": "layerId",
             "evidenceTokens": ["PcbScene3dBuilder", "build", "layerId"],
-            "tests": [
-                "tests/api-result-contract-resolver.test.mjs",
-                "tests/gerber-scene3d.test.mjs"
-            ],
+            "tests": ["tests/gerber-scene3d.test.mjs"],
             "documentation": ["docs/api.md", "docs/model-format.md"]
         },
         {
@@ -33289,10 +32580,7 @@
             "reason": "Bare-board scene data uses the common facade without inventing fabrication semantics.",
             "evidenceToken": "type",
             "evidenceTokens": ["PcbScene3dBuilder", "build", "type"],
-            "tests": [
-                "tests/api-result-contract-resolver.test.mjs",
-                "tests/gerber-scene3d.test.mjs"
-            ],
+            "tests": ["tests/gerber-scene3d.test.mjs"],
             "documentation": ["docs/api.md", "docs/model-format.md"]
         },
         {
@@ -33318,10 +32606,7 @@
             "reason": "Bare-board scene data uses the common facade without inventing fabrication semantics.",
             "evidenceToken": "width",
             "evidenceTokens": ["PcbScene3dBuilder", "build", "width"],
-            "tests": [
-                "tests/api-result-contract-resolver.test.mjs",
-                "tests/gerber-scene3d.test.mjs"
-            ],
+            "tests": ["tests/gerber-scene3d.test.mjs"],
             "documentation": ["docs/api.md", "docs/model-format.md"]
         },
         {
@@ -33347,10 +32632,7 @@
             "reason": "Bare-board scene data uses the common facade without inventing fabrication semantics.",
             "evidenceToken": "x",
             "evidenceTokens": ["PcbScene3dBuilder", "build", "x"],
-            "tests": [
-                "tests/api-result-contract-resolver.test.mjs",
-                "tests/gerber-scene3d.test.mjs"
-            ],
+            "tests": ["tests/gerber-scene3d.test.mjs"],
             "documentation": ["docs/api.md", "docs/model-format.md"]
         },
         {
@@ -33428,10 +32710,7 @@
             "reason": "Bare-board scene data uses the common facade without inventing fabrication semantics.",
             "evidenceToken": "y",
             "evidenceTokens": ["PcbScene3dBuilder", "build", "y"],
-            "tests": [
-                "tests/api-result-contract-resolver.test.mjs",
-                "tests/gerber-scene3d.test.mjs"
-            ],
+            "tests": ["tests/gerber-scene3d.test.mjs"],
             "documentation": ["docs/api.md", "docs/model-format.md"]
         },
         {
@@ -33457,10 +32736,7 @@
             "reason": "Bare-board scene data uses the common facade without inventing fabrication semantics.",
             "evidenceToken": "y1",
             "evidenceTokens": ["PcbScene3dBuilder", "build", "y1"],
-            "tests": [
-                "tests/api-result-contract-resolver.test.mjs",
-                "tests/gerber-scene3d.test.mjs"
-            ],
+            "tests": ["tests/gerber-scene3d.test.mjs"],
             "documentation": ["docs/api.md", "docs/model-format.md"]
         },
         {
@@ -33590,10 +32866,7 @@
             "reason": "Bare-board scene data uses the common facade without inventing fabrication semantics.",
             "evidenceToken": "layerId",
             "evidenceTokens": ["PcbScene3dBuilder", "build", "layerId"],
-            "tests": [
-                "tests/api-result-contract-resolver.test.mjs",
-                "tests/gerber-scene3d.test.mjs"
-            ],
+            "tests": ["tests/gerber-scene3d.test.mjs"],
             "documentation": ["docs/api.md", "docs/model-format.md"]
         },
         {
@@ -33645,10 +32918,7 @@
             "reason": "Bare-board scene data uses the common facade without inventing fabrication semantics.",
             "evidenceToken": "layerId",
             "evidenceTokens": ["PcbScene3dBuilder", "build", "layerId"],
-            "tests": [
-                "tests/api-result-contract-resolver.test.mjs",
-                "tests/gerber-scene3d.test.mjs"
-            ],
+            "tests": ["tests/gerber-scene3d.test.mjs"],
             "documentation": ["docs/api.md", "docs/model-format.md"]
         },
         {
@@ -33700,10 +32970,7 @@
             "reason": "Bare-board scene data uses the common facade without inventing fabrication semantics.",
             "evidenceToken": "type",
             "evidenceTokens": ["PcbScene3dBuilder", "build", "type"],
-            "tests": [
-                "tests/api-result-contract-resolver.test.mjs",
-                "tests/gerber-scene3d.test.mjs"
-            ],
+            "tests": ["tests/gerber-scene3d.test.mjs"],
             "documentation": ["docs/api.md", "docs/model-format.md"]
         },
         {
@@ -33729,10 +32996,7 @@
             "reason": "Bare-board scene data uses the common facade without inventing fabrication semantics.",
             "evidenceToken": "width",
             "evidenceTokens": ["PcbScene3dBuilder", "build", "width"],
-            "tests": [
-                "tests/api-result-contract-resolver.test.mjs",
-                "tests/gerber-scene3d.test.mjs"
-            ],
+            "tests": ["tests/gerber-scene3d.test.mjs"],
             "documentation": ["docs/api.md", "docs/model-format.md"]
         },
         {
@@ -33758,10 +33022,7 @@
             "reason": "Bare-board scene data uses the common facade without inventing fabrication semantics.",
             "evidenceToken": "x",
             "evidenceTokens": ["PcbScene3dBuilder", "build", "x"],
-            "tests": [
-                "tests/api-result-contract-resolver.test.mjs",
-                "tests/gerber-scene3d.test.mjs"
-            ],
+            "tests": ["tests/gerber-scene3d.test.mjs"],
             "documentation": ["docs/api.md", "docs/model-format.md"]
         },
         {
@@ -33839,10 +33100,7 @@
             "reason": "Bare-board scene data uses the common facade without inventing fabrication semantics.",
             "evidenceToken": "y",
             "evidenceTokens": ["PcbScene3dBuilder", "build", "y"],
-            "tests": [
-                "tests/api-result-contract-resolver.test.mjs",
-                "tests/gerber-scene3d.test.mjs"
-            ],
+            "tests": ["tests/gerber-scene3d.test.mjs"],
             "documentation": ["docs/api.md", "docs/model-format.md"]
         },
         {
@@ -33868,10 +33126,7 @@
             "reason": "Bare-board scene data uses the common facade without inventing fabrication semantics.",
             "evidenceToken": "y1",
             "evidenceTokens": ["PcbScene3dBuilder", "build", "y1"],
-            "tests": [
-                "tests/api-result-contract-resolver.test.mjs",
-                "tests/gerber-scene3d.test.mjs"
-            ],
+            "tests": ["tests/gerber-scene3d.test.mjs"],
             "documentation": ["docs/api.md", "docs/model-format.md"]
         },
         {
@@ -33923,10 +33178,7 @@
             "reason": "Bare-board scene data uses the common facade without inventing fabrication semantics.",
             "evidenceToken": "type",
             "evidenceTokens": ["PcbScene3dBuilder", "build", "type"],
-            "tests": [
-                "tests/api-result-contract-resolver.test.mjs",
-                "tests/gerber-scene3d.test.mjs"
-            ],
+            "tests": ["tests/gerber-scene3d.test.mjs"],
             "documentation": ["docs/api.md", "docs/model-format.md"]
         },
         {
@@ -38549,7 +37801,6 @@
             "reason": "The canonical parser envelope is shared while lossless CAM facts remain Gerber-native.",
             "evidenceTokens": ["GerberParser"],
             "tests": [
-                "tests/api-result-contract-resolver.test.mjs",
                 "tests/gerber-parity.test.mjs",
                 "tests/gerber-parser.test.mjs",
                 "tests/package-layout.test.mjs"
@@ -38576,7 +37827,6 @@
             "reason": "The canonical parser envelope is shared while lossless CAM facts remain Gerber-native.",
             "evidenceTokens": ["GerberParser"],
             "tests": [
-                "tests/api-result-contract-resolver.test.mjs",
                 "tests/gerber-parity.test.mjs",
                 "tests/gerber-parser.test.mjs",
                 "tests/package-layout.test.mjs"
@@ -38654,12 +37904,11 @@
             "reason": "Bare-board scene data uses the common facade without inventing fabrication semantics.",
             "evidenceTokens": ["PcbScene3dBuilder"],
             "tests": [
-                "tests/api-result-contract-resolver.test.mjs",
                 "tests/gerber-scene3d.test.mjs",
                 "tests/package-layout.test.mjs"
             ],
             "documentation": ["docs/api.md", "docs/model-format.md"]
         }
     ],
-    "artifactChecksum": "74c5d4f084416dcef249c48aef2d078676a28d09f7c3a6dc64988cd361707710"
+    "artifactChecksum": "fca007720dcb25f66bd5c975990fb991a7afedf6455a2d1425c720434aef2ea1"
 }
