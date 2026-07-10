@@ -110,6 +110,13 @@ async function captureWithLiveWorktreePoison(canonicalApi) {
             worktree,
             'HEAD'
         ])
+        await writeFile(
+            join(worktree, 'scripts/GerberTask1Provenance.mjs'),
+            await readFile(
+                join(process.cwd(), 'scripts/GerberTask1Provenance.mjs'),
+                'utf8'
+            )
+        )
         await symlink(
             join(process.cwd(), 'node_modules'),
             join(worktree, 'node_modules'),

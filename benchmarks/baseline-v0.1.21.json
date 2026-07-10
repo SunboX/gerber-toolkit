@@ -5,10 +5,10 @@
     "provenance": {
         "sourceCommit": "11ba9df32ce966d6626f99f444909ff6c50d2281",
         "sourceTree": "1b7813598247b9ec3907a9589aefe084e4a448bd",
-        "evidenceCommit": "65e42e5edca8b88cab41f5de33c8348e34f96e5b",
-        "evidenceTree": "ab80b452f402941f2dbc1dcf03328f0106c82a17",
-        "harnessCommit": "65e42e5edca8b88cab41f5de33c8348e34f96e5b",
-        "harnessTree": "ab80b452f402941f2dbc1dcf03328f0106c82a17"
+        "evidenceCommit": "ac06d78ad932743fe043c4039c03e7a1fd0bae95",
+        "evidenceTree": "5ddd15729151d4a8498b62120fc10edc99fa20bc",
+        "harnessCommit": "ac06d78ad932743fe043c4039c03e7a1fd0bae95",
+        "harnessTree": "5ddd15729151d4a8498b62120fc10edc99fa20bc"
     },
     "environment": {
         "node": "v20.17.0",
@@ -17,7 +17,7 @@
         "cpu": "Apple M3 Max",
         "logicalCpuCount": 16
     },
-    "fixtureChecksum": "5a33261b5e3e74067ee36bade5a4ef0b27faea0e62b17fa30cff2dcd70f74b8a",
+    "fixtureChecksum": "a3cf57e52692f16432413b0daef84d3a874a4a4c40fe96d9fea4349de6071090",
     "cases": [
         {
             "id": "archive-parse-projection",
@@ -43,7 +43,7 @@
             "primary": true,
             "size": "large",
             "workload": "mask-drill-interaction",
-            "fixtureChecksum": "40bc6b685109ecf9e14c5d7277471a43aa3b4a12b86bb00b2ef2a3f728f073a1",
+            "fixtureChecksum": "35282613c73c0fdcab38afefebe486f4dbb9b0338ba2674dbb103d5674e98480",
             "warmups": 2,
             "samples": [3.028875, 3.001, 3.034958, 3.022208, 3.029875],
             "medianMilliseconds": 3.028875,
@@ -153,5 +153,5 @@
             "structuralChecksum": "deb0a12d569b8dc6f2eee52772b1623122581c857b94d9636ae05f854b381a90"
         }
     ],
-    "reportChecksum": "bce38727b37790ec6bb5049f769b4c1b518c71e967a5770343f410b13bef93c7"
+    "reportChecksum": "e3c8c19487b657fffa1ff66dc3857e7739275a5c6b124285de32cb84b5cdccd3"
 }
