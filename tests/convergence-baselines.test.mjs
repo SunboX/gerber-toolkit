@@ -1,15 +1,20 @@
 import assert from 'node:assert/strict'
 import { execFile } from 'node:child_process'
 import { createHash } from 'node:crypto'
-import { readFile } from 'node:fs/promises'
+import { mkdtemp, readFile, rm, symlink, writeFile } from 'node:fs/promises'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
+import { pathToFileURL } from 'node:url'
 import test from 'node:test'
 import { promisify } from 'node:util'
 
 import { GerberBenchmarkData } from '../benchmarks/GerberBenchmarkData.mjs'
 import { GerberBenchmarkSuite } from '../benchmarks/GerberBenchmarkSuite.mjs'
 import { GerberLegacyProjectionBenchmarkAdapter } from '../benchmarks/GerberLegacyProjectionBenchmarkAdapter.mjs'
+import { PcbInteractionIndex } from '../src/renderers.mjs'
+import { GerberApiContractInspector } from '../scripts/GerberApiContractInspector.mjs'
 import { captureApiBaseline } from '../scripts/capture-api-baseline.mjs'
-import { compareBenchmarks } from '../scripts/run-benchmarks.mjs'
+import { compareBenchmarks, runBenchmarks } from '../scripts/run-benchmarks.mjs'
 
 const execFileAsync = promisify(execFile)
 
@@ -49,6 +54,112 @@ const EXPECTED_PROJECTION_CHECKSUM =
  */
 async function readJson(path) {
     return JSON.parse(await readFile(path, 'utf8'))
+}
+
+/**
+ * Computes the JSON checksum used by benchmark reports.
+ * @param {unknown} value JSON-shaped value.
+ * @returns {string} SHA-256 checksum.
+ */
+function jsonChecksum(value) {
+    return createHash('sha256').update(JSON.stringify(value)).digest('hex')
+}
+
+/**
+ * Recomputes one benchmark report checksum after a test mutation.
+ * @param {Record<string, any>} report Benchmark report.
+ * @returns {Record<string, any>} Mutated report.
+ */
+function sealBenchmarkReport(report) {
+    const { reportChecksum: ignored, ...body } = report
+    report.reportChecksum = jsonChecksum(body)
+    return report
+}
+
+/**
+ * Builds a semantically valid report that satisfies the timing thresholds.
+ * @param {Record<string, any>} baseline Frozen benchmark report.
+ * @returns {Record<string, any>} Passing comparison candidate.
+ */
+function passingBenchmarkCandidate(baseline) {
+    const current = structuredClone(baseline)
+    for (const row of current.cases) {
+        const factor = row.primary ? 0.75 : 1
+        const sample = Number((row.medianMilliseconds * factor).toFixed(6))
+        row.samples = row.samples.map(() => sample)
+        row.medianMilliseconds = sample
+    }
+    return sealBenchmarkReport(current)
+}
+
+/**
+ * Captures from a disposable worktree after poisoning live harness/evidence.
+ * @param {Record<string, any>} canonicalApi Canonical API baseline.
+ * @returns {Promise<Record<string, any>>} Disposable capture result.
+ */
+async function captureWithLiveWorktreePoison(canonicalApi) {
+    const temporaryRoot = await mkdtemp(
+        join(tmpdir(), 'gerber-baseline-live-poison-')
+    )
+    const worktree = join(temporaryRoot, 'worktree')
+    try {
+        await execFileAsync('git', [
+            'worktree',
+            'add',
+            '--detach',
+            worktree,
+            'HEAD'
+        ])
+        await symlink(
+            join(process.cwd(), 'node_modules'),
+            join(worktree, 'node_modules'),
+            'dir'
+        )
+
+        const inspectorPath = join(
+            worktree,
+            'scripts/GerberApiContractInspector.mjs'
+        )
+        const inspectorSource = await readFile(inspectorPath, 'utf8')
+        await writeFile(
+            inspectorPath,
+            `${inspectorSource}\nconst liveInspect = GerberApiContractInspector.inspect\nGerberApiContractInspector.inspect = (...args) => {\n    const result = liveInspect(...args)\n    return { ...result, features: result.features.slice(0, -1) }\n}\n`
+        )
+
+        const evidenceTokens = [
+            ...new Set(
+                canonicalApi.features.flatMap(
+                    (feature) => feature.evidenceTokens || []
+                )
+            )
+        ]
+        await writeFile(
+            join(worktree, 'tests/live-only-evidence.test.mjs'),
+            `// ${evidenceTokens.join(' ')}\n`
+        )
+
+        const captureUrl = pathToFileURL(
+            join(worktree, 'scripts/capture-api-baseline.mjs')
+        ).href
+        const evaluation = [
+            `import { captureApiBaseline } from ${JSON.stringify(captureUrl)}`,
+            'const result = await captureApiBaseline({ write: false })',
+            'process.stdout.write(JSON.stringify(result))'
+        ].join(';')
+        const { stdout } = await execFileAsync(
+            process.execPath,
+            ['--input-type=module', '--eval', evaluation],
+            { cwd: worktree, maxBuffer: 20 * 1024 * 1024 }
+        )
+        return JSON.parse(stdout)
+    } finally {
+        await execFileAsync(
+            'git',
+            ['worktree', 'remove', '--force', worktree],
+            { cwd: process.cwd() }
+        ).catch(() => {})
+        await rm(temporaryRoot, { recursive: true, force: true })
+    }
 }
 
 test('Gerber synthetic benchmark catalog is deterministic and semantics-bearing', () => {
@@ -120,6 +231,121 @@ test('Gerber benchmark comparison rejects missing and structurally divergent wor
     )
 })
 
+test('Gerber benchmark comparison gates exact metadata, configuration, samples, and checksums', async () => {
+    const baseline = await readJson('benchmarks/baseline-v0.1.21.json')
+    const current = passingBenchmarkCandidate(baseline)
+
+    assert.equal(compareBenchmarks(current, baseline).passed, true)
+
+    const mutations = [
+        {
+            label: 'schema',
+            mutate: (report) => {
+                report.schema = 'wrong.schema'
+            }
+        },
+        {
+            label: 'package',
+            mutate: (report) => {
+                report.package = 'wrong-package'
+            }
+        },
+        {
+            label: 'package version',
+            mutate: (report) => {
+                report.packageVersion = '999.0.0'
+            }
+        },
+        {
+            label: 'provenance',
+            mutate: (report) => {
+                report.provenance.harnessTree = '0'.repeat(40)
+            }
+        },
+        {
+            label: 'environment',
+            mutate: (report) => {
+                report.environment.cpu = 'different benchmark runner'
+            }
+        },
+        {
+            label: 'warmup configuration',
+            mutate: (report) => {
+                report.cases[0].warmups += 1
+            }
+        },
+        {
+            label: 'sample configuration',
+            mutate: (report) => {
+                report.cases[0].samples.pop()
+            }
+        },
+        {
+            label: 'sample median consistency',
+            mutate: (report) => {
+                report.cases[0].medianMilliseconds = 0
+            }
+        }
+    ]
+
+    for (const { label, mutate } of mutations) {
+        const divergent = structuredClone(current)
+        mutate(divergent)
+        sealBenchmarkReport(divergent)
+        assert.equal(
+            compareBenchmarks(divergent, baseline).passed,
+            false,
+            `Accepted divergent benchmark ${label}`
+        )
+    }
+
+    const invalidCurrentChecksum = structuredClone(current)
+    invalidCurrentChecksum.reportChecksum = '0'.repeat(64)
+    assert.equal(
+        compareBenchmarks(invalidCurrentChecksum, baseline).passed,
+        false
+    )
+
+    const invalidBaselineChecksum = structuredClone(baseline)
+    invalidBaselineChecksum.reportChecksum = '0'.repeat(64)
+    assert.equal(
+        compareBenchmarks(current, invalidBaselineChecksum).passed,
+        false
+    )
+})
+
+test('Gerber benchmark reports emit the complete frozen provenance', async () => {
+    const baseline = await readJson('benchmarks/baseline-v0.1.21.json')
+    const measured = await runBenchmarks({ warmups: 1, samples: 1 })
+
+    assert.deepEqual(measured.provenance, baseline.provenance)
+})
+
+test('Gerber hit-test benchmark freezes every query point and tolerance', () => {
+    const queries = GerberBenchmarkData.interactionQueries()
+    const items = PcbInteractionIndex.build(
+        GerberBenchmarkData.interactionDocument()
+    )
+    const benchmarkCase = GerberBenchmarkSuite.cases().find(
+        (entry) => entry.id === 'mask-drill-hit-test'
+    )
+
+    assert.equal(queries.length, 180)
+    assert.equal(
+        queries.every(
+            (query) =>
+                Number.isFinite(query.point.x) &&
+                Number.isFinite(query.point.y) &&
+                query.options.tolerance === 0.05
+        ),
+        true
+    )
+    assert.equal(
+        benchmarkCase.fixtureChecksum,
+        jsonChecksum({ items, queries })
+    )
+})
+
 test('Gerber benchmark rows freeze every case input and exact projection output', async () => {
     const benchmark = await readJson('benchmarks/baseline-v0.1.21.json')
     const cases = GerberBenchmarkSuite.cases()
@@ -162,6 +388,100 @@ test('Gerber API capture reproduces the historical source independently of the l
     )
     assert.match(baseline.provenance.harnessCommit, /^[a-f0-9]{40}$/u)
     assert.match(baseline.provenance.harnessTree, /^[a-f0-9]{40}$/u)
+})
+
+test('Gerber API capture loads evidence and its inspector-policy harness from pinned commits', async () => {
+    const canonicalApi = await readJson('spec/api-baseline-v0.1.21.json')
+    const poisoned = await captureWithLiveWorktreePoison(canonicalApi)
+
+    assert.deepEqual(
+        {
+            artifactChecksumMatches:
+                poisoned.baseline.artifactChecksum ===
+                canonicalApi.artifactChecksum,
+            liveEvidenceRows: poisoned.ledger.filter((row) =>
+                row.tests.includes('tests/live-only-evidence.test.mjs')
+            ).length
+        },
+        { artifactChecksumMatches: true, liveEvidenceRows: 0 }
+    )
+})
+
+test('Gerber API inspector keeps callable identities entrypoint-qualified', async () => {
+    class RootParser {
+        static parse(input) {
+            return input
+        }
+    }
+    class SubpathParser {
+        static parse(input, options = {}) {
+            return { input, options }
+        }
+    }
+    const contracts = await GerberApiContractInspector.inspect([
+        {
+            entrypoint: '.',
+            target: './root.mjs',
+            api: { GerberParser: RootParser }
+        },
+        {
+            entrypoint: './parser',
+            target: './parser.mjs',
+            api: { GerberParser: SubpathParser }
+        }
+    ])
+
+    assert.equal(
+        contracts.features.find(
+            (feature) => feature.feature === '.#GerberParser.parse()'
+        ).sourceContract.signature,
+        '(input)'
+    )
+    assert.equal(
+        contracts.features.find(
+            (feature) => feature.feature === './parser#GerberParser.parse()'
+        ).sourceContract.signature,
+        '(input, options = {})'
+    )
+})
+
+test('Gerber API inspector captures public instance fields and recursive private-call results', async () => {
+    class CoordinateParser {
+        constructor() {
+            this.xInteger = 2
+            this.xDecimal = 4
+        }
+    }
+    class SceneBuilder {
+        static build() {
+            const board = SceneBuilder.#buildBoard()
+            return { board }
+        }
+
+        static #buildBoard() {
+            return { widthMil: 100, heightMil: 50, thicknessMil: 63 }
+        }
+    }
+    const contracts = await GerberApiContractInspector.inspect([
+        {
+            entrypoint: '.',
+            target: './index.mjs',
+            api: { CoordinateParser, SceneBuilder }
+        }
+    ])
+    const features = new Set(
+        contracts.features.map((feature) => feature.feature)
+    )
+
+    for (const feature of [
+        '.#CoordinateParser.prototype.xInteger',
+        '.#CoordinateParser.prototype.xDecimal',
+        '.#SceneBuilder.build().result.board.widthMil',
+        '.#SceneBuilder.build().result.board.heightMil',
+        '.#SceneBuilder.build().result.board.thicknessMil'
+    ]) {
+        assert.equal(features.has(feature), true, `Missing ${feature}`)
+    }
 })
 
 test('Gerber convergence baselines cover every public export and primary case', async () => {
@@ -224,7 +544,21 @@ test('Gerber API baseline records complete callable, option, field, and behavior
         '.#GerberParser.parseArrayBuffer().argument.options.property.renderMode',
         '.#GerberParser.parseArrayBuffer().result.pcb.fabrication.renderMode',
         '.#PcbScene3dScenePreparator.prepare().argument.options.property.boardThicknessMil',
-        '.#PcbScene3dScenePreparator.prepare().result.board'
+        '.#PcbScene3dScenePreparator.prepare().result.board',
+        '.#GerberCoordinateParser.prototype.xInteger',
+        '.#GerberCoordinateParser.prototype.xDecimal',
+        '.#GerberCoordinateParser.prototype.yInteger',
+        '.#GerberCoordinateParser.prototype.yDecimal',
+        '.#GerberCoordinateParser.prototype.zeroSuppression',
+        '.#GerberCoordinateParser.prototype.unit',
+        './parser#GerberCoordinateParser.prototype.xInteger',
+        '.#GerberParser.fromLayers().result.pcb.boardOutline.widthMil',
+        './parser#GerberParser.fromLayers().result.pcb.boardOutline.widthMil',
+        '.#PcbScene3dBuilder.build().result.board.widthMil',
+        '.#PcbScene3dBuilder.build().result.board.heightMil',
+        '.#PcbScene3dBuilder.build().result.board.thicknessMil',
+        './scene3d#PcbScene3dBuilder.build().result.board.widthMil',
+        '.#PcbScene3dScenePreparator.prepare().result.board.widthMil'
     ]) {
         assert.equal(
             api.features.some((row) => row.feature === feature),

@@ -4,15 +4,12 @@ import { readFile, writeFile } from 'node:fs/promises'
 import { resolve } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { performance } from 'node:perf_hooks'
+import { isDeepStrictEqual } from 'node:util'
 
 import { format } from 'prettier'
 
 import { GerberBenchmarkSuite } from '../benchmarks/GerberBenchmarkSuite.mjs'
-
-const PROVENANCE = Object.freeze({
-    sourceCommit: '11ba9df32ce966d6626f99f444909ff6c50d2281',
-    sourceTree: '1b7813598247b9ec3907a9589aefe084e4a448bd'
-})
+import { GERBER_TASK1_PROVENANCE } from './GerberTask1Provenance.mjs'
 
 /**
  * Runs the complete Gerber performance baseline suite.
@@ -30,7 +27,7 @@ export async function runBenchmarks(options = {}) {
         schema: 'gerber-toolkit.benchmark-report.v1',
         package: 'gerber-toolkit',
         packageVersion: '0.1.21',
-        provenance: { ...PROVENANCE },
+        provenance: { ...GERBER_TASK1_PROVENANCE },
         environment: environmentRecord(),
         fixtureChecksum: GerberBenchmarkSuite.fixtureChecksum(),
         cases
@@ -82,6 +79,22 @@ export function compareBenchmarks(current, baseline) {
             row.workload === previous.workload &&
             !duplicateCurrentIds.has(row.id) &&
             !duplicateBaselineIds.has(previous.id)
+        const warmupsPassed =
+            Number.isSafeInteger(row.warmups) &&
+            row.warmups > 0 &&
+            row.warmups === previous.warmups
+        const samplesPassed =
+            validSamples(row.samples) &&
+            validSamples(previous.samples) &&
+            row.samples.length === previous.samples.length
+        const medianPassed =
+            samplesPassed &&
+            row.medianMilliseconds === median(row.samples) &&
+            previous.medianMilliseconds === median(previous.samples)
+        const heapModePassed =
+            typeof row.retainedHeap?.gcControlled === 'boolean' &&
+            row.retainedHeap.gcControlled ===
+                previous.retainedHeap?.gcControlled
         return {
             id: row.id,
             primary: previous.primary,
@@ -94,13 +107,21 @@ export function compareBenchmarks(current, baseline) {
             fixtureChecksumPassed,
             structuralChecksumPassed,
             metadataPassed,
+            warmupsPassed,
+            samplesPassed,
+            medianPassed,
+            heapModePassed,
             passed:
                 timePassed &&
                 resultBytesPassed &&
                 cloneBytesPassed &&
                 fixtureChecksumPassed &&
                 structuralChecksumPassed &&
-                metadataPassed
+                metadataPassed &&
+                warmupsPassed &&
+                samplesPassed &&
+                medianPassed &&
+                heapModePassed
         }
     })
     for (const row of currentRows) {
@@ -115,15 +136,71 @@ export function compareBenchmarks(current, baseline) {
     const fixtureChecksumPassed =
         current?.fixtureChecksum === baseline?.fixtureChecksum
     const catalogPassed = currentRows.length > 0 && baselineRows.length > 0
+    const schemaPassed = current?.schema === baseline?.schema
+    const packagePassed = current?.package === baseline?.package
+    const packageVersionPassed =
+        current?.packageVersion === baseline?.packageVersion
+    const provenancePassed = isDeepStrictEqual(
+        current?.provenance,
+        baseline?.provenance
+    )
+    const environmentPassed = isDeepStrictEqual(
+        current?.environment,
+        baseline?.environment
+    )
+    const currentChecksumPassed = validReportChecksum(current)
+    const baselineChecksumPassed = validReportChecksum(baseline)
     return {
         passed:
             catalogPassed &&
+            schemaPassed &&
+            packagePassed &&
+            packageVersionPassed &&
+            provenancePassed &&
+            environmentPassed &&
+            currentChecksumPassed &&
+            baselineChecksumPassed &&
             fixtureChecksumPassed &&
             cases.every((row) => row.passed === true),
         catalogPassed,
+        schemaPassed,
+        packagePassed,
+        packageVersionPassed,
+        provenancePassed,
+        environmentPassed,
+        currentChecksumPassed,
+        baselineChecksumPassed,
         fixtureChecksumPassed,
         cases
     }
+}
+
+/**
+ * Returns whether one sample vector is finite, non-negative, and non-empty.
+ * @param {unknown} samples Sample vector candidate.
+ * @returns {boolean} Whether the vector is valid.
+ */
+function validSamples(samples) {
+    return (
+        Array.isArray(samples) &&
+        samples.length > 0 &&
+        samples.every((sample) => Number.isFinite(sample) && sample >= 0)
+    )
+}
+
+/**
+ * Recomputes and verifies one report's own body checksum.
+ * @param {unknown} report Benchmark report candidate.
+ * @returns {boolean} Whether its checksum is valid.
+ */
+function validReportChecksum(report) {
+    if (!report || typeof report !== 'object' || Array.isArray(report)) {
+        return false
+    }
+    const { reportChecksum, ...body } = report
+    return (
+        typeof reportChecksum === 'string' && reportChecksum === checksum(body)
+    )
 }
 
 /**

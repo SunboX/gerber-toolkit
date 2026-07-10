@@ -284,7 +284,7 @@ async function assertEvidence(ledger, repositoryRoot) {
  * Imports every captured package entrypoint from an extracted package.
  * @param {Record<string, any>[]} entrypoints Entrypoint baseline.
  * @param {string} packageRoot Extracted package root.
- * @returns {Promise<{ apis: Map<string, Record<string, any>>, contracts: ReturnType<typeof GerberApiContractInspector.inspect> }>} Imported modules and contracts.
+ * @returns {Promise<{ apis: Map<string, Record<string, any>>, contracts: Awaited<ReturnType<typeof GerberApiContractInspector.inspect>> }>} Imported modules and contracts.
  */
 async function importEntrypoints(entrypoints, packageRoot) {
     if (!packageRoot) {
@@ -318,14 +318,16 @@ async function importEntrypoints(entrypoints, packageRoot) {
     }
     return {
         apis: new Map(imported.map((entry) => [entry.entrypoint, entry.api])),
-        contracts: GerberApiContractInspector.inspect(imported)
+        contracts: await GerberApiContractInspector.inspect(imported, {
+            sourceRoot: packageRoot
+        })
     }
 }
 
 /**
  * Verifies each captured export and method still exists in the packed API.
  * @param {Record<string, any>[]} features Baseline features.
- * @param {{ contracts: ReturnType<typeof GerberApiContractInspector.inspect> }} imported Imported contracts.
+ * @param {{ contracts: Awaited<ReturnType<typeof GerberApiContractInspector.inspect>> }} imported Imported contracts.
  * @returns {void}
  */
 function assertPackedApi(features, imported) {
@@ -380,7 +382,7 @@ function assertCapabilities(ledger, imported, expectedInventory) {
     const inventory = provider ? provider.inventory() : expectedInventory
     assertValidInventory(inventory)
     if (provider && Array.isArray(expectedInventory)) {
-        assertInventoryIncludes(inventory, expectedInventory)
+        assertExactInventory(inventory, expectedInventory)
     }
     const byId = new Map(inventory.map((row) => [row.id, row]))
     const ids = [...new Set(ledger.map((row) => row.capabilityId))]
@@ -436,22 +438,23 @@ function assertValidInventory(inventory) {
 }
 
 /**
- * Requires a packed inventory to preserve every frozen inventory row.
+ * Requires the packed and frozen inventories to contain exactly the same rows.
  * @param {Record<string, any>[]} actual Packed inventory.
  * @param {Record<string, any>[]} expected Frozen inventory.
  * @returns {void}
  */
-function assertInventoryIncludes(actual, expected) {
+function assertExactInventory(actual, expected) {
     assertValidInventory(expected)
     const actualById = new Map(actual.map((row) => [row.id, row]))
-    const missing = expected.filter((row) => {
+    const expectedById = new Map(expected.map((row) => [row.id, row]))
+    const drifted = expected.filter((row) => {
         const candidate = actualById.get(row.id)
         return !isDeepStrictEqual(candidate, row)
     })
-    if (missing.length) {
-        throw new Error(
-            `Packed capability inventory drift: ${missing.map((row) => row.id).join(', ')}`
-        )
+    const unexpected = actual.filter((row) => !expectedById.has(row.id))
+    const ids = [...drifted, ...unexpected].map((row) => row.id).sort()
+    if (ids.length) {
+        throw new Error(`Packed capability inventory drift: ${ids.join(', ')}`)
     }
 }
 

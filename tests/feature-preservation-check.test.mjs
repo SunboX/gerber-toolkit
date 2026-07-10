@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { execFile } from 'node:child_process'
-import { mkdtemp, rm, writeFile } from 'node:fs/promises'
+import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import test from 'node:test'
@@ -420,6 +420,35 @@ test('strict feature checker rejects capability availability drift', async (cont
                 repositoryRoot: packageRoot
             }),
         /Capability inventory availability mismatch/u
+    )
+})
+
+test('strict feature checker rejects inventory rows beyond the frozen eight', async (context) => {
+    const inventory = JSON.parse(
+        await readFile('spec/capability-inventory-v0.1.21.json', 'utf8')
+    )
+    assert.equal(inventory.length, 8)
+    const additional = capabilityRow('imaginary.valid.operation')
+    const packageRoot = await packageFixture(context, [
+        ...inventory,
+        additional
+    ])
+    const feature = baselineFeature('mapped')
+
+    await assert.rejects(
+        () =>
+            validateFeaturePreservation({
+                apiBaseline: {
+                    entrypoints: [{ entrypoint: '.', target: './index.mjs' }],
+                    features: [feature]
+                },
+                ledger: [ledgerRow('mapped')],
+                inventory,
+                strict: true,
+                packageRoot,
+                repositoryRoot: packageRoot
+            }),
+        /Packed capability inventory drift:.*imaginary\.valid\.operation/u
     )
 })
 

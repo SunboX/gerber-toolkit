@@ -131,6 +131,20 @@ export class GerberBenchmarkData {
     }
 
     /**
+     * Creates every point and tolerance used by the hit-test benchmark.
+     * @returns {{ point: { x: number, y: number }, options: { tolerance: number } }[]} Hit-test queries.
+     */
+    static interactionQueries() {
+        return Array.from({ length: 180 }, (_, index) => ({
+            point: {
+                x: (index % 60) * 0.5 + 0.15,
+                y: Math.floor(index / 60) * 0.5
+            },
+            options: { tolerance: 0.05 }
+        }))
+    }
+
+    /**
      * Creates a large multi-layer separated-render document.
      * @returns {Record<string, any>} Legacy Gerber document.
      */

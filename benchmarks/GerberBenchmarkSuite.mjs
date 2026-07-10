@@ -17,6 +17,7 @@ export class GerberBenchmarkSuite {
         const archiveEntries = GerberBenchmarkData.archiveEntries()
         const interactionDocument = GerberBenchmarkData.interactionDocument()
         const interactionItems = PcbInteractionIndex.build(interactionDocument)
+        const interactionQueries = GerberBenchmarkData.interactionQueries()
         const renderDocument = GerberBenchmarkData.renderDocument()
         const repeat = GerberBenchmarkData.stepRepeatInput()
         const small = GerberBenchmarkData.smallParserInput()
@@ -45,17 +46,17 @@ export class GerberBenchmarkSuite {
                 primary: true,
                 size: 'large',
                 workload: 'mask-drill-interaction',
-                fixtureChecksum:
-                    GerberBenchmarkSuite.#checksum(interactionItems),
+                fixtureChecksum: GerberBenchmarkSuite.#checksum({
+                    items: interactionItems,
+                    queries: interactionQueries
+                }),
                 run: async () => {
                     let hitCount = 0
-                    for (let index = 0; index < 180; index += 1) {
-                        const x = (index % 60) * 0.5 + 0.15
-                        const y = Math.floor(index / 60) * 0.5
+                    for (const query of interactionQueries) {
                         hitCount += PcbInteractionIndex.hitTestItems(
                             interactionItems,
-                            { x, y },
-                            { tolerance: 0.05 }
+                            query.point,
+                            query.options
                         ).length
                     }
                     return { itemCount: interactionItems.length, hitCount }

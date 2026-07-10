@@ -1,3 +1,6 @@
+import { GerberApiResultContractResolver } from './GerberApiResultContractResolver.mjs'
+import { GerberApiSupportingClassLoader } from './GerberApiSupportingClassLoader.mjs'
+
 /**
  * Captures stable public API contracts without invoking exported callables.
  */
@@ -5,11 +8,19 @@ export class GerberApiContractInspector {
     /**
      * Inspects exported entrypoints and resolves direct delegation contracts.
      * @param {{ entrypoint: string, target: string, api: Record<string, any> }[]} entrypointApis Imported entrypoints.
-     * @returns {{ entrypoints: Record<string, any>[], features: Record<string, any>[] }} Captured contracts.
+     * @param {{ sourceRoot?: string }} [options] Source inspection options.
+     * @returns {Promise<{ entrypoints: Record<string, any>[], features: Record<string, any>[] }>} Captured contracts.
      */
-    static inspect(entrypointApis) {
-        const definitions =
-            GerberApiContractInspector.#definitions(entrypointApis)
+    static async inspect(entrypointApis, options = {}) {
+        const supportingClasses = await GerberApiSupportingClassLoader.load(
+            entrypointApis,
+            options.sourceRoot
+        )
+        const definitions = GerberApiContractInspector.#definitions(
+            entrypointApis,
+            supportingClasses
+        )
+        GerberApiResultContractResolver.resolve(definitions.nodesByKey)
         GerberApiContractInspector.#resolveDelegates(definitions.nodesByKey)
         const entrypoints = []
         const features = []
@@ -54,9 +65,10 @@ export class GerberApiContractInspector {
     /**
      * Creates entrypoint/export records plus unique callable graph nodes.
      * @param {{ entrypoint: string, target: string, api: Record<string, any> }[]} entrypointApis Imported entrypoints.
+     * @param {Map<string, Function>} supportingClasses Supporting classes.
      * @returns {{ entries: Record<string, any>[], nodesByKey: Map<string, Record<string, any>> }} Definitions.
      */
-    static #definitions(entrypointApis) {
+    static #definitions(entrypointApis, supportingClasses) {
         const entries = []
         const nodesByKey = new Map()
         for (const entrypointApi of entrypointApis) {
@@ -67,6 +79,7 @@ export class GerberApiContractInspector {
                     const members =
                         GerberApiContractInspector.#publicMembers(value)
                     GerberApiContractInspector.#defineCallableNodes(
+                        entrypointApi.entrypoint,
                         name,
                         value,
                         members,
@@ -80,20 +93,30 @@ export class GerberApiContractInspector {
                 exports
             })
         }
+        for (const [name, value] of supportingClasses) {
+            GerberApiContractInspector.#defineCallableNodes(
+                '*',
+                name,
+                value,
+                GerberApiContractInspector.#publicMembers(value),
+                nodesByKey
+            )
+        }
         return { entries, nodesByKey }
     }
 
     /**
      * Lists own public static methods, instance methods, and accessors.
      * @param {unknown} value Exported value.
-     * @returns {{ staticMethods: string[], instanceMethods: string[], instanceAccessors: string[] }} Members.
+     * @returns {{ staticMethods: string[], instanceMethods: string[], instanceAccessors: string[], instanceFields: string[] }} Members.
      */
     static #publicMembers(value) {
         if (typeof value !== 'function') {
             return {
                 staticMethods: [],
                 instanceMethods: [],
-                instanceAccessors: []
+                instanceAccessors: [],
+                instanceFields: []
             }
         }
         const staticMethods = Object.getOwnPropertyNames(value)
@@ -125,24 +148,40 @@ export class GerberApiContractInspector {
             )
             .map(([name]) => name)
             .sort()
-        return { staticMethods, instanceMethods, instanceAccessors }
+        const instanceFields = GerberApiContractInspector.#instanceFields(
+            Function.prototype.toString.call(value)
+        )
+        return {
+            staticMethods,
+            instanceMethods,
+            instanceAccessors,
+            instanceFields
+        }
     }
 
     /**
      * Adds unique callable nodes for one exported class or function.
+     * @param {string} entrypoint Package entrypoint.
      * @param {string} exportName Export name.
      * @param {unknown} value Exported value.
-     * @param {{ staticMethods: string[], instanceMethods: string[], instanceAccessors: string[] }} members Members.
+     * @param {{ staticMethods: string[], instanceMethods: string[], instanceAccessors: string[], instanceFields: string[] }} members Members.
      * @param {Map<string, Record<string, any>>} nodesByKey Callable nodes.
      * @returns {void}
      */
-    static #defineCallableNodes(exportName, value, members, nodesByKey) {
+    static #defineCallableNodes(
+        entrypoint,
+        exportName,
+        value,
+        members,
+        nodesByKey
+    ) {
         if (typeof value !== 'function') return
         const classSource = Function.prototype.toString.call(value)
         const constructorSource =
             GerberApiContractInspector.#extractConstructor(classSource)
         if (constructorSource) {
             GerberApiContractInspector.#addNode(
+                entrypoint,
                 exportName,
                 'constructor',
                 'constructor',
@@ -157,6 +196,7 @@ export class GerberApiContractInspector {
         for (const methodName of members.staticMethods) {
             const source = Function.prototype.toString.call(value[methodName])
             GerberApiContractInspector.#addNode(
+                entrypoint,
                 exportName,
                 methodName,
                 'static',
@@ -173,6 +213,7 @@ export class GerberApiContractInspector {
                 value.prototype[methodName]
             )
             GerberApiContractInspector.#addNode(
+                entrypoint,
                 exportName,
                 methodName,
                 'instance',
@@ -184,10 +225,27 @@ export class GerberApiContractInspector {
                 nodesByKey
             )
         }
+        for (const method of GerberApiContractInspector.#privateStaticMethods(
+            classSource
+        )) {
+            GerberApiContractInspector.#addNode(
+                entrypoint,
+                exportName,
+                method.name,
+                'static-private',
+                method.source,
+                GerberApiContractInspector.#jsdocBefore(
+                    classSource,
+                    method.index
+                ),
+                nodesByKey
+            )
+        }
     }
 
     /**
      * Adds one normalized callable graph node.
+     * @param {string} entrypoint Package entrypoint.
      * @param {string} exportName Export name.
      * @param {string} methodName Method name.
      * @param {string} methodType Method type.
@@ -197,6 +255,7 @@ export class GerberApiContractInspector {
      * @returns {void}
      */
     static #addNode(
+        entrypoint,
         exportName,
         methodName,
         methodType,
@@ -205,6 +264,7 @@ export class GerberApiContractInspector {
         nodesByKey
     ) {
         const key = GerberApiContractInspector.#nodeKey(
+            entrypoint,
             exportName,
             methodName,
             methodType
@@ -213,6 +273,7 @@ export class GerberApiContractInspector {
         const parameters = GerberApiContractInspector.#parseParameters(source)
         nodesByKey.set(key, {
             key,
+            entrypoint,
             exportName,
             methodName,
             methodType,
@@ -251,12 +312,11 @@ export class GerberApiContractInspector {
             passes += 1
             for (const node of nodesByKey.values()) {
                 for (const call of node.calls) {
-                    const target = nodesByKey.get(
-                        GerberApiContractInspector.#nodeKey(
-                            call.exportName,
-                            call.methodName,
-                            'static'
-                        )
+                    if (call.methodName.startsWith('#')) continue
+                    const target = GerberApiContractInspector.#targetNode(
+                        nodesByKey,
+                        node,
+                        call
                     )
                     if (!target) continue
                     for (
@@ -312,6 +372,37 @@ export class GerberApiContractInspector {
     }
 
     /**
+     * Resolves same-entrypoint calls before wildcard supporting classes.
+     * @param {Map<string, Record<string, any>>} nodesByKey Callable graph.
+     * @param {Record<string, any>} node Calling node.
+     * @param {Record<string, any>} call Static call.
+     * @returns {Record<string, any> | undefined} Target node.
+     */
+    static #targetNode(nodesByKey, node, call) {
+        const methodType = call.methodName.startsWith('#')
+            ? 'static-private'
+            : 'static'
+        return (
+            nodesByKey.get(
+                GerberApiContractInspector.#nodeKey(
+                    node.entrypoint,
+                    call.exportName,
+                    call.methodName,
+                    methodType
+                )
+            ) ||
+            nodesByKey.get(
+                GerberApiContractInspector.#nodeKey(
+                    '*',
+                    call.exportName,
+                    call.methodName,
+                    methodType
+                )
+            )
+        )
+    }
+
+    /**
      * Creates one export feature.
      * @param {string} entrypoint Entrypoint key.
      * @param {{ name: string, value: unknown }} exported Export record.
@@ -350,6 +441,7 @@ export class GerberApiContractInspector {
         ]) {
             const node = nodesByKey.get(
                 GerberApiContractInspector.#nodeKey(
+                    entrypoint,
                     exported.name,
                     methodName,
                     methodType
@@ -382,6 +474,17 @@ export class GerberApiContractInspector {
                     get: typeof descriptor?.get === 'function',
                     set: typeof descriptor?.set === 'function'
                 }
+            })
+        }
+        for (const name of exported.members.instanceFields) {
+            features.push({
+                feature: `${entrypoint}#${exported.name}.prototype.${name}`,
+                kind: 'field',
+                entrypoint,
+                exportName: exported.name,
+                methodName: name,
+                methodType: 'instance-field',
+                sourceContract: { type: 'instance-field', name }
             })
         }
         return features
@@ -674,7 +777,7 @@ export class GerberApiContractInspector {
     static #calls(source) {
         const calls = []
         for (const match of source.matchAll(
-            /\b([A-Za-z_$][\w$]*)\.([A-Za-z_$][\w$]*)\s*\(/gu
+            /\b([A-Za-z_$][\w$]*)\.(#?[A-Za-z_$][\w$]*)\s*\(/gu
         )) {
             const open = source.indexOf('(', match.index)
             const close = GerberApiContractInspector.#matchingDelimiter(
@@ -723,6 +826,57 @@ export class GerberApiContractInspector {
             '}'
         )
         return classSource.slice(start, closeBody + 1)
+    }
+
+    /**
+     * Lists public instance fields assigned by class implementation code.
+     * @param {string} classSource Class source.
+     * @returns {string[]} Public instance field names.
+     */
+    static #instanceFields(classSource) {
+        const fields = new Set()
+        for (const match of classSource.matchAll(
+            /\bthis\.([A-Za-z_$][\w$]*)\s*=(?!=)/gu
+        )) {
+            fields.add(match[1])
+        }
+        return [...fields].sort()
+    }
+
+    /**
+     * Extracts private static method sources from a class implementation.
+     * @param {string} classSource Class source.
+     * @returns {{ name: string, source: string, index: number }[]} Private methods.
+     */
+    static #privateStaticMethods(classSource) {
+        const methods = []
+        for (const match of classSource.matchAll(
+            /(?:^|\n)\s*static\s+(?:async\s+)?(#[A-Za-z_$][\w$]*)\s*\(/gu
+        )) {
+            const name = match[1]
+            const index = match.index + match[0].indexOf('static')
+            const openParameters = classSource.indexOf('(', index)
+            const closeParameters =
+                GerberApiContractInspector.#matchingDelimiter(
+                    classSource,
+                    openParameters,
+                    '(',
+                    ')'
+                )
+            const openBody = classSource.indexOf('{', closeParameters)
+            const closeBody = GerberApiContractInspector.#matchingDelimiter(
+                classSource,
+                openBody,
+                '{',
+                '}'
+            )
+            methods.push({
+                name,
+                index,
+                source: classSource.slice(index, closeBody + 1)
+            })
+        }
+        return methods
     }
 
     /**
@@ -822,12 +976,13 @@ export class GerberApiContractInspector {
 
     /**
      * Builds a stable callable graph key.
+     * @param {string} entrypoint Package entrypoint.
      * @param {string} exportName Export name.
      * @param {string} methodName Method name.
      * @param {string} methodType Method type.
      * @returns {string} Graph key.
      */
-    static #nodeKey(exportName, methodName, methodType) {
-        return `${exportName}:${methodType}:${methodName}`
+    static #nodeKey(entrypoint, exportName, methodName, methodType) {
+        return `${entrypoint}:${exportName}:${methodType}:${methodName}`
     }
 }

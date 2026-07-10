@@ -527,6 +527,8 @@ test('PcbScene3dBuilder builds a bare-board Gerber 3D scene', () => {
     assert.equal(scene.board.widthMil, 393.700787)
     assert.equal(scene.board.heightMil, 236.220472)
     assert.equal(scene.board.thicknessMil, 63)
+    assertSceneValue(scene.board.centerX, 196.850394)
+    assertSceneValue(scene.board.centerY, 118.110236)
     assert.equal(customThickness.board.thicknessMil, 80)
     assert.equal(scene.board.segments.length, 4)
     assert.equal(
@@ -549,6 +551,17 @@ test('PcbScene3dBuilder builds a bare-board Gerber 3D scene', () => {
     assert.deepEqual(scene.externalModels, [])
     assert.equal(scene.detail.tracks.length, 2)
     assert.equal(scene.detail.pads.length, 1)
+    assert.deepEqual(scene.detail.copperTexts, [])
+    assert.equal(Number.isFinite(scene.detail.silkscreen.top.fillColor), true)
+    assert.equal(Number.isFinite(scene.detail.silkscreen.top.strokeColor), true)
+    assert.equal(
+        Number.isFinite(scene.detail.silkscreen.bottom.fillColor),
+        true
+    )
+    assert.equal(
+        Number.isFinite(scene.detail.silkscreen.bottom.strokeColor),
+        true
+    )
     assert.equal(scene.detail.pads[0].holeDiameter, 23.622047)
     assert.equal(scene.detail.tracks[0].layerId, 1)
     assert.equal(scene.detail.tracks[1].layerId, 32)
@@ -889,4 +902,21 @@ test('PcbScene3dScenePreparator matches the synchronous Gerber scene builder', a
         await PcbScene3dScenePreparator.prepare(createDocument())
 
     assert.deepEqual(preparedScene, builtScene)
+    assert.equal(preparedScene.board.widthMil, builtScene.board.widthMil)
+    assert.equal(preparedScene.board.heightMil, builtScene.board.heightMil)
+    assert.equal(
+        preparedScene.board.thicknessMil,
+        builtScene.board.thicknessMil
+    )
+    assertSceneValue(preparedScene.board.centerX, builtScene.board.centerX)
+    assertSceneValue(preparedScene.board.centerY, builtScene.board.centerY)
+    assert.deepEqual(preparedScene.detail.copperTexts, [])
+    assert.equal(
+        Number.isFinite(preparedScene.detail.silkscreen.top.fillColor),
+        true
+    )
+    assert.equal(
+        Number.isFinite(preparedScene.detail.silkscreen.top.strokeColor),
+        true
+    )
 })
