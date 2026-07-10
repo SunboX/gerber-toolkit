@@ -4,8 +4,8 @@
 export const GERBER_TASK1_PROVENANCE = Object.freeze({
     sourceCommit: '11ba9df32ce966d6626f99f444909ff6c50d2281',
     sourceTree: '1b7813598247b9ec3907a9589aefe084e4a448bd',
-    evidenceCommit: 'ac06d78ad932743fe043c4039c03e7a1fd0bae95',
-    evidenceTree: '5ddd15729151d4a8498b62120fc10edc99fa20bc',
-    harnessCommit: 'ac06d78ad932743fe043c4039c03e7a1fd0bae95',
-    harnessTree: '5ddd15729151d4a8498b62120fc10edc99fa20bc'
+    evidenceCommit: 'f676782b2f26c62694492d800d016c8a82ca2ba8',
+    evidenceTree: 'c50dd92350fdb8c02430ac6a5bb2dc55b70c4a7a',
+    harnessCommit: 'f676782b2f26c62694492d800d016c8a82ca2ba8',
+    harnessTree: 'c50dd92350fdb8c02430ac6a5bb2dc55b70c4a7a'
 })
