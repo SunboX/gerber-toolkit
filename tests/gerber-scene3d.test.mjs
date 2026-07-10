@@ -3,6 +3,7 @@ import test from 'node:test'
 
 import {
     PcbScene3dBuilder,
+    PcbScene3dModelRegistry,
     PcbScene3dScenePreparator
 } from '../src/scene3d.mjs'
 
@@ -37,6 +38,15 @@ function pointBounds(points) {
         }
     )
 }
+
+test('PcbScene3dModelRegistry preserves the fabrication-only compatibility API', () => {
+    const registry = PcbScene3dModelRegistry.create([])
+
+    assert.deepEqual(registry.assets, [])
+    assert.equal(registry.resolveForComponent(), null)
+    assert.equal(registry.resolveComponentModel(), null)
+    assert.equal(registry.resolveComponentBodyModel(), null)
+})
 
 /**
  * Clones the synthetic document and places a drilled pad directly on a trace.
@@ -508,12 +518,16 @@ function createDocument() {
 
 test('PcbScene3dBuilder builds a bare-board Gerber 3D scene', () => {
     const scene = PcbScene3dBuilder.build(createDocument())
+    const customThickness = PcbScene3dBuilder.build(createDocument(), {
+        boardThicknessMil: 80
+    })
 
     assert.equal(scene.sourceFormat, 'gerber')
     assert.equal(scene.coordinateSystem, 'gerber-3d-y-up')
     assert.equal(scene.board.widthMil, 393.700787)
     assert.equal(scene.board.heightMil, 236.220472)
     assert.equal(scene.board.thicknessMil, 63)
+    assert.equal(customThickness.board.thicknessMil, 80)
     assert.equal(scene.board.segments.length, 4)
     assert.equal(
         Object.prototype.hasOwnProperty.call(scene.board, 'surfaceColor'),
@@ -524,6 +538,15 @@ test('PcbScene3dBuilder builds a bare-board Gerber 3D scene', () => {
         false
     )
     assert.equal(scene.components.length, 0)
+    assert.equal(scene.layers.length > 0, true)
+    assert.equal(Array.isArray(scene.pads), true)
+    assert.equal(Array.isArray(scene.tracks), true)
+    assert.equal(Array.isArray(scene.vias), true)
+    assert.equal(Array.isArray(scene.zones), true)
+    assert.deepEqual(scene.texts, [])
+    assert.deepEqual(scene.externalPlacements, [])
+    assert.equal(scene.boardAssemblyModel, null)
+    assert.deepEqual(scene.externalModels, [])
     assert.equal(scene.detail.tracks.length, 2)
     assert.equal(scene.detail.pads.length, 1)
     assert.equal(scene.detail.pads[0].holeDiameter, 23.622047)

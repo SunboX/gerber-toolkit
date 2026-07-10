@@ -36,6 +36,8 @@ function baselineFeature(feature, overrides = {}) {
         availability: { ...AVAILABILITY },
         reason: 'Gerber parsing projects native data into the shared envelope.',
         evidenceToken: 'GerberParser',
+        evidenceTokens: ['GerberParser'],
+        sourceContract: { type: 'behavior', description: feature },
         tests: ['index.mjs'],
         documentation: ['index.mjs'],
         ...overrides
@@ -61,12 +63,13 @@ function ledgerRow(feature, overrides = {}) {
  * @param {string} id Capability id.
  * @returns {Record<string, string>} Capability row.
  */
-function capabilityRow(id) {
+function capabilityRow(id, availability = AVAILABILITY) {
     const parts = id.split('.')
     return {
         id,
         category: parts.slice(0, -1).join('.'),
-        operation: parts.at(-1)
+        operation: parts.at(-1),
+        availability: { ...availability }
     }
 }
 
@@ -76,12 +79,26 @@ function capabilityRow(id) {
  * @param {Record<string, any>[]} inventory Capability inventory.
  * @returns {Promise<string>} Fixture root.
  */
-async function packageFixture(context, inventory) {
+async function packageFixture(context, inventory, options = {}) {
     const root = await mkdtemp(join(tmpdir(), 'gerber-feature-package-'))
+    const exports = { '.': './index.mjs', ...(options.exports || {}) }
+    await writeFile(
+        join(root, 'package.json'),
+        JSON.stringify({
+            name: 'gerber-feature-fixture',
+            version: '1.0.0',
+            type: 'module',
+            exports
+        })
+    )
     await writeFile(
         join(root, 'index.mjs'),
-        `export class GerberParser {}\nexport class ToolkitCapabilities { static inventory() { return ${JSON.stringify(inventory)} } }\n`
+        options.source ||
+            `export class GerberParser {}\nexport class ToolkitCapabilities { static inventory() { return ${JSON.stringify(inventory)} } }\n`
     )
+    for (const [path, source] of Object.entries(options.files || {})) {
+        await writeFile(join(root, path), source)
+    }
     context.after(() => rm(root, { recursive: true, force: true }))
     return root
 }
@@ -227,6 +244,185 @@ test('strict feature checker rejects stale packed API mappings', async (context)
     )
 })
 
+test('strict feature checker safely verifies instance accessors', async (context) => {
+    const packageRoot = await packageFixture(
+        context,
+        [capabilityRow('parser.document.parse')],
+        {
+            source: `export class GerberParser { get assets() { return [] } }\nexport class ToolkitCapabilities { static inventory() { return ${JSON.stringify([capabilityRow('parser.document.parse')])} } }\n`
+        }
+    )
+    const feature = baselineFeature('.#GerberParser.prototype.assets', {
+        kind: 'field',
+        entrypoint: '.',
+        exportName: 'GerberParser',
+        methodName: 'assets',
+        methodType: 'instance-accessor',
+        sourceContract: {
+            type: 'accessor',
+            name: 'assets',
+            get: true,
+            set: false
+        }
+    })
+
+    const result = await validateFeaturePreservation({
+        apiBaseline: {
+            entrypoints: [{ entrypoint: '.', target: './index.mjs' }],
+            features: [feature]
+        },
+        ledger: [
+            ledgerRow(feature.feature, {
+                kind: feature.kind,
+                entrypoint: feature.entrypoint,
+                exportName: feature.exportName,
+                methodName: feature.methodName,
+                methodType: feature.methodType,
+                sourceContract: feature.sourceContract
+            })
+        ],
+        strict: true,
+        packageRoot,
+        repositoryRoot: packageRoot
+    })
+
+    assert.equal(result.strict, true)
+})
+
+test('strict feature checker rejects changed signatures, options, and results', async (context) => {
+    const packageRoot = await packageFixture(
+        context,
+        [capabilityRow('parser.document.parse')],
+        {
+            source: `export class GerberParser { static parse(input, options = {}) { return { ok: true, input, options } } }\nexport class ToolkitCapabilities { static inventory() { return ${JSON.stringify([capabilityRow('parser.document.parse')])} } }\n`
+        }
+    )
+    const mismatches = [
+        baselineFeature('.#GerberParser.parse()', {
+            kind: 'method',
+            entrypoint: '.',
+            exportName: 'GerberParser',
+            methodName: 'parse',
+            methodType: 'static',
+            sourceContract: {
+                type: 'method',
+                signature: '(different)',
+                parameters: []
+            }
+        }),
+        baselineFeature(
+            '.#GerberParser.parse().argument.options.property.missingOption',
+            {
+                kind: 'option',
+                entrypoint: '.',
+                exportName: 'GerberParser',
+                methodName: 'parse',
+                methodType: 'static',
+                sourceContract: {
+                    type: 'property',
+                    argument: 'options',
+                    name: 'missingOption'
+                }
+            }
+        ),
+        baselineFeature('.#GerberParser.parse().result.missingResult', {
+            kind: 'field',
+            entrypoint: '.',
+            exportName: 'GerberParser',
+            methodName: 'parse',
+            methodType: 'static',
+            sourceContract: {
+                type: 'result-field',
+                name: 'missingResult'
+            }
+        })
+    ]
+
+    for (const feature of mismatches) {
+        await assert.rejects(
+            () =>
+                validateFeaturePreservation({
+                    apiBaseline: {
+                        entrypoints: [
+                            { entrypoint: '.', target: './index.mjs' }
+                        ],
+                        features: [feature]
+                    },
+                    ledger: [
+                        ledgerRow(feature.feature, {
+                            kind: feature.kind,
+                            entrypoint: feature.entrypoint,
+                            exportName: feature.exportName,
+                            methodName: feature.methodName,
+                            methodType: feature.methodType,
+                            sourceContract: feature.sourceContract
+                        })
+                    ],
+                    strict: true,
+                    packageRoot,
+                    repositoryRoot: packageRoot
+                }),
+            /Packed API contract mismatch/u
+        )
+    }
+})
+
+test('strict feature checker imports every packed worker entrypoint', async (context) => {
+    const packageRoot = await packageFixture(
+        context,
+        [capabilityRow('parser.document.parse')],
+        {
+            exports: { './worker': './worker.mjs' },
+            files: {
+                'worker.mjs':
+                    "throw new Error('worker entrypoint was imported')\n"
+            }
+        }
+    )
+    const feature = baselineFeature('mapped')
+
+    await assert.rejects(
+        () =>
+            validateFeaturePreservation({
+                apiBaseline: {
+                    entrypoints: [{ entrypoint: '.', target: './index.mjs' }],
+                    features: [feature]
+                },
+                ledger: [ledgerRow('mapped')],
+                strict: true,
+                packageRoot,
+                repositoryRoot: packageRoot
+            }),
+        /worker entrypoint was imported/u
+    )
+})
+
+test('strict feature checker rejects capability availability drift', async (context) => {
+    const driftedAvailability = {
+        ...AVAILABILITY,
+        'gerber-toolkit': 'unavailable'
+    }
+    const packageRoot = await packageFixture(context, [
+        capabilityRow('parser.document.parse', driftedAvailability)
+    ])
+    const feature = baselineFeature('mapped')
+
+    await assert.rejects(
+        () =>
+            validateFeaturePreservation({
+                apiBaseline: {
+                    entrypoints: [{ entrypoint: '.', target: './index.mjs' }],
+                    features: [feature]
+                },
+                ledger: [ledgerRow('mapped')],
+                strict: true,
+                packageRoot,
+                repositoryRoot: packageRoot
+            }),
+        /Capability inventory availability mismatch/u
+    )
+})
+
 test('strict feature checker validates evidence paths and symbol references', async (context) => {
     const packageRoot = await packageFixture(context, [
         capabilityRow('parser.document.parse')
@@ -267,12 +463,16 @@ test('strict feature checker validates evidence paths and symbol references', as
                     ...apiBaseline,
                     features: [
                         baselineFeature('mapped', {
-                            evidenceToken: 'MissingSymbol'
+                            evidenceToken: 'MissingSymbol',
+                            evidenceTokens: ['MissingSymbol']
                         })
                     ]
                 },
                 ledger: [
-                    ledgerRow('mapped', { evidenceToken: 'MissingSymbol' })
+                    ledgerRow('mapped', {
+                        evidenceToken: 'MissingSymbol',
+                        evidenceTokens: ['MissingSymbol']
+                    })
                 ],
                 strict: true,
                 packageRoot,
@@ -377,5 +577,12 @@ test('strict file-backed checker imports capabilities from an npm pack', async (
     })
 
     assert.equal(result.featureCount, 1)
+    assert.equal(result.strict, true)
+})
+
+test('strict file-backed checker resolves real packed runtime dependencies', async () => {
+    const result = await checkFeaturePreservation({ strict: true })
+
+    assert.equal(result.featureCount > 0, true)
     assert.equal(result.strict, true)
 })

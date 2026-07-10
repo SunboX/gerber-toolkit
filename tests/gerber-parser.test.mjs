@@ -1,7 +1,11 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 
-import { GerberParser } from '../src/parser.mjs'
+import {
+    GerberCoordinateParser,
+    GerberLayerRoleResolver,
+    GerberParser
+} from '../src/parser.mjs'
 
 /**
  * Encodes a text fixture as an ArrayBuffer.
@@ -11,6 +15,70 @@ import { GerberParser } from '../src/parser.mjs'
 function bytes(text) {
     return new TextEncoder().encode(text).buffer
 }
+
+test('GerberCoordinateParser preserves every public coordinate format option', () => {
+    const parser = new GerberCoordinateParser({
+        xInteger: 2,
+        xDecimal: 3,
+        yInteger: 3,
+        yDecimal: 2,
+        zeroSuppression: 'leading',
+        unit: 'inch'
+    })
+
+    assert.equal(parser.parseX('01000'), 25.4)
+    assert.equal(parser.parseY('00100'), 25.4)
+    assert.equal(parser.parseOffset('00500'), 12.7)
+    assert.equal(parser.parseDrill('1.5'), 38.099999999999994)
+})
+
+test('GerberLayerRoleResolver exposes fabrication, archive, and layer metadata', () => {
+    assert.equal(
+        GerberLayerRoleResolver.isFabricationFileName('board-F_Cu.gtl'),
+        true
+    )
+    assert.equal(GerberLayerRoleResolver.isZipFileName('fabrication.zip'), true)
+    assert.deepEqual(GerberLayerRoleResolver.resolve('board-NPTH.drl'), {
+        role: 'nonplated-drill',
+        side: 'both',
+        isDrill: true,
+        isDocumentation: false,
+        plated: false
+    })
+})
+
+test('GerberParser.fromLayers preserves the complete public document shape', () => {
+    const parsed = GerberParser.parseArrayBuffer(
+        'source.gtl',
+        bytes(
+            [
+                '%FSLAX24Y24*%',
+                '%MOMM*%',
+                '%ADD10C,0.200*%',
+                'D10*',
+                'X000000Y000000D02*',
+                'X010000Y000000D01*',
+                'M02*'
+            ].join('\n')
+        )
+    )
+    const document = GerberParser.fromLayers(
+        'combined-fabrication',
+        parsed.pcb.fabrication.layers,
+        { renderMode: 'separated' }
+    )
+
+    assert.equal(document.sourceFormat, 'gerber')
+    assert.equal(document.kind, 'pcb')
+    assert.equal(document.fileName, 'combined-fabrication')
+    assert.equal(document.pcb.fabrication.renderMode, 'separated')
+    assert.equal(document.pcb.fabrication.layers.length, 1)
+    assert.deepEqual(document.pcb.components, [])
+    assert.equal(typeof document.pcb.bounds.minX, 'number')
+    assert.equal(typeof document.pcb.boardOutline.widthMil, 'number')
+    assert.deepEqual(document.bom, [])
+    assert.deepEqual(document.diagnostics, [])
+})
 
 test('GerberParser parses units, format, apertures, draws, flashes, and bounds', () => {
     const source = [

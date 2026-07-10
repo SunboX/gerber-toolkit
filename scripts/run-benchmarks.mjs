@@ -45,39 +45,85 @@ export async function runBenchmarks(options = {}) {
  * @returns {{ passed: boolean, cases: Record<string, any>[] }} Comparison summary.
  */
 export function compareBenchmarks(current, baseline) {
-    const baselineById = new Map(
-        (baseline?.cases || []).map((row) => [row.id, row])
-    )
-    const cases = (current?.cases || []).map((row) => {
-        const previous = baselineById.get(row.id)
-        if (!previous) {
-            return { id: row.id, passed: false, reason: 'missing-baseline' }
+    const currentRows = Array.isArray(current?.cases) ? current.cases : []
+    const baselineRows = Array.isArray(baseline?.cases) ? baseline.cases : []
+    const duplicateCurrentIds = duplicateIds(currentRows)
+    const duplicateBaselineIds = duplicateIds(baselineRows)
+    const baselineById = new Map(baselineRows.map((row) => [row.id, row]))
+    const currentById = new Map(currentRows.map((row) => [row.id, row]))
+    const cases = baselineRows.map((previous) => {
+        const row = currentById.get(previous.id)
+        if (!row) {
+            return {
+                id: previous.id,
+                passed: false,
+                reason: 'missing-current'
+            }
         }
         const changePercent = percentChange(
             row.medianMilliseconds,
             previous.medianMilliseconds
         )
-        const timeLimitPercent = row.primary
+        const timeLimitPercent = previous.primary
             ? -20
-            : row.size === 'small'
+            : previous.size === 'small'
               ? 10
               : 5
         const timePassed = changePercent <= timeLimitPercent
         const resultBytesPassed = row.resultBytes <= previous.resultBytes
         const cloneBytesPassed = row.cloneBytes <= previous.cloneBytes
+        const fixtureChecksumPassed =
+            row.fixtureChecksum === previous.fixtureChecksum
+        const structuralChecksumPassed =
+            row.structuralChecksum === previous.structuralChecksum
+        const metadataPassed =
+            row.primary === previous.primary &&
+            row.size === previous.size &&
+            row.workload === previous.workload &&
+            !duplicateCurrentIds.has(row.id) &&
+            !duplicateBaselineIds.has(previous.id)
         return {
             id: row.id,
-            primary: row.primary,
-            size: row.size,
+            primary: previous.primary,
+            size: previous.size,
             changePercent,
             timeLimitPercent,
             timePassed,
             resultBytesPassed,
             cloneBytesPassed,
-            passed: timePassed && resultBytesPassed && cloneBytesPassed
+            fixtureChecksumPassed,
+            structuralChecksumPassed,
+            metadataPassed,
+            passed:
+                timePassed &&
+                resultBytesPassed &&
+                cloneBytesPassed &&
+                fixtureChecksumPassed &&
+                structuralChecksumPassed &&
+                metadataPassed
         }
     })
-    return { passed: cases.every((row) => row.passed), cases }
+    for (const row of currentRows) {
+        if (!baselineById.has(row.id)) {
+            cases.push({
+                id: row.id,
+                passed: false,
+                reason: 'unexpected-current'
+            })
+        }
+    }
+    const fixtureChecksumPassed =
+        current?.fixtureChecksum === baseline?.fixtureChecksum
+    const catalogPassed = currentRows.length > 0 && baselineRows.length > 0
+    return {
+        passed:
+            catalogPassed &&
+            fixtureChecksumPassed &&
+            cases.every((row) => row.passed === true),
+        catalogPassed,
+        fixtureChecksumPassed,
+        cases
+    }
 }
 
 /**
@@ -108,6 +154,7 @@ async function measureCase(benchmarkCase, options) {
         primary: benchmarkCase.primary,
         size: benchmarkCase.size,
         workload: benchmarkCase.workload,
+        fixtureChecksum: benchmarkCase.fixtureChecksum,
         warmups: options.warmups,
         samples,
         medianMilliseconds: median(samples),
@@ -116,6 +163,22 @@ async function measureCase(benchmarkCase, options) {
         retainedHeap,
         structuralChecksum: checksum(result)
     }
+}
+
+/**
+ * Finds duplicate case ids without trusting map overwrite behavior.
+ * @param {Record<string, any>[]} rows Benchmark case rows.
+ * @returns {Set<string>} Duplicate ids.
+ */
+function duplicateIds(rows) {
+    const seen = new Set()
+    const duplicates = new Set()
+    for (const row of rows) {
+        const id = String(row?.id || '')
+        if (seen.has(id)) duplicates.add(id)
+        seen.add(id)
+    }
+    return duplicates
 }
 
 /**

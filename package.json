@@ -31,7 +31,7 @@
     "files": [
         "src",
         "docs",
-        "spec",
+        "spec/*.md",
         "LICENSE",
         "LICENSES",
         "COMMERCIAL-LICENSE.md",

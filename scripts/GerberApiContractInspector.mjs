@@ -1,0 +1,833 @@
+/**
+ * Captures stable public API contracts without invoking exported callables.
+ */
+export class GerberApiContractInspector {
+    /**
+     * Inspects exported entrypoints and resolves direct delegation contracts.
+     * @param {{ entrypoint: string, target: string, api: Record<string, any> }[]} entrypointApis Imported entrypoints.
+     * @returns {{ entrypoints: Record<string, any>[], features: Record<string, any>[] }} Captured contracts.
+     */
+    static inspect(entrypointApis) {
+        const definitions =
+            GerberApiContractInspector.#definitions(entrypointApis)
+        GerberApiContractInspector.#resolveDelegates(definitions.nodesByKey)
+        const entrypoints = []
+        const features = []
+
+        for (const entry of definitions.entries) {
+            const exports = []
+            for (const exported of entry.exports) {
+                exports.push({
+                    name: exported.name,
+                    type: typeof exported.value,
+                    ...exported.members
+                })
+                features.push(
+                    GerberApiContractInspector.#exportFeature(
+                        entry.entrypoint,
+                        exported
+                    )
+                )
+                features.push(
+                    ...GerberApiContractInspector.#callableFeatures(
+                        entry.entrypoint,
+                        exported,
+                        definitions.nodesByKey
+                    )
+                )
+            }
+            entrypoints.push({
+                entrypoint: entry.entrypoint,
+                target: entry.target,
+                exports
+            })
+        }
+
+        return {
+            entrypoints,
+            features: features.sort((left, right) =>
+                left.feature.localeCompare(right.feature)
+            )
+        }
+    }
+
+    /**
+     * Creates entrypoint/export records plus unique callable graph nodes.
+     * @param {{ entrypoint: string, target: string, api: Record<string, any> }[]} entrypointApis Imported entrypoints.
+     * @returns {{ entries: Record<string, any>[], nodesByKey: Map<string, Record<string, any>> }} Definitions.
+     */
+    static #definitions(entrypointApis) {
+        const entries = []
+        const nodesByKey = new Map()
+        for (const entrypointApi of entrypointApis) {
+            const exports = Object.keys(entrypointApi.api)
+                .sort()
+                .map((name) => {
+                    const value = entrypointApi.api[name]
+                    const members =
+                        GerberApiContractInspector.#publicMembers(value)
+                    GerberApiContractInspector.#defineCallableNodes(
+                        name,
+                        value,
+                        members,
+                        nodesByKey
+                    )
+                    return { name, value, members }
+                })
+            entries.push({
+                entrypoint: entrypointApi.entrypoint,
+                target: entrypointApi.target,
+                exports
+            })
+        }
+        return { entries, nodesByKey }
+    }
+
+    /**
+     * Lists own public static methods, instance methods, and accessors.
+     * @param {unknown} value Exported value.
+     * @returns {{ staticMethods: string[], instanceMethods: string[], instanceAccessors: string[] }} Members.
+     */
+    static #publicMembers(value) {
+        if (typeof value !== 'function') {
+            return {
+                staticMethods: [],
+                instanceMethods: [],
+                instanceAccessors: []
+            }
+        }
+        const staticMethods = Object.getOwnPropertyNames(value)
+            .filter((name) => {
+                const descriptor = Object.getOwnPropertyDescriptor(value, name)
+                return (
+                    !['length', 'name', 'prototype'].includes(name) &&
+                    typeof descriptor?.value === 'function'
+                )
+            })
+            .sort()
+        const descriptors = value.prototype
+            ? Object.getOwnPropertyDescriptors(value.prototype)
+            : {}
+        const instanceMethods = Object.entries(descriptors)
+            .filter(
+                ([name, descriptor]) =>
+                    name !== 'constructor' &&
+                    typeof descriptor.value === 'function'
+            )
+            .map(([name]) => name)
+            .sort()
+        const instanceAccessors = Object.entries(descriptors)
+            .filter(
+                ([name, descriptor]) =>
+                    name !== 'constructor' &&
+                    (typeof descriptor.get === 'function' ||
+                        typeof descriptor.set === 'function')
+            )
+            .map(([name]) => name)
+            .sort()
+        return { staticMethods, instanceMethods, instanceAccessors }
+    }
+
+    /**
+     * Adds unique callable nodes for one exported class or function.
+     * @param {string} exportName Export name.
+     * @param {unknown} value Exported value.
+     * @param {{ staticMethods: string[], instanceMethods: string[], instanceAccessors: string[] }} members Members.
+     * @param {Map<string, Record<string, any>>} nodesByKey Callable nodes.
+     * @returns {void}
+     */
+    static #defineCallableNodes(exportName, value, members, nodesByKey) {
+        if (typeof value !== 'function') return
+        const classSource = Function.prototype.toString.call(value)
+        const constructorSource =
+            GerberApiContractInspector.#extractConstructor(classSource)
+        if (constructorSource) {
+            GerberApiContractInspector.#addNode(
+                exportName,
+                'constructor',
+                'constructor',
+                constructorSource,
+                GerberApiContractInspector.#jsdocBefore(
+                    classSource,
+                    classSource.indexOf(constructorSource)
+                ),
+                nodesByKey
+            )
+        }
+        for (const methodName of members.staticMethods) {
+            const source = Function.prototype.toString.call(value[methodName])
+            GerberApiContractInspector.#addNode(
+                exportName,
+                methodName,
+                'static',
+                source,
+                GerberApiContractInspector.#jsdocBefore(
+                    classSource,
+                    classSource.indexOf(source)
+                ),
+                nodesByKey
+            )
+        }
+        for (const methodName of members.instanceMethods) {
+            const source = Function.prototype.toString.call(
+                value.prototype[methodName]
+            )
+            GerberApiContractInspector.#addNode(
+                exportName,
+                methodName,
+                'instance',
+                source,
+                GerberApiContractInspector.#jsdocBefore(
+                    classSource,
+                    classSource.indexOf(source)
+                ),
+                nodesByKey
+            )
+        }
+    }
+
+    /**
+     * Adds one normalized callable graph node.
+     * @param {string} exportName Export name.
+     * @param {string} methodName Method name.
+     * @param {string} methodType Method type.
+     * @param {string} source Callable source.
+     * @param {string} jsdoc Callable JSDoc.
+     * @param {Map<string, Record<string, any>>} nodesByKey Callable nodes.
+     * @returns {void}
+     */
+    static #addNode(
+        exportName,
+        methodName,
+        methodType,
+        source,
+        jsdoc,
+        nodesByKey
+    ) {
+        const key = GerberApiContractInspector.#nodeKey(
+            exportName,
+            methodName,
+            methodType
+        )
+        if (nodesByKey.has(key)) return
+        const parameters = GerberApiContractInspector.#parseParameters(source)
+        nodesByKey.set(key, {
+            key,
+            exportName,
+            methodName,
+            methodType,
+            source,
+            jsdoc,
+            parameters,
+            parameterFields: new Map(
+                parameters.map((parameter) => [
+                    parameter.name,
+                    new Set(
+                        GerberApiContractInspector.#parameterProperties(
+                            source,
+                            jsdoc,
+                            parameter.name
+                        )
+                    )
+                ])
+            ),
+            resultFields: new Set(
+                GerberApiContractInspector.#resultFields(source, jsdoc)
+            ),
+            calls: GerberApiContractInspector.#calls(source)
+        })
+    }
+
+    /**
+     * Propagates parameter properties and returned result fields through calls.
+     * @param {Map<string, Record<string, any>>} nodesByKey Callable graph.
+     * @returns {void}
+     */
+    static #resolveDelegates(nodesByKey) {
+        let changed = true
+        let passes = 0
+        while (changed && passes <= nodesByKey.size) {
+            changed = false
+            passes += 1
+            for (const node of nodesByKey.values()) {
+                for (const call of node.calls) {
+                    const target = nodesByKey.get(
+                        GerberApiContractInspector.#nodeKey(
+                            call.exportName,
+                            call.methodName,
+                            'static'
+                        )
+                    )
+                    if (!target) continue
+                    for (
+                        let index = 0;
+                        index < target.parameters.length;
+                        index += 1
+                    ) {
+                        const argument = String(
+                            call.arguments[index] || ''
+                        ).trim()
+                        const callerParameter = node.parameters.find(
+                            (parameter) => parameter.name === argument
+                        )
+                        if (!callerParameter) continue
+                        const destination = node.parameterFields.get(
+                            callerParameter.name
+                        )
+                        const source = target.parameterFields.get(
+                            target.parameters[index].name
+                        )
+                        changed =
+                            GerberApiContractInspector.#addAll(
+                                destination,
+                                source
+                            ) || changed
+                    }
+                    if (call.returned) {
+                        changed =
+                            GerberApiContractInspector.#addAll(
+                                node.resultFields,
+                                target.resultFields
+                            ) || changed
+                    }
+                }
+            }
+        }
+    }
+
+    /**
+     * Adds source values to a destination set.
+     * @param {Set<string>} destination Destination set.
+     * @param {Set<string> | undefined} source Source set.
+     * @returns {boolean} Whether a value was added.
+     */
+    static #addAll(destination, source) {
+        let changed = false
+        for (const value of source || []) {
+            if (destination.has(value)) continue
+            destination.add(value)
+            changed = true
+        }
+        return changed
+    }
+
+    /**
+     * Creates one export feature.
+     * @param {string} entrypoint Entrypoint key.
+     * @param {{ name: string, value: unknown }} exported Export record.
+     * @returns {Record<string, any>} Export feature.
+     */
+    static #exportFeature(entrypoint, exported) {
+        return {
+            feature: `${entrypoint}#${exported.name}`,
+            kind: 'export',
+            entrypoint,
+            exportName: exported.name,
+            sourceContract: {
+                type: 'export',
+                valueType: typeof exported.value
+            }
+        }
+    }
+
+    /**
+     * Creates callable, option, result, and accessor features for one export.
+     * @param {string} entrypoint Entrypoint key.
+     * @param {{ name: string, value: unknown, members: Record<string, string[]> }} exported Export record.
+     * @param {Map<string, Record<string, any>>} nodesByKey Callable graph.
+     * @returns {Record<string, any>[]} Contract features.
+     */
+    static #callableFeatures(entrypoint, exported, nodesByKey) {
+        if (typeof exported.value !== 'function') return []
+        const features = []
+        for (const [methodName, methodType] of [
+            ['constructor', 'constructor'],
+            ...exported.members.staticMethods.map((name) => [name, 'static']),
+            ...exported.members.instanceMethods.map((name) => [
+                name,
+                'instance'
+            ])
+        ]) {
+            const node = nodesByKey.get(
+                GerberApiContractInspector.#nodeKey(
+                    exported.name,
+                    methodName,
+                    methodType
+                )
+            )
+            if (node) {
+                features.push(
+                    ...GerberApiContractInspector.#methodFeatures(
+                        entrypoint,
+                        node
+                    )
+                )
+            }
+        }
+        const descriptors = exported.value.prototype
+            ? Object.getOwnPropertyDescriptors(exported.value.prototype)
+            : {}
+        for (const name of exported.members.instanceAccessors) {
+            const descriptor = descriptors[name]
+            features.push({
+                feature: `${entrypoint}#${exported.name}.prototype.${name}`,
+                kind: 'field',
+                entrypoint,
+                exportName: exported.name,
+                methodName: name,
+                methodType: 'instance-accessor',
+                sourceContract: {
+                    type: 'accessor',
+                    name,
+                    get: typeof descriptor?.get === 'function',
+                    set: typeof descriptor?.set === 'function'
+                }
+            })
+        }
+        return features
+    }
+
+    /**
+     * Creates method and subordinate contract features.
+     * @param {string} entrypoint Entrypoint key.
+     * @param {Record<string, any>} node Callable node.
+     * @returns {Record<string, any>[]} Method features.
+     */
+    static #methodFeatures(entrypoint, node) {
+        const owner =
+            node.methodType === 'instance'
+                ? `${node.exportName}.prototype`
+                : node.exportName
+        const methodId = `${entrypoint}#${owner}.${node.methodName}()`
+        const common = {
+            entrypoint,
+            exportName: node.exportName,
+            methodName: node.methodName,
+            methodType: node.methodType
+        }
+        const features = [
+            {
+                ...common,
+                feature: methodId,
+                kind: 'method',
+                sourceContract: {
+                    type: 'method',
+                    signature: `(${node.parameters.map((entry) => entry.source).join(', ')})`,
+                    parameters: node.parameters
+                }
+            }
+        ]
+        for (const parameter of node.parameters) {
+            features.push({
+                ...common,
+                feature: `${methodId}.argument.${parameter.name}`,
+                kind: 'option',
+                sourceContract: { type: 'argument', ...parameter }
+            })
+            for (const property of [
+                ...(node.parameterFields.get(parameter.name) || [])
+            ].sort()) {
+                features.push({
+                    ...common,
+                    feature: `${methodId}.argument.${parameter.name}.property.${property}`,
+                    kind: 'option',
+                    sourceContract: {
+                        type: 'property',
+                        argument: parameter.name,
+                        name: property
+                    }
+                })
+            }
+        }
+        for (const field of [...node.resultFields].sort()) {
+            features.push({
+                ...common,
+                feature: `${methodId}.result.${field}`,
+                kind: 'field',
+                sourceContract: { type: 'result-field', name: field }
+            })
+        }
+        return features
+    }
+
+    /**
+     * Parses callable parameters and default expressions.
+     * @param {string} source Callable source.
+     * @returns {Record<string, any>[]} Parameter records.
+     */
+    static #parseParameters(source) {
+        const open = source.indexOf('(')
+        if (open < 0) return []
+        const close = GerberApiContractInspector.#matchingDelimiter(
+            source,
+            open,
+            '(',
+            ')'
+        )
+        return GerberApiContractInspector.#splitTopLevel(
+            source.slice(open + 1, close)
+        ).map((parameter, index) => {
+            const equals = GerberApiContractInspector.#topLevelIndex(
+                parameter,
+                '='
+            )
+            const binding = (
+                equals < 0 ? parameter : parameter.slice(0, equals)
+            )
+                .trim()
+                .replace(/^\.\.\./u, '')
+            return {
+                index,
+                name: /^[A-Za-z_$][\w$]*$/u.test(binding)
+                    ? binding
+                    : `argument${index}`,
+                source: parameter.trim(),
+                hasDefault: equals >= 0,
+                defaultSource:
+                    equals < 0 ? null : parameter.slice(equals + 1).trim()
+            }
+        })
+    }
+
+    /**
+     * Finds direct and JSDoc-declared parameter property paths.
+     * @param {string} source Callable source.
+     * @param {string} jsdoc Callable JSDoc.
+     * @param {string} parameter Parameter name.
+     * @returns {string[]} Property paths.
+     */
+    static #parameterProperties(source, jsdoc, parameter) {
+        const fields = new Set()
+        const escaped = parameter.replace(/[.*+?^${}()|[\]\\]/gu, '\\$&')
+        const chain = new RegExp(
+            `\\b${escaped}((?:(?:\\?\\.|\\.)\\s*[A-Za-z_$][\\w$]*)+)`,
+            'gu'
+        )
+        for (const match of source.matchAll(chain)) {
+            const names = [
+                ...String(match[1]).matchAll(/[A-Za-z_$][\w$]*/gu)
+            ].map((entry) => entry[0])
+            for (let length = 1; length <= names.length; length += 1) {
+                fields.add(names.slice(0, length).join('.'))
+            }
+        }
+        for (const field of GerberApiContractInspector.#jsdocParameterFields(
+            jsdoc,
+            parameter
+        )) {
+            fields.add(field)
+        }
+        return [...fields].sort()
+    }
+
+    /**
+     * Finds returned object field paths from source and JSDoc.
+     * @param {string} source Callable source.
+     * @param {string} jsdoc Callable JSDoc.
+     * @returns {string[]} Result field paths.
+     */
+    static #resultFields(source, jsdoc) {
+        const fields = new Set(
+            GerberApiContractInspector.#jsdocReturnFields(jsdoc)
+        )
+        for (const match of source.matchAll(/\breturn\s*\{/gu)) {
+            const open = source.indexOf('{', match.index)
+            const close = GerberApiContractInspector.#matchingDelimiter(
+                source,
+                open,
+                '{',
+                '}'
+            )
+            for (const field of GerberApiContractInspector.#objectFieldPaths(
+                source.slice(open + 1, close)
+            )) {
+                fields.add(field)
+            }
+        }
+        return [...fields].sort()
+    }
+
+    /**
+     * Extracts JSDoc parameter object paths.
+     * @param {string} jsdoc JSDoc source.
+     * @param {string} parameter Parameter name.
+     * @returns {string[]} Property paths.
+     */
+    static #jsdocParameterFields(jsdoc, parameter) {
+        const fields = []
+        for (const match of jsdoc.matchAll(/@param\s+\{/gu)) {
+            const open = match.index + match[0].lastIndexOf('{')
+            const close = GerberApiContractInspector.#matchingDelimiter(
+                jsdoc,
+                open,
+                '{',
+                '}'
+            )
+            const suffix = jsdoc
+                .slice(close + 1)
+                .match(/^\s+(\[[^\]]+\]|[^\s*]+)/u)
+            const name = String(suffix?.[1] || '')
+                .replace(/^\[/u, '')
+                .replace(/\]$/u, '')
+                .split('=')[0]
+            if (name !== parameter) continue
+            fields.push(
+                ...GerberApiContractInspector.#typeObjectFieldPaths(
+                    jsdoc.slice(open + 1, close)
+                )
+            )
+        }
+        return fields
+    }
+
+    /**
+     * Extracts JSDoc return object paths.
+     * @param {string} jsdoc JSDoc source.
+     * @returns {string[]} Field paths.
+     */
+    static #jsdocReturnFields(jsdoc) {
+        const match = /@returns?\s+\{/u.exec(jsdoc)
+        if (!match) return []
+        const open = match.index + match[0].lastIndexOf('{')
+        const close = GerberApiContractInspector.#matchingDelimiter(
+            jsdoc,
+            open,
+            '{',
+            '}'
+        )
+        return GerberApiContractInspector.#typeObjectFieldPaths(
+            jsdoc.slice(open + 1, close)
+        )
+    }
+
+    /**
+     * Extracts field paths from the first nested object type.
+     * @param {string} source JSDoc type body.
+     * @returns {string[]} Field paths.
+     */
+    static #typeObjectFieldPaths(source) {
+        const open = source.indexOf('{')
+        if (open < 0) return []
+        const close = GerberApiContractInspector.#matchingDelimiter(
+            source,
+            open,
+            '{',
+            '}'
+        )
+        return GerberApiContractInspector.#objectFieldPaths(
+            source.slice(open + 1, close)
+        )
+    }
+
+    /**
+     * Extracts recursive object literal or object type field paths.
+     * @param {string} source Object body.
+     * @returns {string[]} Field paths.
+     */
+    static #objectFieldPaths(source) {
+        const fields = []
+        for (const part of GerberApiContractInspector.#splitTopLevel(source)) {
+            const match = part.trim().match(/^([A-Za-z_$][\w$]*)\??\s*(?::|$)/u)
+            if (!match) continue
+            const name = match[1]
+            fields.push(name)
+            const colon = GerberApiContractInspector.#topLevelIndex(part, ':')
+            if (colon < 0) continue
+            const value = part.slice(colon + 1).trim()
+            const nested = GerberApiContractInspector.#nestedObjectBody(value)
+            if (!nested) continue
+            for (const child of GerberApiContractInspector.#objectFieldPaths(
+                nested
+            )) {
+                fields.push(`${name}.${child}`)
+            }
+        }
+        return [...new Set(fields)].sort()
+    }
+
+    /**
+     * Returns a directly nested or arrow-returned object body.
+     * @param {string} value Property value source.
+     * @returns {string} Object body or empty string.
+     */
+    static #nestedObjectBody(value) {
+        let open = value.startsWith('{') ? 0 : -1
+        if (open < 0) {
+            const arrow = /=>\s*\(?\s*\{/u.exec(value)
+            if (arrow) open = value.indexOf('{', arrow.index)
+        }
+        if (open < 0) return ''
+        const close = GerberApiContractInspector.#matchingDelimiter(
+            value,
+            open,
+            '{',
+            '}'
+        )
+        return value.slice(open + 1, close)
+    }
+
+    /**
+     * Finds direct static calls and whether their result is returned.
+     * @param {string} source Callable source.
+     * @returns {Record<string, any>[]} Call records.
+     */
+    static #calls(source) {
+        const calls = []
+        for (const match of source.matchAll(
+            /\b([A-Za-z_$][\w$]*)\.([A-Za-z_$][\w$]*)\s*\(/gu
+        )) {
+            const open = source.indexOf('(', match.index)
+            const close = GerberApiContractInspector.#matchingDelimiter(
+                source,
+                open,
+                '(',
+                ')'
+            )
+            const prefix = source.slice(
+                Math.max(0, match.index - 24),
+                match.index
+            )
+            calls.push({
+                exportName: match[1],
+                methodName: match[2],
+                arguments: GerberApiContractInspector.#splitTopLevel(
+                    source.slice(open + 1, close)
+                ),
+                returned: /\breturn\s*(?:await\s*)?$/u.test(prefix)
+            })
+        }
+        return calls
+    }
+
+    /**
+     * Extracts an explicitly declared constructor.
+     * @param {string} classSource Class source.
+     * @returns {string} Constructor source or empty string.
+     */
+    static #extractConstructor(classSource) {
+        const match = /(?:^|\n)\s*constructor\s*\(/u.exec(classSource)
+        if (!match) return ''
+        const start = classSource.indexOf('constructor', match.index)
+        const openParameters = classSource.indexOf('(', start)
+        const closeParameters = GerberApiContractInspector.#matchingDelimiter(
+            classSource,
+            openParameters,
+            '(',
+            ')'
+        )
+        const openBody = classSource.indexOf('{', closeParameters)
+        const closeBody = GerberApiContractInspector.#matchingDelimiter(
+            classSource,
+            openBody,
+            '{',
+            '}'
+        )
+        return classSource.slice(start, closeBody + 1)
+    }
+
+    /**
+     * Returns the nearest JSDoc block preceding one class member.
+     * @param {string} classSource Class source.
+     * @param {number} memberIndex Member source index.
+     * @returns {string} JSDoc source.
+     */
+    static #jsdocBefore(classSource, memberIndex) {
+        if (memberIndex < 0) return ''
+        const end = classSource.lastIndexOf('*/', memberIndex)
+        const start = classSource.lastIndexOf('/**', end)
+        return start < 0 || end < 0 ? '' : classSource.slice(start, end + 2)
+    }
+
+    /**
+     * Splits comma-delimited source at top-level nesting depth.
+     * @param {string} source Expression source.
+     * @returns {string[]} Top-level parts.
+     */
+    static #splitTopLevel(source) {
+        const parts = []
+        let start = 0
+        let depth = 0
+        let quote = ''
+        for (let index = 0; index < source.length; index += 1) {
+            const character = source[index]
+            if (quote) {
+                if (character === quote && source[index - 1] !== '\\')
+                    quote = ''
+                continue
+            }
+            if (["'", '"', '`'].includes(character)) quote = character
+            else if ('([{'.includes(character)) depth += 1
+            else if (')]}'.includes(character)) depth -= 1
+            else if (character === ',' && depth === 0) {
+                parts.push(source.slice(start, index))
+                start = index + 1
+            }
+        }
+        const final = source.slice(start).trim()
+        if (final) parts.push(final)
+        return parts
+    }
+
+    /**
+     * Finds one target character at top-level nesting depth.
+     * @param {string} source Expression source.
+     * @param {string} target Target character.
+     * @returns {number} Character index or -1.
+     */
+    static #topLevelIndex(source, target) {
+        let depth = 0
+        let quote = ''
+        for (let index = 0; index < source.length; index += 1) {
+            const character = source[index]
+            if (quote) {
+                if (character === quote && source[index - 1] !== '\\')
+                    quote = ''
+                continue
+            }
+            if (["'", '"', '`'].includes(character)) quote = character
+            else if ('([{'.includes(character)) depth += 1
+            else if (')]}'.includes(character)) depth -= 1
+            else if (character === target && depth === 0) return index
+        }
+        return -1
+    }
+
+    /**
+     * Finds a matching delimiter while respecting strings and nesting.
+     * @param {string} source Source text.
+     * @param {number} openIndex Opening delimiter index.
+     * @param {string} open Opening delimiter.
+     * @param {string} close Closing delimiter.
+     * @returns {number} Closing delimiter index.
+     */
+    static #matchingDelimiter(source, openIndex, open, close) {
+        let depth = 0
+        let quote = ''
+        for (let index = openIndex; index < source.length; index += 1) {
+            const character = source[index]
+            if (quote) {
+                if (character === quote && source[index - 1] !== '\\')
+                    quote = ''
+                continue
+            }
+            if (["'", '"', '`'].includes(character)) quote = character
+            else if (character === open) depth += 1
+            else if (character === close) {
+                depth -= 1
+                if (depth === 0) return index
+            }
+        }
+        return source.length - 1
+    }
+
+    /**
+     * Builds a stable callable graph key.
+     * @param {string} exportName Export name.
+     * @param {string} methodName Method name.
+     * @param {string} methodType Method type.
+     * @returns {string} Graph key.
+     */
+    static #nodeKey(exportName, methodName, methodType) {
+        return `${exportName}:${methodType}:${methodName}`
+    }
+}

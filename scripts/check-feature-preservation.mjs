@@ -1,9 +1,11 @@
 import { execFile } from 'node:child_process'
-import { access, mkdtemp, readFile, rm } from 'node:fs/promises'
+import { access, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 import { pathToFileURL } from 'node:url'
-import { promisify } from 'node:util'
+import { isDeepStrictEqual, promisify } from 'node:util'
+
+import { GerberApiContractInspector } from './GerberApiContractInspector.mjs'
 
 const execFileAsync = promisify(execFile)
 const TOOLKITS = [
@@ -20,14 +22,16 @@ const MAPPING_FIELDS = [
     'disposition',
     'replacement',
     'availability',
+    'sourceContract',
     'evidenceToken',
+    'evidenceTokens',
     'tests',
     'documentation'
 ]
 
 /**
  * Validates an in-memory API baseline and preservation ledger.
- * @param {{ apiBaseline: Record<string, any>, ledger: Record<string, any>[], strict?: boolean, packageRoot?: string, repositoryRoot?: string }} options Validation inputs.
+ * @param {{ apiBaseline: Record<string, any>, ledger: Record<string, any>[], inventory?: Record<string, any>[], strict?: boolean, packageRoot?: string, repositoryRoot?: string }} options Validation inputs.
  * @returns {Promise<{ featureCount: number, strict: boolean }>} Validation summary.
  */
 export async function validateFeaturePreservation(options) {
@@ -74,7 +78,7 @@ export async function validateFeaturePreservation(options) {
             packageRoot
         )
         assertPackedApi(features, imported)
-        assertCapabilities(ledger, imported)
+        assertCapabilities(ledger, imported.apis, options.inventory)
     }
 
     return { featureCount: features.length, strict: options?.strict === true }
@@ -82,7 +86,7 @@ export async function validateFeaturePreservation(options) {
 
 /**
  * Reads and validates file-backed preservation artifacts.
- * @param {{ apiPath?: string, ledgerPath?: string, repositoryRoot?: string, packageRoot?: string, strict?: boolean }} [options] File-backed options.
+ * @param {{ apiPath?: string, ledgerPath?: string, inventoryPath?: string, repositoryRoot?: string, packageRoot?: string, strict?: boolean }} [options] File-backed options.
  * @returns {Promise<{ featureCount: number, strict: boolean }>} Validation summary.
  */
 export async function checkFeaturePreservation(options = {}) {
@@ -95,9 +99,14 @@ export async function checkFeaturePreservation(options = {}) {
         options.ledgerPath ||
             join(repositoryRoot, 'spec/feature-preservation.json')
     )
-    const [apiBaseline, ledger] = await Promise.all([
+    const inventoryPath = resolve(
+        options.inventoryPath ||
+            join(repositoryRoot, 'spec/capability-inventory-v0.1.21.json')
+    )
+    const [apiBaseline, ledger, inventory] = await Promise.all([
         readJson(apiPath),
-        readJson(ledgerPath)
+        readJson(ledgerPath),
+        readOptionalJson(inventoryPath)
     ])
 
     let packed = null
@@ -108,6 +117,7 @@ export async function checkFeaturePreservation(options = {}) {
         return await validateFeaturePreservation({
             apiBaseline,
             ledger,
+            inventory,
             strict: options.strict === true,
             packageRoot: options.packageRoot || packed?.packageRoot,
             repositoryRoot
@@ -162,6 +172,10 @@ function assertValidRow(row) {
         row.reason.length > 0 &&
         typeof row.evidenceToken === 'string' &&
         row.evidenceToken.length > 0 &&
+        nonEmptyStringList(row.evidenceTokens) &&
+        row.sourceContract &&
+        typeof row.sourceContract === 'object' &&
+        !Array.isArray(row.sourceContract) &&
         nonEmptyStringList(row.tests) &&
         nonEmptyStringList(row.documentation) &&
         validAvailability(row.availability)
@@ -195,7 +209,7 @@ function validAvailability(value) {
         return false
     const keys = Object.keys(value).sort()
     return (
-        JSON.stringify(keys) === JSON.stringify([...TOOLKITS].sort()) &&
+        isDeepStrictEqual(keys, [...TOOLKITS].sort()) &&
         keys.every((key) => AVAILABILITY.has(value[key]))
     )
 }
@@ -208,8 +222,7 @@ function validAvailability(value) {
  */
 function assertMatchingMapping(baseline, ledger) {
     const differs = MAPPING_FIELDS.some(
-        (field) =>
-            JSON.stringify(baseline?.[field]) !== JSON.stringify(ledger[field])
+        (field) => !isDeepStrictEqual(baseline?.[field], ledger[field])
     )
     if (differs) {
         throw new Error(
@@ -250,13 +263,18 @@ async function assertEvidence(ledger, repositoryRoot) {
         )
     }
     for (const row of ledger) {
+        const evidenceTokens = Array.isArray(row.evidenceTokens)
+            ? row.evidenceTokens
+            : [row.evidenceToken]
         if (
             !row.tests.some((path) =>
-                sourceByPath.get(path)?.includes(row.evidenceToken)
+                evidenceTokens.every((token) =>
+                    sourceByPath.get(path)?.includes(token)
+                )
             )
         ) {
             throw new Error(
-                `Evidence tests do not reference ${row.evidenceToken} for ${row.feature}`
+                `Evidence tests do not reference ${evidenceTokens.join(' + ')} for ${row.feature}`
             )
         }
     }
@@ -266,45 +284,80 @@ async function assertEvidence(ledger, repositoryRoot) {
  * Imports every captured package entrypoint from an extracted package.
  * @param {Record<string, any>[]} entrypoints Entrypoint baseline.
  * @param {string} packageRoot Extracted package root.
- * @returns {Promise<Map<string, Record<string, any>>>} Imported modules.
+ * @returns {Promise<{ apis: Map<string, Record<string, any>>, contracts: ReturnType<typeof GerberApiContractInspector.inspect> }>} Imported modules and contracts.
  */
 async function importEntrypoints(entrypoints, packageRoot) {
     if (!packageRoot) {
         throw new Error('Strict feature validation requires a package root.')
     }
-    const imported = new Map()
-    for (const entrypoint of entrypoints) {
-        imported.set(
-            entrypoint.entrypoint,
-            await import(
-                `${pathToFileURL(resolve(packageRoot, entrypoint.target)).href}?strict=${Date.now()}`
-            )
+    const pkg = JSON.parse(
+        await readFile(resolve(packageRoot, 'package.json'), 'utf8')
+    )
+    const definitions = Object.entries(pkg.exports || {}).sort(
+        ([left], [right]) => left.localeCompare(right)
+    )
+    const definitionByEntrypoint = new Map(definitions)
+    const missingEntrypoints = entrypoints
+        .map((entrypoint) => entrypoint.entrypoint)
+        .filter((entrypoint) => !definitionByEntrypoint.has(entrypoint))
+    if (missingEntrypoints.length) {
+        throw new Error(
+            `Missing packed entrypoints: ${missingEntrypoints.join(', ')}`
         )
     }
-    return imported
+    const imported = []
+    for (const [entrypoint, definition] of definitions) {
+        const target = exportTarget(definition)
+        imported.push({
+            entrypoint,
+            target,
+            api: await import(
+                `${pathToFileURL(resolve(packageRoot, target)).href}?strict=${Date.now()}-${encodeURIComponent(entrypoint)}`
+            )
+        })
+    }
+    return {
+        apis: new Map(imported.map((entry) => [entry.entrypoint, entry.api])),
+        contracts: GerberApiContractInspector.inspect(imported)
+    }
 }
 
 /**
  * Verifies each captured export and method still exists in the packed API.
  * @param {Record<string, any>[]} features Baseline features.
- * @param {Map<string, Record<string, any>>} imported Imported entrypoints.
+ * @param {{ contracts: ReturnType<typeof GerberApiContractInspector.inspect> }} imported Imported contracts.
  * @returns {void}
  */
 function assertPackedApi(features, imported) {
     const stale = []
+    const mismatched = []
+    const currentByFeature = new Map(
+        imported.contracts.features.map((feature) => [feature.feature, feature])
+    )
     for (const feature of features) {
         if (!feature.entrypoint || !feature.exportName) continue
-        const value = imported.get(feature.entrypoint)?.[feature.exportName]
-        let present = value !== undefined
-        if (present && feature.methodName) {
-            const owner =
-                feature.methodType === 'instance' ? value?.prototype : value
-            present = typeof owner?.[feature.methodName] === 'function'
+        const current = currentByFeature.get(feature.feature)
+        if (!current) {
+            if (feature.kind === 'export' || feature.kind === 'method') {
+                stale.push(feature.feature)
+            } else {
+                mismatched.push(feature.feature)
+            }
+            continue
         }
-        if (!present) stale.push(feature.feature)
+        if (
+            !isDeepStrictEqual(current.sourceContract, feature.sourceContract)
+        ) {
+            mismatched.push(feature.feature)
+        }
     }
     if (stale.length) {
         throw new Error(`Stale packed API features: ${stale.sort().join(', ')}`)
+    }
+    if (mismatched.length) {
+        throw new Error(
+            `Packed API contract mismatch: ${mismatched.sort().join(', ')}`
+        )
     }
 }
 
@@ -312,18 +365,23 @@ function assertPackedApi(features, imported) {
  * Verifies capability ids against the packed inventory and its identity fields.
  * @param {Record<string, any>[]} ledger Ledger rows.
  * @param {Map<string, Record<string, any>>} imported Imported entrypoints.
+ * @param {Record<string, any>[] | null | undefined} expectedInventory Frozen inventory fallback.
  * @returns {void}
  */
-function assertCapabilities(ledger, imported) {
+function assertCapabilities(ledger, imported, expectedInventory) {
     const provider = [...imported.values()]
         .map((api) => api.ToolkitCapabilities)
         .find((value) => typeof value?.inventory === 'function')
-    if (!provider) {
+    if (!provider && !Array.isArray(expectedInventory)) {
         throw new Error(
             'Packed API does not expose ToolkitCapabilities.inventory().'
         )
     }
-    const inventory = provider.inventory()
+    const inventory = provider ? provider.inventory() : expectedInventory
+    assertValidInventory(inventory)
+    if (provider && Array.isArray(expectedInventory)) {
+        assertInventoryIncludes(inventory, expectedInventory)
+    }
     const byId = new Map(inventory.map((row) => [row.id, row]))
     const ids = [...new Set(ledger.map((row) => row.capabilityId))]
     const fictitious = ids.filter((id) => !byId.has(id))
@@ -340,6 +398,60 @@ function assertCapabilities(ledger, imported) {
         if (row.category !== category || row.operation !== operation) {
             throw new Error(`Capability inventory identity mismatch: ${id}`)
         }
+        const expectedAvailability = ledger.find(
+            (entry) => entry.capabilityId === id
+        )?.availability
+        if (!isDeepStrictEqual(row.availability, expectedAvailability)) {
+            throw new Error(`Capability inventory availability mismatch: ${id}`)
+        }
+    }
+}
+
+/**
+ * Validates every capability inventory row and rejects duplicate ids.
+ * @param {unknown} inventory Inventory candidate.
+ * @returns {void}
+ */
+function assertValidInventory(inventory) {
+    if (!Array.isArray(inventory)) {
+        throw new Error('Capability inventory must be an array.')
+    }
+    const seen = new Set()
+    for (const row of inventory) {
+        const parts = String(row?.id || '').split('.')
+        const valid =
+            row &&
+            typeof row.id === 'string' &&
+            row.id.includes('.') &&
+            row.category === parts.slice(0, -1).join('.') &&
+            row.operation === parts.at(-1) &&
+            validAvailability(row.availability)
+        if (!valid || seen.has(row.id)) {
+            throw new Error(
+                `Invalid capability inventory row: ${row?.id || ''}`
+            )
+        }
+        seen.add(row.id)
+    }
+}
+
+/**
+ * Requires a packed inventory to preserve every frozen inventory row.
+ * @param {Record<string, any>[]} actual Packed inventory.
+ * @param {Record<string, any>[]} expected Frozen inventory.
+ * @returns {void}
+ */
+function assertInventoryIncludes(actual, expected) {
+    assertValidInventory(expected)
+    const actualById = new Map(actual.map((row) => [row.id, row]))
+    const missing = expected.filter((row) => {
+        const candidate = actualById.get(row.id)
+        return !isDeepStrictEqual(candidate, row)
+    })
+    if (missing.length) {
+        throw new Error(
+            `Packed capability inventory drift: ${missing.map((row) => row.id).join(', ')}`
+        )
     }
 }
 
@@ -360,13 +472,31 @@ async function packRepository(repositoryRoot) {
         if (typeof filename !== 'string' || !filename) {
             throw new Error('npm pack did not report a tarball filename.')
         }
+        const repositoryPackage = JSON.parse(
+            await readFile(join(repositoryRoot, 'package.json'), 'utf8')
+        )
+        await writeFile(
+            join(temporaryRoot, 'package.json'),
+            JSON.stringify({ private: true })
+        )
         await execFileAsync(
-            'tar',
-            ['-xzf', join(temporaryRoot, filename), '-C', temporaryRoot],
-            { maxBuffer: 10 * 1024 * 1024 }
+            'npm',
+            [
+                'install',
+                '--ignore-scripts',
+                '--no-audit',
+                '--no-fund',
+                '--package-lock=false',
+                join(temporaryRoot, filename)
+            ],
+            { cwd: temporaryRoot, maxBuffer: 10 * 1024 * 1024 }
         )
         return {
-            packageRoot: join(temporaryRoot, 'package'),
+            packageRoot: join(
+                temporaryRoot,
+                'node_modules',
+                repositoryPackage.name
+            ),
             cleanup: () => rm(temporaryRoot, { recursive: true, force: true })
         }
     } catch (error) {
@@ -385,6 +515,34 @@ async function readJson(path) {
 }
 
 /**
+ * Reads optional JSON and returns null when it does not exist.
+ * @param {string} path Absolute path.
+ * @returns {Promise<any | null>} Parsed value or null.
+ */
+async function readOptionalJson(path) {
+    try {
+        return await readJson(path)
+    } catch (error) {
+        if (error?.code === 'ENOENT') return null
+        throw error
+    }
+}
+
+/**
+ * Resolves one package export definition to an import target.
+ * @param {string | Record<string, string>} definition Export definition.
+ * @returns {string} Import target.
+ */
+function exportTarget(definition) {
+    if (typeof definition === 'string') return definition
+    const target = definition?.import || definition?.default
+    if (typeof target !== 'string') {
+        throw new Error('Package export does not define an import target.')
+    }
+    return target
+}
+
+/**
  * Parses command-line flags into checker options.
  * @param {string[]} argumentsList Command arguments.
  * @returns {Record<string, any>} Checker options.
@@ -399,6 +557,8 @@ function parseArguments(argumentsList) {
             options.apiPath = argumentsList[++index]
         } else if (argument === '--ledger') {
             options.ledgerPath = argumentsList[++index]
+        } else if (argument === '--inventory') {
+            options.inventoryPath = argumentsList[++index]
         } else if (argument === '--repository-root') {
             options.repositoryRoot = argumentsList[++index]
         } else {

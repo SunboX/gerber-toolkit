@@ -1,12 +1,17 @@
 import assert from 'node:assert/strict'
+import { execFile } from 'node:child_process'
 import { createHash } from 'node:crypto'
 import { readFile } from 'node:fs/promises'
 import test from 'node:test'
+import { promisify } from 'node:util'
 
 import { GerberBenchmarkData } from '../benchmarks/GerberBenchmarkData.mjs'
 import { GerberBenchmarkSuite } from '../benchmarks/GerberBenchmarkSuite.mjs'
 import { GerberLegacyProjectionBenchmarkAdapter } from '../benchmarks/GerberLegacyProjectionBenchmarkAdapter.mjs'
 import { captureApiBaseline } from '../scripts/capture-api-baseline.mjs'
+import { compareBenchmarks } from '../scripts/run-benchmarks.mjs'
+
+const execFileAsync = promisify(execFile)
 
 const EXPECTED_ENTRYPOINTS = ['.', './parser', './renderers', './scene3d']
 const EXPECTED_ROOT_EXPORTS = [
@@ -34,6 +39,8 @@ const EXPECTED_PROVENANCE = {
     sourceCommit: '11ba9df32ce966d6626f99f444909ff6c50d2281',
     sourceTree: '1b7813598247b9ec3907a9589aefe084e4a448bd'
 }
+const EXPECTED_PROJECTION_CHECKSUM =
+    '51d74710d2699af3982f923c94c91a34146d9eca3f9cb08543987f71c616290a'
 
 /**
  * Reads one repository JSON artifact.
@@ -83,8 +90,78 @@ test('Gerber synthetic benchmark catalog is deterministic and semantics-bearing'
     )
 })
 
-test('Gerber API capture accepts its canonical formatted artifacts unchanged', async () => {
-    await assert.doesNotReject(() => captureApiBaseline())
+test('Gerber benchmark comparison rejects missing and structurally divergent workloads', async () => {
+    const baseline = await readJson('benchmarks/baseline-v0.1.21.json')
+    const missing = compareBenchmarks({ ...baseline, cases: [] }, baseline)
+
+    assert.equal(missing.passed, false)
+    assert.deepEqual(
+        missing.cases
+            .filter((row) => row.reason === 'missing-current')
+            .map((row) => row.id),
+        EXPECTED_BENCHMARK_CASES.map((row) => row.id)
+    )
+    assert.equal(compareBenchmarks({ cases: [] }, { cases: [] }).passed, false)
+
+    const divergent = structuredClone(baseline)
+    divergent.cases = divergent.cases.map((row) => ({
+        ...row,
+        medianMilliseconds: 0,
+        resultBytes: 1,
+        cloneBytes: 1,
+        structuralChecksum: '0'.repeat(64)
+    }))
+    const comparison = compareBenchmarks(divergent, baseline)
+
+    assert.equal(comparison.passed, false)
+    assert.equal(
+        comparison.cases.every((row) => row.structuralChecksumPassed === false),
+        true
+    )
+})
+
+test('Gerber benchmark rows freeze every case input and exact projection output', async () => {
+    const benchmark = await readJson('benchmarks/baseline-v0.1.21.json')
+    const cases = GerberBenchmarkSuite.cases()
+
+    assert.deepEqual(
+        benchmark.cases.map((row) => row.fixtureChecksum),
+        cases.map((row) => row.fixtureChecksum)
+    )
+    assert.equal(
+        benchmark.cases.every((row) =>
+            /^[a-f0-9]{64}$/u.test(row.fixtureChecksum)
+        ),
+        true
+    )
+    const projection = benchmark.cases.find(
+        (row) => row.id === 'archive-parse-projection'
+    )
+    assert.equal(projection.structuralChecksum, EXPECTED_PROJECTION_CHECKSUM)
+    assert.equal(
+        GerberLegacyProjectionBenchmarkAdapter.structuralChecksum(
+            await cases
+                .find((row) => row.id === 'archive-parse-projection')
+                .run()
+        ),
+        EXPECTED_PROJECTION_CHECKSUM
+    )
+})
+
+test('Gerber API capture reproduces the historical source independently of the live package', async () => {
+    const { baseline } = await captureApiBaseline({ write: false })
+
+    assert.equal(baseline.packageVersion, '0.1.21')
+    assert.equal(
+        baseline.provenance.sourceCommit,
+        EXPECTED_PROVENANCE.sourceCommit
+    )
+    assert.equal(
+        baseline.provenance.evidenceCommit,
+        baseline.provenance.harnessCommit
+    )
+    assert.match(baseline.provenance.harnessCommit, /^[a-f0-9]{40}$/u)
+    assert.match(baseline.provenance.harnessTree, /^[a-f0-9]{40}$/u)
 })
 
 test('Gerber convergence baselines cover every public export and primary case', async () => {
@@ -94,7 +171,8 @@ test('Gerber convergence baselines cover every public export and primary case', 
 
     assert.equal(api.package, 'gerber-toolkit')
     assert.equal(api.packageVersion, '0.1.21')
-    assert.deepEqual(api.provenance, EXPECTED_PROVENANCE)
+    assert.equal(api.provenance.sourceCommit, EXPECTED_PROVENANCE.sourceCommit)
+    assert.equal(api.provenance.sourceTree, EXPECTED_PROVENANCE.sourceTree)
     assert.deepEqual(
         api.entrypoints.map((entry) => entry.entrypoint),
         EXPECTED_ENTRYPOINTS
@@ -142,6 +220,87 @@ test('Gerber API baseline records complete callable, option, field, and behavior
         ),
         true
     )
+    for (const feature of [
+        '.#GerberParser.parseArrayBuffer().argument.options.property.renderMode',
+        '.#GerberParser.parseArrayBuffer().result.pcb.fabrication.renderMode',
+        '.#PcbScene3dScenePreparator.prepare().argument.options.property.boardThicknessMil',
+        '.#PcbScene3dScenePreparator.prepare().result.board'
+    ]) {
+        assert.equal(
+            api.features.some((row) => row.feature === feature),
+            true,
+            `Missing delegated or nested contract: ${feature}`
+        )
+    }
+    assert.equal(
+        api.features.every(
+            (feature) =>
+                !feature.tests.includes(
+                    'tests/convergence-baselines.test.mjs'
+                ) &&
+                !feature.tests.includes(
+                    'tests/feature-preservation-check.test.mjs'
+                )
+        ),
+        true
+    )
+})
+
+test('Gerber baseline provenance separates source, evidence, and harness trees', async () => {
+    const api = await readJson('spec/api-baseline-v0.1.21.json')
+    const benchmark = await readJson('benchmarks/baseline-v0.1.21.json')
+
+    for (const artifact of [api, benchmark]) {
+        assert.equal(
+            artifact.provenance.sourceCommit,
+            EXPECTED_PROVENANCE.sourceCommit
+        )
+        assert.equal(
+            artifact.provenance.sourceTree,
+            EXPECTED_PROVENANCE.sourceTree
+        )
+        assert.equal(
+            artifact.provenance.evidenceCommit,
+            artifact.provenance.harnessCommit
+        )
+        assert.equal(
+            artifact.provenance.evidenceTree,
+            artifact.provenance.harnessTree
+        )
+        assert.match(artifact.provenance.harnessCommit, /^[a-f0-9]{40}$/u)
+        assert.match(artifact.provenance.harnessTree, /^[a-f0-9]{40}$/u)
+        const { stdout } = await execFileAsync('git', [
+            'rev-parse',
+            `${artifact.provenance.harnessCommit}^{tree}`
+        ])
+        assert.equal(stdout.trim(), artifact.provenance.harnessTree)
+    }
+})
+
+test('Gerber development baselines stay outside the published package', async () => {
+    const { stdout } = await execFileAsync('npm', [
+        'pack',
+        '--dry-run',
+        '--json'
+    ])
+    const packed = JSON.parse(stdout)[0]
+    const paths = packed.files.map((entry) => entry.path)
+
+    assert.equal(paths.includes('spec/api-baseline-v0.1.21.json'), false)
+    assert.equal(paths.includes('spec/feature-preservation.json'), false)
+    assert.equal(
+        paths.some((path) => path.startsWith('benchmarks/')),
+        false
+    )
+    assert.equal(
+        paths.some((path) => path.startsWith('scripts/')),
+        false
+    )
+    assert.equal(
+        paths.some((path) => path.startsWith('tests/')),
+        false
+    )
+    assert.equal(packed.unpackedSize < 500_000, true)
 })
 
 test('Gerber feature ledger freezes every preservation decision and availability map', async () => {
@@ -155,6 +314,9 @@ test('Gerber feature ledger freezes every preservation decision and availability
         'replacement',
         'availability',
         'reason',
+        'sourceContract',
+        'evidenceToken',
+        'evidenceTokens',
         'tests',
         'documentation'
     ]
@@ -196,7 +358,14 @@ test('Gerber benchmark baseline freezes primary semantics and measurement struct
         reportChecksum,
         createHash('sha256').update(JSON.stringify(reportBody)).digest('hex')
     )
-    assert.deepEqual(benchmark.provenance, EXPECTED_PROVENANCE)
+    assert.equal(
+        benchmark.provenance.sourceCommit,
+        EXPECTED_PROVENANCE.sourceCommit
+    )
+    assert.equal(
+        benchmark.provenance.sourceTree,
+        EXPECTED_PROVENANCE.sourceTree
+    )
     assert.deepEqual(
         benchmark.cases.map(({ id, primary, size }) => ({ id, primary, size })),
         EXPECTED_BENCHMARK_CASES
@@ -240,5 +409,5 @@ test('Gerber benchmark baseline freezes primary semantics and measurement struct
         (row) => row.id === 'archive-parse-projection'
     )
     assert.equal(projection.workload, 'legacy-generic-projection')
-    assert.match(projection.structuralChecksum, /^[a-f0-9]{64}$/u)
+    assert.equal(projection.structuralChecksum, EXPECTED_PROJECTION_CHECKSUM)
 })

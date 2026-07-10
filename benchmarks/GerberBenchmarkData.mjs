@@ -31,7 +31,10 @@ export class GerberBenchmarkData {
         return [
             {
                 name: 'synthetic-fabrication.zip',
-                bytes: zipSync(files, { level: 6 })
+                bytes: zipSync(files, {
+                    level: 6,
+                    mtime: new Date(1980, 0, 1)
+                })
             }
         ]
     }

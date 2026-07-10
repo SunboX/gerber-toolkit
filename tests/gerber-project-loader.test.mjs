@@ -41,6 +41,27 @@ test('GerberProjectLoader groups selected fabrication files into one composite d
     assert.equal(result.documents[0].pcb.fabrication.renderMode, 'composite')
     assert.deepEqual(result.documents[0].pcb.components, [])
     assert.equal(result.documents[0].pcb.boardOutline.widthMil, 7.874016)
+    assert.equal(result.project.sourceFormat, 'gerber')
+    assert.equal(result.project.fileName, 'fabrication-package')
+    assert.deepEqual(
+        result.project.documents.map(({ fileName, role, side }) => ({
+            fileName,
+            role,
+            side
+        })),
+        [
+            {
+                fileName: 'sample-F_Cu.gtl',
+                role: 'top-copper',
+                side: 'top'
+            },
+            {
+                fileName: 'sample-B_Cu.gbl',
+                role: 'bottom-copper',
+                side: 'bottom'
+            }
+        ]
+    )
 })
 
 test('GerberProjectLoader expands fabrication zip archives', async () => {
@@ -66,6 +87,15 @@ test('GerberProjectLoader classifies fabrication entries', () => {
         'nested/sample-F_Cu.gtl': textBytes(gerberLayer('X001000'))
     })
 
+    assert.equal(
+        GerberProjectLoader.canLoadEntries([
+            {
+                name: 'single-layer.gtl',
+                buffer: textBytes(gerberLayer('X001000')).buffer
+            }
+        ]),
+        true
+    )
     assert.equal(
         GerberProjectLoader.canLoadEntries([
             { name: 'sample-package.zip', bytes: archive }

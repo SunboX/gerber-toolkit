@@ -1,0 +1,90 @@
+[
+    {
+        "id": "extension.gerber.coordinate",
+        "category": "extension.gerber",
+        "operation": "coordinate",
+        "availability": {
+            "circuitjson-toolkit": "unavailable",
+            "gerber-toolkit": "native",
+            "altium-toolkit": "unavailable",
+            "kicad-toolkit": "unavailable"
+        }
+    },
+    {
+        "id": "extension.gerber.layer",
+        "category": "extension.gerber",
+        "operation": "layer",
+        "availability": {
+            "circuitjson-toolkit": "unavailable",
+            "gerber-toolkit": "native",
+            "altium-toolkit": "unavailable",
+            "kicad-toolkit": "unavailable"
+        }
+    },
+    {
+        "id": "extension.gerber.sceneModels",
+        "category": "extension.gerber",
+        "operation": "sceneModels",
+        "availability": {
+            "circuitjson-toolkit": "unavailable",
+            "gerber-toolkit": "native",
+            "altium-toolkit": "unavailable",
+            "kicad-toolkit": "unavailable"
+        }
+    },
+    {
+        "id": "interaction.pcb.hitTest",
+        "category": "interaction.pcb",
+        "operation": "hitTest",
+        "availability": {
+            "circuitjson-toolkit": "shared",
+            "gerber-toolkit": "native",
+            "altium-toolkit": "derived",
+            "kicad-toolkit": "derived"
+        }
+    },
+    {
+        "id": "parser.document.parse",
+        "category": "parser.document",
+        "operation": "parse",
+        "availability": {
+            "circuitjson-toolkit": "shared",
+            "gerber-toolkit": "native",
+            "altium-toolkit": "derived",
+            "kicad-toolkit": "derived"
+        }
+    },
+    {
+        "id": "project.archive.load",
+        "category": "project.archive",
+        "operation": "load",
+        "availability": {
+            "circuitjson-toolkit": "shared",
+            "gerber-toolkit": "native",
+            "altium-toolkit": "derived",
+            "kicad-toolkit": "derived"
+        }
+    },
+    {
+        "id": "renderer.pcb.render",
+        "category": "renderer.pcb",
+        "operation": "render",
+        "availability": {
+            "circuitjson-toolkit": "shared",
+            "gerber-toolkit": "native",
+            "altium-toolkit": "derived",
+            "kicad-toolkit": "derived"
+        }
+    },
+    {
+        "id": "scene3d.pcb.build",
+        "category": "scene3d.pcb",
+        "operation": "build",
+        "availability": {
+            "circuitjson-toolkit": "shared",
+            "gerber-toolkit": "native",
+            "altium-toolkit": "derived",
+            "kicad-toolkit": "derived"
+        }
+    }
+]

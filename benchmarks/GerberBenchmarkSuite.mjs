@@ -21,12 +21,17 @@ export class GerberBenchmarkSuite {
         const repeat = GerberBenchmarkData.stepRepeatInput()
         const small = GerberBenchmarkData.smallParserInput()
         const smallDocument = GerberBenchmarkData.smallDocument()
+        const renderOptions = {
+            renderMode: 'separated',
+            layerIds: ['render-0', 'render-1']
+        }
         return [
             {
                 id: 'archive-parse-projection',
                 primary: true,
                 size: 'large',
                 workload: 'legacy-generic-projection',
+                fixtureChecksum: GerberBenchmarkSuite.#checksum(archiveEntries),
                 run: async () => {
                     const result =
                         await GerberProjectLoader.loadEntries(archiveEntries)
@@ -40,6 +45,8 @@ export class GerberBenchmarkSuite {
                 primary: true,
                 size: 'large',
                 workload: 'mask-drill-interaction',
+                fixtureChecksum:
+                    GerberBenchmarkSuite.#checksum(interactionItems),
                 run: async () => {
                     let hitCount = 0
                     for (let index = 0; index < 180; index += 1) {
@@ -59,6 +66,7 @@ export class GerberBenchmarkSuite {
                 primary: false,
                 size: 'large',
                 workload: 'step-repeat-parse',
+                fixtureChecksum: GerberBenchmarkSuite.#checksum(repeat),
                 run: async () =>
                     GerberParser.parseArrayBuffer(repeat.fileName, repeat.bytes)
             },
@@ -67,17 +75,20 @@ export class GerberBenchmarkSuite {
                 primary: false,
                 size: 'large',
                 workload: 'separated-svg-render',
+                fixtureChecksum: GerberBenchmarkSuite.#checksum({
+                    document: renderDocument,
+                    options: renderOptions
+                }),
                 run: async () =>
-                    GerberPcbSvgRenderer.render(renderDocument, {
-                        renderMode: 'separated',
-                        layerIds: ['render-0', 'render-1']
-                    })
+                    GerberPcbSvgRenderer.render(renderDocument, renderOptions)
             },
             {
                 id: 'worker-clone-default',
                 primary: false,
                 size: 'large',
                 workload: 'default-structured-clone',
+                fixtureChecksum:
+                    GerberBenchmarkSuite.#checksum(interactionDocument),
                 run: async () => structuredClone(interactionDocument)
             },
             {
@@ -85,6 +96,7 @@ export class GerberBenchmarkSuite {
                 primary: false,
                 size: 'small',
                 workload: 'small-gerber-parse',
+                fixtureChecksum: GerberBenchmarkSuite.#checksum(small),
                 run: async () =>
                     GerberParser.parseArrayBuffer(small.fileName, small.bytes)
             },
@@ -93,6 +105,7 @@ export class GerberBenchmarkSuite {
                 primary: false,
                 size: 'small',
                 workload: 'small-svg-render',
+                fixtureChecksum: GerberBenchmarkSuite.#checksum(smallDocument),
                 run: async () => GerberPcbSvgRenderer.render(smallDocument)
             }
         ]
@@ -103,8 +116,20 @@ export class GerberBenchmarkSuite {
      * @returns {string} SHA-256 checksum.
      */
     static fixtureChecksum() {
-        return createHash('sha256')
-            .update(JSON.stringify(GerberBenchmarkData.fixtureDescriptor()))
-            .digest('hex')
+        return GerberBenchmarkSuite.#checksum(
+            GerberBenchmarkSuite.cases().map(({ id, fixtureChecksum }) => ({
+                id,
+                fixtureChecksum
+            }))
+        )
+    }
+
+    /**
+     * Computes a stable checksum for one JSON-shaped fixture value.
+     * @param {unknown} value Fixture value.
+     * @returns {string} SHA-256 checksum.
+     */
+    static #checksum(value) {
+        return createHash('sha256').update(JSON.stringify(value)).digest('hex')
     }
 }

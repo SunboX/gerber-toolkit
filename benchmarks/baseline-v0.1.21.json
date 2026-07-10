@@ -4,7 +4,11 @@
     "packageVersion": "0.1.21",
     "provenance": {
         "sourceCommit": "11ba9df32ce966d6626f99f444909ff6c50d2281",
-        "sourceTree": "1b7813598247b9ec3907a9589aefe084e4a448bd"
+        "sourceTree": "1b7813598247b9ec3907a9589aefe084e4a448bd",
+        "evidenceCommit": "01bc1d01adb2550ba19800f304a1a8b730dd9a0f",
+        "evidenceTree": "fc1567a89c936b0115bb98f834d1a77b3a4425c6",
+        "harnessCommit": "01bc1d01adb2550ba19800f304a1a8b730dd9a0f",
+        "harnessTree": "fc1567a89c936b0115bb98f834d1a77b3a4425c6"
     },
     "environment": {
         "node": "v20.17.0",
@@ -13,13 +17,14 @@
         "cpu": "Apple M3 Max",
         "logicalCpuCount": 16
     },
-    "fixtureChecksum": "2ecd32bb68eb75e5ee8f31ec18982def0767f58d8a74ce11d36ea3b9af715097",
+    "fixtureChecksum": "5a33261b5e3e74067ee36bade5a4ef0b27faea0e62b17fa30cff2dcd70f74b8a",
     "cases": [
         {
             "id": "archive-parse-projection",
             "primary": true,
             "size": "large",
             "workload": "legacy-generic-projection",
+            "fixtureChecksum": "25086ad253cb072e5a5b125e963efa1ad3d300b239c7b54e42a4dedd80b09608",
             "warmups": 2,
             "samples": [5.822959, 4.388417, 4.182667, 3.409625, 6.933333],
             "medianMilliseconds": 4.388417,
@@ -38,6 +43,7 @@
             "primary": true,
             "size": "large",
             "workload": "mask-drill-interaction",
+            "fixtureChecksum": "40bc6b685109ecf9e14c5d7277471a43aa3b4a12b86bb00b2ef2a3f728f073a1",
             "warmups": 2,
             "samples": [3.028875, 3.001, 3.034958, 3.022208, 3.029875],
             "medianMilliseconds": 3.028875,
@@ -56,6 +62,7 @@
             "primary": false,
             "size": "large",
             "workload": "step-repeat-parse",
+            "fixtureChecksum": "de692ce5f19a6cd3f63f761aaddb7e065c2e29c71e25f4765e862b3cb4a75436",
             "warmups": 2,
             "samples": [2.258209, 2.106625, 2.154459, 2.266834, 2.125667],
             "medianMilliseconds": 2.154459,
@@ -74,6 +81,7 @@
             "primary": false,
             "size": "large",
             "workload": "separated-svg-render",
+            "fixtureChecksum": "4f894f4ffe0e7828b170d4d95377056aa84936b15908fbc4eed4e5a8282dcd89",
             "warmups": 2,
             "samples": [4.993917, 4.959083, 4.768833, 4.824, 5.128084],
             "medianMilliseconds": 4.959083,
@@ -92,6 +100,7 @@
             "primary": false,
             "size": "large",
             "workload": "default-structured-clone",
+            "fixtureChecksum": "e05b9b3e9a29eb3b0bd40d4c3a42f805779eea699f6555fc708450df38f18acf",
             "warmups": 2,
             "samples": [1.187416, 1.205333, 1.195875, 1.196208, 1.186542],
             "medianMilliseconds": 1.195875,
@@ -110,6 +119,7 @@
             "primary": false,
             "size": "small",
             "workload": "small-gerber-parse",
+            "fixtureChecksum": "18d37c354848160ac59230c01af1323daec6ee9e3c016cf5f86a6a8549667429",
             "warmups": 2,
             "samples": [0.033, 0.030958, 0.032542, 0.030833, 0.030084],
             "medianMilliseconds": 0.030958,
@@ -128,6 +138,7 @@
             "primary": false,
             "size": "small",
             "workload": "small-svg-render",
+            "fixtureChecksum": "14a46773d2c6eda95fa28c91538f89974139143cfdde8ec4801d28742f264733",
             "warmups": 2,
             "samples": [0.030208, 0.056542, 0.015083, 0.011709, 0.010583],
             "medianMilliseconds": 0.015083,
@@ -142,5 +153,5 @@
             "structuralChecksum": "deb0a12d569b8dc6f2eee52772b1623122581c857b94d9636ae05f854b381a90"
         }
     ],
-    "reportChecksum": "12538684f2b8eb676ffab2f689e661d7db1baeb505f677647630e3bf3a3be4f6"
+    "reportChecksum": "851bffacc8403c88ea2d2e2bcf58bdc07bb10f206e4ec06203dc57f3bc5be775"
 }

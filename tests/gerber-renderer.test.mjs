@@ -494,9 +494,15 @@ test('Gerber renderer helpers expose layer metadata and hit-test items', () => {
     const document = createDocument()
     const layers = PcbInteractionLayerModel.resolve(document)
     const items = PcbInteractionIndex.build(document)
+    const hits = PcbInteractionIndex.hitTestItems(
+        items,
+        { x: 2, y: 3 },
+        { tolerance: 0.1 }
+    )
 
     assert.equal(layers.physicalLayers.length, 2)
     assert.equal(layers.virtualLayers.length, 1)
     assert.equal(items.length, 2)
     assert.equal(items[0].sourceFormat, 'gerber')
+    assert.equal(hits.length, 1)
 })
