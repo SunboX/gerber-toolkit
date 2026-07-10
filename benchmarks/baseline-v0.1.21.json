@@ -1,0 +1,146 @@
+{
+    "schema": "gerber-toolkit.benchmark-report.v1",
+    "package": "gerber-toolkit",
+    "packageVersion": "0.1.21",
+    "provenance": {
+        "sourceCommit": "11ba9df32ce966d6626f99f444909ff6c50d2281",
+        "sourceTree": "1b7813598247b9ec3907a9589aefe084e4a448bd"
+    },
+    "environment": {
+        "node": "v20.17.0",
+        "platform": "darwin",
+        "architecture": "arm64",
+        "cpu": "Apple M3 Max",
+        "logicalCpuCount": 16
+    },
+    "fixtureChecksum": "2ecd32bb68eb75e5ee8f31ec18982def0767f58d8a74ce11d36ea3b9af715097",
+    "cases": [
+        {
+            "id": "archive-parse-projection",
+            "primary": true,
+            "size": "large",
+            "workload": "legacy-generic-projection",
+            "warmups": 2,
+            "samples": [5.822959, 4.388417, 4.182667, 3.409625, 6.933333],
+            "medianMilliseconds": 4.388417,
+            "resultBytes": 305898,
+            "cloneBytes": 305898,
+            "retainedHeap": {
+                "gcControlled": true,
+                "beforeBytes": 7087024,
+                "afterBytes": 7797120,
+                "retainedBytes": 710096
+            },
+            "structuralChecksum": "51d74710d2699af3982f923c94c91a34146d9eca3f9cb08543987f71c616290a"
+        },
+        {
+            "id": "mask-drill-hit-test",
+            "primary": true,
+            "size": "large",
+            "workload": "mask-drill-interaction",
+            "warmups": 2,
+            "samples": [3.028875, 3.001, 3.034958, 3.022208, 3.029875],
+            "medianMilliseconds": 3.028875,
+            "resultBytes": 33,
+            "cloneBytes": 33,
+            "retainedHeap": {
+                "gcControlled": true,
+                "beforeBytes": 6438144,
+                "afterBytes": 6438112,
+                "retainedBytes": 0
+            },
+            "structuralChecksum": "4909cfcf2ba7e1060cada21b0932da63914e7d1f5be463c9df33b68533587b08"
+        },
+        {
+            "id": "step-repeat-large",
+            "primary": false,
+            "size": "large",
+            "workload": "step-repeat-parse",
+            "warmups": 2,
+            "samples": [2.258209, 2.106625, 2.154459, 2.266834, 2.125667],
+            "medianMilliseconds": 2.154459,
+            "resultBytes": 215900,
+            "cloneBytes": 215900,
+            "retainedHeap": {
+                "gcControlled": true,
+                "beforeBytes": 6930912,
+                "afterBytes": 7406824,
+                "retainedBytes": 475912
+            },
+            "structuralChecksum": "77d49e9c381212f4c35c86c4a6ebd8b937a1245f6af8065807eb6c45aaae1891"
+        },
+        {
+            "id": "separated-render-large",
+            "primary": false,
+            "size": "large",
+            "workload": "separated-svg-render",
+            "warmups": 2,
+            "samples": [4.993917, 4.959083, 4.768833, 4.824, 5.128084],
+            "medianMilliseconds": 4.959083,
+            "resultBytes": 1590469,
+            "cloneBytes": 1590469,
+            "retainedHeap": {
+                "gcControlled": true,
+                "beforeBytes": 8366584,
+                "afterBytes": 9575472,
+                "retainedBytes": 1208888
+            },
+            "structuralChecksum": "006ec0bab3b85c723baf9bd47581d2e0a20a578bc06834d37ee5252b4784d3a3"
+        },
+        {
+            "id": "worker-clone-default",
+            "primary": false,
+            "size": "large",
+            "workload": "default-structured-clone",
+            "warmups": 2,
+            "samples": [1.187416, 1.205333, 1.195875, 1.196208, 1.186542],
+            "medianMilliseconds": 1.195875,
+            "resultBytes": 179843,
+            "cloneBytes": 179843,
+            "retainedHeap": {
+                "gcControlled": true,
+                "beforeBytes": 7128304,
+                "afterBytes": 7618256,
+                "retainedBytes": 489952
+            },
+            "structuralChecksum": "e05b9b3e9a29eb3b0bd40d4c3a42f805779eea699f6555fc708450df38f18acf"
+        },
+        {
+            "id": "parse-small",
+            "primary": false,
+            "size": "small",
+            "workload": "small-gerber-parse",
+            "warmups": 2,
+            "samples": [0.033, 0.030958, 0.032542, 0.030833, 0.030084],
+            "medianMilliseconds": 0.030958,
+            "resultBytes": 1952,
+            "cloneBytes": 1952,
+            "retainedHeap": {
+                "gcControlled": true,
+                "beforeBytes": 6630400,
+                "afterBytes": 6638440,
+                "retainedBytes": 8040
+            },
+            "structuralChecksum": "93c6eea8c928ebb92e72a03237866c5dac70a36ad2d341c7db948a450b2ce5f6"
+        },
+        {
+            "id": "render-small",
+            "primary": false,
+            "size": "small",
+            "workload": "small-svg-render",
+            "warmups": 2,
+            "samples": [0.030208, 0.056542, 0.015083, 0.011709, 0.010583],
+            "medianMilliseconds": 0.015083,
+            "resultBytes": 6737,
+            "cloneBytes": 6737,
+            "retainedHeap": {
+                "gcControlled": true,
+                "beforeBytes": 6624488,
+                "afterBytes": 6633048,
+                "retainedBytes": 8560
+            },
+            "structuralChecksum": "deb0a12d569b8dc6f2eee52772b1623122581c857b94d9636ae05f854b381a90"
+        }
+    ],
+    "reportChecksum": "12538684f2b8eb676ffab2f689e661d7db1baeb505f677647630e3bf3a3be4f6"
+}
