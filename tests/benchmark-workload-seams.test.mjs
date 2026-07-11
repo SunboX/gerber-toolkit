@@ -157,6 +157,7 @@ test('comparison validates distinct baseline and current identities', async () =
     )
 
     const slowCurrent = structuredClone(current)
+    slowCurrent.environment = structuredClone(baseline.environment)
     slowCurrent.cases[0].samples = [1000]
     slowCurrent.cases[0].medianMilliseconds = 1000
     seal(slowCurrent)
