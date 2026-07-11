@@ -16,6 +16,7 @@ import { GerberApiContractInspector } from '../scripts/GerberApiContractInspecto
 import { captureApiBaseline } from '../scripts/capture-api-baseline.mjs'
 import {
     compareBenchmarks,
+    currentBenchmarkEnvironment,
     currentBenchmarkIdentity,
     runBenchmarks
 } from '../scripts/run-benchmarks.mjs'
@@ -93,6 +94,7 @@ function passingBenchmarkCandidate(baseline) {
     current.package = identity.package
     current.packageVersion = identity.packageVersion
     current.provenance = identity.provenance
+    current.environment = currentBenchmarkEnvironment()
     current.fixtureChecksum = GerberBenchmarkSuite.fixtureChecksum({
         profile: 'current'
     })

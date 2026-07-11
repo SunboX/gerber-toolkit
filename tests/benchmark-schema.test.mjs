@@ -6,6 +6,7 @@ import test from 'node:test'
 import { GerberBenchmarkSuite } from '../benchmarks/GerberBenchmarkSuite.mjs'
 import {
     compareBenchmarks,
+    currentBenchmarkEnvironment,
     currentBenchmarkIdentity
 } from '../scripts/run-benchmarks.mjs'
 
@@ -36,6 +37,7 @@ function passingCandidate(baseline) {
     current.package = identity.package
     current.packageVersion = identity.packageVersion
     current.provenance = identity.provenance
+    current.environment = currentBenchmarkEnvironment()
     current.fixtureChecksum = GerberBenchmarkSuite.fixtureChecksum({
         profile: 'current'
     })

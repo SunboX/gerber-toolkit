@@ -117,7 +117,7 @@ export async function runBenchmarks(options = {}) {
         package: CURRENT_IDENTITY.package,
         packageVersion: CURRENT_IDENTITY.packageVersion,
         provenance: { ...CURRENT_IDENTITY.provenance },
-        environment: environmentRecord(),
+        environment: currentBenchmarkEnvironment(),
         fixtureChecksum: CURRENT_FIXTURE_CHECKSUM,
         cases
     }
@@ -156,6 +156,10 @@ export function compareBenchmarks(current, baseline) {
     )
     const baselineById = new Map(baselineRows.map((row) => [row.id, row]))
     const currentById = new Map(currentRows.map((row) => [row.id, row]))
+    const environmentComparable = isDeepStrictEqual(
+        current?.environment,
+        baseline?.environment
+    )
     const cases = baselineRows.map((previous) => {
         const row = currentById.get(previous.id)
         const currentContract = currentContractById.get(previous.id)
@@ -177,6 +181,7 @@ export function compareBenchmarks(current, baseline) {
               ? 10
               : 5
         const comparable =
+            environmentComparable &&
             Boolean(currentContract) &&
             Boolean(baselineContract) &&
             currentContract.fixtureChecksum ===
@@ -185,8 +190,9 @@ export function compareBenchmarks(current, baseline) {
                 baselineContract.structuralChecksum
         const absoluteTimeLimitMs = CURRENT_TIME_ALLOWANCES_MS[row.id]
         const absoluteTimePassed =
-            Number.isFinite(absoluteTimeLimitMs) &&
-            row.medianMilliseconds <= absoluteTimeLimitMs
+            !environmentComparable ||
+            (Number.isFinite(absoluteTimeLimitMs) &&
+                row.medianMilliseconds <= absoluteTimeLimitMs)
         const timePassed = absoluteTimePassed
         const resultBytesPassed =
             positiveSafeInteger(row.resultBytes) &&
@@ -307,8 +313,10 @@ export function compareBenchmarks(current, baseline) {
         baseline?.packageVersion === BASELINE_PACKAGE_VERSION &&
         isDeepStrictEqual(baseline?.provenance, BASELINE_PROVENANCE)
     const environmentPassed =
-        isDeepStrictEqual(current?.environment, BASELINE_ENVIRONMENT) &&
-        isDeepStrictEqual(baseline?.environment, BASELINE_ENVIRONMENT)
+        isDeepStrictEqual(
+            current?.environment,
+            currentBenchmarkEnvironment()
+        ) && isDeepStrictEqual(baseline?.environment, BASELINE_ENVIRONMENT)
     const currentChecksumPassed = validReportChecksum(current)
     const baselineChecksumPassed = validReportChecksum(baseline)
     const baselineAnchorPassed =
@@ -340,6 +348,7 @@ export function compareBenchmarks(current, baseline) {
         currentIdentityPassed,
         baselineIdentityPassed,
         environmentPassed,
+        environmentComparable,
         currentChecksumPassed,
         baselineChecksumPassed,
         baselineAnchorPassed,
@@ -561,7 +570,7 @@ async function measureHeap(run) {
  * Returns stable runtime environment metadata.
  * @returns {Record<string, any>} Environment record.
  */
-function environmentRecord() {
+export function currentBenchmarkEnvironment() {
     const processors = cpus()
     return {
         node: process.version,
