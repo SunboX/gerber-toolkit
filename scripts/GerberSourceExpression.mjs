@@ -3,6 +3,51 @@
  */
 export class GerberSourceExpression {
     /**
+     * Unwraps standard shape-preserving clone expressions.
+     * @param {string} expression Expression source.
+     * @returns {string | null} Cloned value expression or null.
+     */
+    static clonedValue(expression) {
+        const value = expression.trim()
+        const structured = GerberSourceExpression.#callArgument(
+            value,
+            'structuredClone'
+        )
+        if (structured !== null) return structured
+        const parsed = GerberSourceExpression.#callArgument(value, 'JSON.parse')
+        if (parsed === null) return null
+        return GerberSourceExpression.#callArgument(
+            GerberSourceExpression.stripParentheses(parsed),
+            'JSON.stringify'
+        )
+    }
+
+    /**
+     * Resolves the receiver of a complete collection method call.
+     * @param {string} expression Expression source.
+     * @param {string} method Exact collection method name.
+     * @returns {string | null} Receiver expression or null.
+     */
+    static collectionReceiver(expression, method) {
+        const value = expression.trim()
+        const match = new RegExp(
+            `^([A-Za-z_$][\\w$]*(?:(?:\\?\\.|\\.)[A-Za-z_$][\\w$]*)*)\\.${method}\\s*\\(`,
+            'u'
+        ).exec(value)
+        if (!match) return null
+        const open = value.indexOf('(', match.index)
+        const close = GerberSourceExpression.matchingDelimiter(
+            value,
+            open,
+            '(',
+            ')'
+        )
+        return value.slice(close + 1).trim()
+            ? null
+            : match[1].replace(/\?\./gu, '.')
+    }
+
+    /**
      * Parses a simple dot, optional-dot, or indexed member access.
      * @param {string} expression Expression source.
      * @returns {{ root: string, path: string } | null} Member access.
@@ -220,5 +265,28 @@ export class GerberSourceExpression {
             }
         }
         return source.length - 1
+    }
+
+    /**
+     * Reads the sole argument of one complete named call expression.
+     * @param {string} expression Expression source.
+     * @param {string} callee Exact callee source.
+     * @returns {string | null} Sole argument or null.
+     */
+    static #callArgument(expression, callee) {
+        const prefix = `${callee}(`
+        if (!expression.startsWith(prefix)) return null
+        const open = callee.length
+        const close = GerberSourceExpression.matchingDelimiter(
+            expression,
+            open,
+            '(',
+            ')'
+        )
+        if (expression.slice(close + 1).trim()) return null
+        const argumentsList = GerberSourceExpression.splitTopLevel(
+            expression.slice(open + 1, close)
+        )
+        return argumentsList.length === 1 ? argumentsList[0].trim() : null
     }
 }

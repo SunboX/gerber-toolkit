@@ -709,7 +709,53 @@ test('Gerber API baseline records complete callable, option, field, and behavior
         './parser#GerberParser.fromLayers().result.pcb.fabrication.layers.primitives.type',
         '.#PcbScene3dBuilder.build().result.detail.tracks.layerId',
         '.#PcbScene3dBuilder.build().result.detail.tracks.y1',
-        './scene3d#PcbScene3dBuilder.build().result.detail.tracks.layerId'
+        './scene3d#PcbScene3dBuilder.build().result.detail.tracks.layerId',
+        ...['.', './parser'].flatMap((entrypoint) =>
+            ['type', 'exposure', 'diameter', 'width'].map(
+                (field) =>
+                    `${entrypoint}#GerberParser.parseArrayBuffer().result.pcb.fabrication.layers.primitives.primitives.${field}`
+            )
+        ),
+        ...['.', './parser'].flatMap((entrypoint) =>
+            ['minX', 'minY', 'maxX', 'maxY'].map(
+                (field) =>
+                    `${entrypoint}#GerberParser.parseArrayBuffer().result.pcb.fabrication.layers.bounds.${field}`
+            )
+        ),
+        ...['.', './renderers'].flatMap((entrypoint) =>
+            [
+                'id',
+                'sourceFormat',
+                'layerId',
+                'role',
+                'kind',
+                'bounds.minX',
+                'bounds.minY',
+                'bounds.maxX',
+                'bounds.maxY'
+            ].map(
+                (field) =>
+                    `${entrypoint}#PcbInteractionIndex.build().result.${field}`
+            )
+        ),
+        ...['.', './scene3d'].flatMap((entrypoint) =>
+            [
+                'x',
+                'y',
+                'diameter',
+                'holeDiameter',
+                'isPlated',
+                'barrelOnly'
+            ].map(
+                (field) =>
+                    `${entrypoint}#PcbScene3dBuilder.build().result.detail.vias.${field}`
+            )
+        ),
+        ...['.', './scene3d'].flatMap((entrypoint) => [
+            `${entrypoint}#PcbScene3dBuilder.build().result.detail.polygons.holes.x`,
+            `${entrypoint}#PcbScene3dBuilder.build().result.detail.polygons.holes.y`,
+            `${entrypoint}#PcbScene3dBuilder.build().result.detail.tracks.solderMaskOpening`
+        ])
     ]) {
         assert.equal(
             api.features.some((row) => row.feature === feature),

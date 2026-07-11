@@ -1,4 +1,8 @@
 import { GerberSourceExpression } from './GerberSourceExpression.mjs'
+import { GerberSourceCallable } from './GerberSourceCallable.mjs'
+import { GerberSourceMutation } from './GerberSourceMutation.mjs'
+
+const MAX_RECURSIVE_FIELD_OCCURRENCES = 4
 
 /**
  * Resolves nested public result fields through local values and call graphs.
@@ -19,6 +23,7 @@ export class GerberApiResultContractResolver {
             for (const field of contract.result.fields) {
                 node.resultFields.add(field)
             }
+            node.resultTypes = new Map()
             contractsByKey.set(node.key, contract)
             incomingByKey.set(
                 node.key,
@@ -54,6 +59,21 @@ export class GerberApiResultContractResolver {
             for (const node of nodesByKey.values()) {
                 const contract = contractsByKey.get(node.key)
                 const mutations = mutationsByKey.get(node.key)
+                changed =
+                    GerberApiResultContractResolver.#addMaterializedTypes(
+                        node.resultTypes,
+                        contract.result,
+                        node,
+                        nodesByKey,
+                        contractsByKey
+                    ) || changed
+                changed =
+                    GerberApiResultContractResolver.#propagateVariableTypes(
+                        node,
+                        contract,
+                        nodesByKey,
+                        contractsByKey
+                    ) || changed
                 for (const mutation of contract.mutations) {
                     const destination = node.parameters.some(
                         (parameter) => parameter.name === mutation.root
@@ -86,7 +106,8 @@ export class GerberApiResultContractResolver {
                     const target = GerberApiResultContractResolver.#targetNode(
                         nodesByKey,
                         node,
-                        call
+                        call,
+                        contractsByKey
                     )
                     if (!target || target.key === node.key) continue
                     const incoming = incomingByKey.get(target.key)
@@ -107,25 +128,25 @@ export class GerberApiResultContractResolver {
                                 incomingByKey,
                                 mutationsByKey
                             ) || changed
-                        const location = call.locations[index]
-                        if (!location) continue
                         const targetEffects = mutationsByKey
                             .get(target.key)
                             .parameters.get(target.parameters[index].name)
-                        const callerEffects = node.parameters.some(
-                            (parameter) => parameter.name === location.root
-                        )
-                            ? mutations.parameters.get(location.root)
-                            : mutations.locals.get(location.root)
-                        for (const field of targetEffects || []) {
-                            changed =
-                                GerberApiResultContractResolver.#addField(
-                                    callerEffects,
-                                    GerberSourceExpression.path(
-                                        location.path,
-                                        field
-                                    )
-                                ) || changed
+                        for (const location of call.locations[index] || []) {
+                            const callerEffects = node.parameters.some(
+                                (parameter) => parameter.name === location.root
+                            )
+                                ? mutations.parameters.get(location.root)
+                                : mutations.locals.get(location.root)
+                            for (const field of targetEffects || []) {
+                                changed =
+                                    GerberApiResultContractResolver.#addField(
+                                        callerEffects,
+                                        GerberSourceExpression.path(
+                                            location.path,
+                                            field
+                                        )
+                                    ) || changed
+                            }
                         }
                     }
                 }
@@ -145,6 +166,7 @@ export class GerberApiResultContractResolver {
      * @param {Map<string, Record<string, any>>} contractsByKey Source contracts.
      * @param {Map<string, Map<string, Set<string>>>} incomingByKey Parameter shapes.
      * @param {Map<string, Record<string, Map<string, Set<string>>>>} mutationsByKey Mutation shapes.
+     * @param {Set<string>} [resolvingReferences] Contextual call edges already resolving.
      * @returns {boolean} Whether at least one field was added.
      */
     static #addMaterializedShape(
@@ -154,7 +176,8 @@ export class GerberApiResultContractResolver {
         nodesByKey,
         contractsByKey,
         incomingByKey,
-        mutationsByKey
+        mutationsByKey,
+        resolvingReferences = new Set()
     ) {
         let changed = false
         for (const field of shape.fields) {
@@ -166,7 +189,8 @@ export class GerberApiResultContractResolver {
             const target = GerberApiResultContractResolver.#targetNode(
                 nodesByKey,
                 node,
-                reference
+                reference,
+                contractsByKey
             )
             if (!target) continue
             const targetFields =
@@ -183,6 +207,45 @@ export class GerberApiResultContractResolver {
                         destination,
                         path
                     ) || changed
+            }
+            const targetContract = contractsByKey.get(target.key)
+            for (let index = 0; index < target.parameters.length; index += 1) {
+                const argument = reference.arguments?.[index]
+                if (!argument) continue
+                const edge = `${node.key}->${target.key}:${index}`
+                if (resolvingReferences.has(edge)) continue
+                const argumentFields = new Set()
+                GerberApiResultContractResolver.#addMaterializedShape(
+                    argumentFields,
+                    argument,
+                    node,
+                    nodesByKey,
+                    contractsByKey,
+                    incomingByKey,
+                    mutationsByKey,
+                    new Set(resolvingReferences).add(edge)
+                )
+                for (const parameter of targetContract.result.parameters) {
+                    if (parameter.name !== target.parameters[index].name) {
+                        continue
+                    }
+                    for (const field of argumentFields) {
+                        const targetField =
+                            GerberApiResultContractResolver.#mappedSourceField(
+                                field,
+                                parameter
+                            )
+                        if (targetField === null) continue
+                        changed =
+                            GerberApiResultContractResolver.#addField(
+                                destination,
+                                GerberApiResultContractResolver.#mappedSourceField(
+                                    targetField,
+                                    reference
+                                )
+                            ) || changed
+                    }
+                }
             }
         }
         const incoming = incomingByKey.get(node.key)
@@ -219,6 +282,114 @@ export class GerberApiResultContractResolver {
     }
 
     /**
+     * Adds constructed result types after resolving static call references.
+     * @param {Map<string, string>} destination Destination types.
+     * @param {Record<string, any>} shape Abstract shape.
+     * @param {Record<string, any>} node Shape-owning callable.
+     * @param {Map<string, Record<string, any>>} nodesByKey Callable graph.
+     * @param {Map<string, Record<string, any>>} contractsByKey Source contracts.
+     * @returns {boolean} Whether at least one type was added.
+     */
+    static #addMaterializedTypes(
+        destination,
+        shape,
+        node,
+        nodesByKey,
+        contractsByKey
+    ) {
+        let changed = false
+        for (const [field, className] of shape.types) {
+            changed =
+                GerberApiResultContractResolver.#addType(
+                    destination,
+                    field,
+                    className
+                ) || changed
+        }
+        for (const reference of shape.references) {
+            const target = GerberApiResultContractResolver.#targetNode(
+                nodesByKey,
+                node,
+                reference,
+                contractsByKey
+            )
+            if (!target) continue
+            const targetTypes =
+                target.key === node.key
+                    ? contractsByKey.get(target.key).result.types
+                    : target.resultTypes
+            for (const [field, className] of targetTypes) {
+                const mapped =
+                    GerberApiResultContractResolver.#mappedSourceField(
+                        field,
+                        reference
+                    )
+                if (mapped === null) continue
+                changed =
+                    GerberApiResultContractResolver.#addType(
+                        destination,
+                        mapped,
+                        className
+                    ) || changed
+            }
+        }
+        return changed
+    }
+
+    /**
+     * Propagates constructed result member types into local call results.
+     * @param {Record<string, any>} node Calling node.
+     * @param {Record<string, any>} contract Calling source contract.
+     * @param {Map<string, Record<string, any>>} nodesByKey Callable graph.
+     * @param {Map<string, Record<string, any>>} contractsByKey Source contracts.
+     * @returns {boolean} Whether at least one local type was added.
+     */
+    static #propagateVariableTypes(node, contract, nodesByKey, contractsByKey) {
+        let changed = false
+        for (const [name, expression] of contract.state.variables) {
+            const call = GerberApiResultContractResolver.#directCall(
+                expression,
+                contract.state
+            )
+            if (!call) continue
+            const target = GerberApiResultContractResolver.#targetNode(
+                nodesByKey,
+                node,
+                call,
+                contractsByKey
+            )
+            if (!target) continue
+            for (const [field, className] of target.resultTypes) {
+                changed =
+                    GerberApiResultContractResolver.#addType(
+                        contract.state.variableTypes,
+                        GerberSourceExpression.path(name, field),
+                        className
+                    ) || changed
+            }
+        }
+        return (
+            GerberSourceCallable.propagateVariableTypes(
+                contract.state.variableTypes,
+                contract.state.variables
+            ) || changed
+        )
+    }
+
+    /**
+     * Adds one constructed type to a path map.
+     * @param {Map<string, string>} destination Destination type map.
+     * @param {string} field Result or local path.
+     * @param {string} className Constructed class name.
+     * @returns {boolean} Whether the type was added.
+     */
+    static #addType(destination, field, className) {
+        if (!className || destination.has(field)) return false
+        destination.set(field, className)
+        return true
+    }
+
+    /**
      * Adds one non-empty field to a set.
      * @param {Set<string>} destination Destination field set.
      * @param {string} field Field path.
@@ -226,6 +397,12 @@ export class GerberApiResultContractResolver {
      */
     static #addField(destination, field) {
         if (!destination || !field || destination.has(field)) return false
+        const occurrences = new Map()
+        for (const segment of field.split('.')) {
+            const count = (occurrences.get(segment) || 0) + 1
+            if (count > MAX_RECURSIVE_FIELD_OCCURRENCES) return false
+            occurrences.set(segment, count)
+        }
         destination.add(field)
         return true
     }
@@ -252,10 +429,20 @@ export class GerberApiResultContractResolver {
      * @param {Map<string, Record<string, any>>} nodesByKey Callable graph.
      * @param {Record<string, any>} node Calling node.
      * @param {{ exportName: string, methodName: string, methodType: string }} reference Call reference.
+     * @param {Map<string, Record<string, any>>} contractsByKey Source contracts.
      * @returns {Record<string, any> | undefined} Target node.
      */
-    static #targetNode(nodesByKey, node, reference) {
-        const suffix = `${reference.exportName}:${reference.methodType}:${reference.methodName}`
+    static #targetNode(nodesByKey, node, reference, contractsByKey) {
+        const inferredClass =
+            reference.methodType === 'instance-inferred'
+                ? contractsByKey
+                      ?.get(node.key)
+                      ?.state.variableTypes.get(reference.receiver)
+                : ''
+        const exportName = inferredClass || reference.exportName
+        const methodType = inferredClass ? 'instance' : reference.methodType
+        if (!exportName || methodType === 'instance-inferred') return undefined
+        const suffix = `${exportName}:${methodType}:${reference.methodName}`
         return (
             nodesByKey.get(`${node.entrypoint}:${suffix}`) ||
             nodesByKey.get(`*:${suffix}`)
@@ -270,7 +457,7 @@ export class GerberApiResultContractResolver {
     static #sourceContract(node) {
         const state = GerberApiResultContractResolver.#analysisState(node)
         const result = GerberApiResultContractResolver.#shape()
-        for (const expression of GerberApiResultContractResolver.#returnExpressions(
+        for (const expression of GerberSourceCallable.returnExpressions(
             node.source
         )) {
             GerberApiResultContractResolver.#analyzeExpression(
@@ -287,10 +474,17 @@ export class GerberApiResultContractResolver {
                 node.source,
                 state
             ),
-            mutations: GerberApiResultContractResolver.#mutationContracts(
-                node.source,
-                state
-            ),
+            mutations: GerberSourceMutation.contracts(node.source, state, {
+                createShape: () => GerberApiResultContractResolver.#shape(),
+                analyze: (expression, prefix, shape) =>
+                    GerberApiResultContractResolver.#analyzeExpression(
+                        expression,
+                        prefix,
+                        state,
+                        shape,
+                        new Set()
+                    )
+            }),
             state
         }
     }
@@ -301,20 +495,23 @@ export class GerberApiResultContractResolver {
      * @returns {Record<string, any>} Analysis state.
      */
     static #analysisState(node) {
-        const variables = GerberApiResultContractResolver.#variableInitializers(
+        const variables = GerberSourceCallable.variableInitializers(node.source)
+        const assignments = GerberSourceCallable.propertyAssignments(
             node.source
+        )
+        const parameters = new Set(
+            node.parameters.map((parameter) => parameter.name)
         )
         return {
             variables,
-            assignments: GerberApiResultContractResolver.#variableAssignments(
-                node.source
+            assignments,
+            variableTypes: GerberSourceCallable.variableTypes(
+                variables,
+                assignments
             ),
-            variableTypes:
-                GerberApiResultContractResolver.#variableTypes(variables),
+            iterations: GerberSourceCallable.iterationBindings(node.source),
             bindings: new Map(),
-            parameters: new Set(
-                node.parameters.map((parameter) => parameter.name)
-            )
+            parameters
         }
     }
 
@@ -325,136 +522,11 @@ export class GerberApiResultContractResolver {
     static #shape() {
         return {
             fields: new Set(),
+            types: new Map(),
             references: [],
             parameters: [],
             locals: []
         }
-    }
-
-    /**
-     * Parses local variable initializer expressions.
-     * @param {string} source Callable source.
-     * @returns {Map<string, string>} Initializers by variable name.
-     */
-    static #variableInitializers(source) {
-        const variables = new Map()
-        for (const match of source.matchAll(
-            /\b(?:const|let|var)\s+([A-Za-z_$][\w$]*)\s*=/gu
-        )) {
-            const start = match.index + match[0].length
-            variables.set(
-                match[1],
-                GerberApiResultContractResolver.#expressionAt(source, start)
-            )
-        }
-        return variables
-    }
-
-    /**
-     * Parses property assignments made after local object initialization.
-     * @param {string} source Callable source.
-     * @returns {Map<string, { path: string, expression: string }[]>} Assignments by variable.
-     */
-    static #variableAssignments(source) {
-        const assignments = new Map()
-        for (const match of source.matchAll(
-            /\b([A-Za-z_$][\w$]*)\.([A-Za-z_$][\w$]*(?:\.[A-Za-z_$][\w$]*)*)\s*=(?!=)/gu
-        )) {
-            const values = assignments.get(match[1]) || []
-            values.push({
-                path: match[2],
-                expression: GerberApiResultContractResolver.#expressionAt(
-                    source,
-                    match.index + match[0].length
-                )
-            })
-            assignments.set(match[1], values)
-        }
-        return assignments
-    }
-
-    /**
-     * Infers directly constructed class names for local variables.
-     * @param {Map<string, string>} variables Variable initializers.
-     * @returns {Map<string, string>} Constructed class names by variable.
-     */
-    static #variableTypes(variables) {
-        const types = new Map()
-        for (const [name, expression] of variables) {
-            const className = /^new\s+([A-Z][A-Za-z0-9_$]*)\s*\(/u.exec(
-                expression.trim()
-            )?.[1]
-            if (className) types.set(name, className)
-        }
-        let changed = true
-        while (changed) {
-            changed = false
-            for (const [name, expression] of variables) {
-                const alias = /^([A-Za-z_$][\w$]*)$/u.exec(
-                    expression.trim()
-                )?.[1]
-                if (!alias || !types.has(alias) || types.has(name)) continue
-                types.set(name, types.get(alias))
-                changed = true
-            }
-        }
-        return types
-    }
-
-    /**
-     * Parses every returned expression from one callable.
-     * @param {string} source Callable source.
-     * @returns {string[]} Return expressions.
-     */
-    static #returnExpressions(source) {
-        const expressions = []
-        for (const match of source.matchAll(/\breturn\b/gu)) {
-            expressions.push(
-                GerberApiResultContractResolver.#expressionAt(
-                    source,
-                    match.index + match[0].length
-                ).replace(/^await\s+/u, '')
-            )
-        }
-        return expressions.filter(Boolean)
-    }
-
-    /**
-     * Reads one expression until its first complete statement boundary.
-     * @param {string} source Source text.
-     * @param {number} start Expression start index.
-     * @returns {string} Expression source.
-     */
-    static #expressionAt(source, start) {
-        let index = start
-        while (/\s/u.test(source[index] || '')) index += 1
-        const expressionStart = index
-        let depth = 0
-        let quote = ''
-        for (; index < source.length; index += 1) {
-            const character = source[index]
-            if (quote) {
-                if (character === quote && source[index - 1] !== '\\') {
-                    quote = ''
-                }
-                continue
-            }
-            if (["'", '"', '`'].includes(character)) quote = character
-            else if ('([{'.includes(character)) depth += 1
-            else if (')]}'.includes(character)) depth -= 1
-            else if (character === ';' && depth === 0) break
-            else if (character === '\n' && depth === 0) {
-                const current = source.slice(expressionStart, index).trimEnd()
-                const next = source.slice(index + 1).trimStart()[0] || ''
-                if (
-                    !/[?:.,+\-*/&|=<>!]$/u.test(current) &&
-                    !['?', ':', '.'].includes(next)
-                ) {
-                    break
-                }
-            }
-        }
-        return source.slice(expressionStart, index).trim()
     }
 
     /**
@@ -470,6 +542,23 @@ export class GerberApiResultContractResolver {
         let value = expression.trim().replace(/^await\s+/u, '')
         if (!value) return
         value = GerberSourceExpression.stripParentheses(value)
+
+        const constructed = /^new\s+([A-Z][A-Za-z0-9_$]*)\s*\(/u.exec(value)
+        if (constructed) {
+            shape.types.set(prefix, constructed[1])
+            return
+        }
+        const clonedValue = GerberSourceExpression.clonedValue(value)
+        if (clonedValue !== null) {
+            GerberApiResultContractResolver.#analyzeExpression(
+                clonedValue,
+                prefix,
+                state,
+                shape,
+                resolving
+            )
+            return
+        }
 
         const conditional = GerberSourceExpression.conditionalBranches(value)
         if (conditional) {
@@ -529,7 +618,7 @@ export class GerberApiResultContractResolver {
             }
             return
         }
-        const callback = GerberApiResultContractResolver.#mapCallback(value)
+        const callback = GerberSourceCallable.arrayCallback(value)
         if (callback) {
             const elements = GerberApiResultContractResolver.#shape()
             GerberApiResultContractResolver.#analyzeExpression(
@@ -539,6 +628,15 @@ export class GerberApiResultContractResolver {
                 elements,
                 resolving
             )
+            if (callback.method === 'filter') {
+                GerberApiResultContractResolver.#copyShape(
+                    shape,
+                    elements,
+                    '',
+                    prefix
+                )
+                return
+            }
             const bindings = new Map(state.bindings)
             if (callback.parameter) bindings.set(callback.parameter, elements)
             const callbackState = { ...state, bindings }
@@ -600,8 +698,38 @@ export class GerberApiResultContractResolver {
             return
         }
         const call = GerberApiResultContractResolver.#directCall(value, state)
+        const collectionReceiver = GerberSourceExpression.collectionReceiver(
+            value,
+            'get'
+        )
+        if (collectionReceiver !== null) {
+            GerberApiResultContractResolver.#analyzeExpression(
+                collectionReceiver,
+                prefix,
+                state,
+                shape,
+                resolving
+            )
+            return
+        }
         if (call) {
-            shape.references.push({ prefix, select: '', ...call })
+            const argumentsList = call.argumentSources.map((argument) => {
+                const argumentShape = GerberApiResultContractResolver.#shape()
+                GerberApiResultContractResolver.#analyzeExpression(
+                    argument,
+                    '',
+                    state,
+                    argumentShape,
+                    resolving
+                )
+                return argumentShape
+            })
+            shape.references.push({
+                prefix,
+                select: '',
+                ...call,
+                arguments: argumentsList
+            })
             return
         }
         const member = GerberSourceExpression.memberAccess(value)
@@ -638,6 +766,13 @@ export class GerberApiResultContractResolver {
                 { prefix, select }
             )
             if (mapped) destination.fields.add(mapped)
+        }
+        for (const [field, className] of source.types) {
+            const mapped = GerberApiResultContractResolver.#mappedSourceField(
+                field,
+                { prefix, select }
+            )
+            if (mapped !== null) destination.types.set(mapped, className)
         }
         for (const key of ['references', 'parameters', 'locals']) {
             for (const candidate of source[key]) {
@@ -704,12 +839,13 @@ export class GerberApiResultContractResolver {
      * Parses a complete static or inferred-instance method call.
      * @param {string} expression Expression source.
      * @param {Record<string, any>} state Local analysis state.
-     * @returns {{ exportName: string, methodName: string, methodType: string } | null} Call target.
+     * @returns {{ exportName: string, methodName: string, methodType: string, argumentSources: string[] } | null} Call target.
      */
     static #directCall(expression, state) {
-        const match = /^([A-Za-z_$][\w$]*)\.(#?[A-Za-z_$][\w$]*)\s*\(/u.exec(
-            expression
-        )
+        const match =
+            /^([A-Za-z_$][\w$]*(?:(?:\?\.|\.)[A-Za-z_$][\w$]*)*)\.(#?[A-Za-z_$][\w$]*)\s*\(/u.exec(
+                expression
+            )
         if (!match) return null
         const open = expression.indexOf('(', match.index)
         const close = GerberSourceExpression.matchingDelimiter(
@@ -719,11 +855,16 @@ export class GerberApiResultContractResolver {
             ')'
         )
         if (expression.slice(close + 1).trim()) return null
-        return GerberApiResultContractResolver.#callTarget(
-            match[1],
-            match[2],
-            state
-        )
+        return {
+            ...GerberApiResultContractResolver.#callTarget(
+                match[1],
+                match[2],
+                state
+            ),
+            argumentSources: GerberSourceExpression.splitTopLevel(
+                expression.slice(open + 1, close)
+            )
+        }
     }
 
     /**
@@ -734,15 +875,22 @@ export class GerberApiResultContractResolver {
      * @returns {{ exportName: string, methodName: string, methodType: string }} Call target.
      */
     static #callTarget(receiver, methodName, state) {
-        const instanceClass = state.variableTypes.get(receiver)
+        const normalizedReceiver = receiver.replace(/\?\./gu, '.')
+        const instanceClass = state.variableTypes.get(normalizedReceiver)
+        const inferredInstance =
+            !instanceClass && normalizedReceiver.includes('.')
         return {
-            exportName: instanceClass || receiver,
+            exportName:
+                instanceClass || (inferredInstance ? '' : normalizedReceiver),
+            receiver: normalizedReceiver,
             methodName,
             methodType: instanceClass
                 ? 'instance'
-                : methodName.startsWith('#')
-                  ? 'static-private'
-                  : 'static'
+                : inferredInstance
+                  ? 'instance-inferred'
+                  : methodName.startsWith('#')
+                    ? 'static-private'
+                    : 'static'
         }
     }
 
@@ -755,7 +903,7 @@ export class GerberApiResultContractResolver {
     static #callContracts(source, state) {
         const calls = []
         for (const match of source.matchAll(
-            /\b([A-Za-z_$][\w$]*)\.(#?[A-Za-z_$][\w$]*)\s*\(/gu
+            /\b([A-Za-z_$][\w$]*(?:(?:\?\.|\.)[A-Za-z_$][\w$]*)*)\.(#?[A-Za-z_$][\w$]*)\s*\(/gu
         )) {
             const open = source.indexOf('(', match.index)
             const close = GerberSourceExpression.matchingDelimiter(
@@ -786,86 +934,11 @@ export class GerberApiResultContractResolver {
                 ),
                 arguments: argumentsList,
                 locations: argumentSources.map((argument) =>
-                    GerberApiResultContractResolver.#argumentLocation(
-                        argument,
-                        state
-                    )
+                    GerberSourceCallable.argumentLocations(argument, state)
                 )
             })
         }
         return calls
-    }
-
-    /**
-     * Extracts direct property assignments and array append effects.
-     * @param {string} source Callable source.
-     * @param {Record<string, any>} state Local analysis state.
-     * @returns {{ root: string, shape: Record<string, any> }[]} Mutations.
-     */
-    static #mutationContracts(source, state) {
-        const mutations = []
-        for (const [root, assignments] of state.assignments) {
-            if (!state.parameters.has(root)) continue
-            for (const assignment of assignments) {
-                const shape = GerberApiResultContractResolver.#shape()
-                shape.fields.add(assignment.path)
-                GerberApiResultContractResolver.#analyzeExpression(
-                    assignment.expression,
-                    assignment.path,
-                    state,
-                    shape,
-                    new Set()
-                )
-                mutations.push({ root, shape })
-            }
-        }
-        for (const match of source.matchAll(
-            /\b([A-Za-z_$][\w$]*)\.([A-Za-z_$][\w$]*(?:\.[A-Za-z_$][\w$]*)*)\.push\s*\(/gu
-        )) {
-            const open = source.indexOf('(', match.index)
-            const close = GerberSourceExpression.matchingDelimiter(
-                source,
-                open,
-                '(',
-                ')'
-            )
-            for (const argument of GerberSourceExpression.splitTopLevel(
-                source.slice(open + 1, close)
-            )) {
-                const shape = GerberApiResultContractResolver.#shape()
-                shape.fields.add(match[2])
-                GerberApiResultContractResolver.#analyzeExpression(
-                    argument.trim().replace(/^\.\.\./u, ''),
-                    match[2],
-                    state,
-                    shape,
-                    new Set()
-                )
-                mutations.push({ root: match[1], shape })
-            }
-        }
-        return mutations
-    }
-
-    /**
-     * Resolves a call argument back to a caller parameter or local variable.
-     * @param {string} expression Argument expression.
-     * @param {Record<string, any>} state Local analysis state.
-     * @returns {{ root: string, path: string } | null} Mutable argument location.
-     */
-    static #argumentLocation(expression, state) {
-        const value = GerberSourceExpression.stripParentheses(
-            expression.trim().replace(/^\.\.\./u, '')
-        )
-        const member = GerberSourceExpression.memberAccess(value)
-        const root = member?.root || /^([A-Za-z_$][\w$]*)$/u.exec(value)?.[1]
-        if (
-            !root ||
-            (!state.parameters.has(root) && !state.variables.has(root))
-        ) {
-            return null
-        }
-        return { root, path: member?.path || '' }
     }
 
     /**
@@ -905,55 +978,6 @@ export class GerberApiResultContractResolver {
                 shape,
                 resolving
             )
-        }
-    }
-
-    /**
-     * Extracts returned expressions from one Array.map callback.
-     * @param {string} expression Expression source.
-     * @returns {{ source: string, parameter: string, returns: string[] } | null} Map contract.
-     */
-    static #mapCallback(expression) {
-        const match = /\.map\s*\(/u.exec(expression)
-        if (!match) return null
-        const open = expression.indexOf('(', match.index)
-        const close = GerberSourceExpression.matchingDelimiter(
-            expression,
-            open,
-            '(',
-            ')'
-        )
-        if (expression.slice(close + 1).trim()) return null
-        const callback =
-            GerberSourceExpression.splitTopLevel(
-                expression.slice(open + 1, close)
-            )[0] || ''
-        const arrow = GerberSourceExpression.topLevelToken(callback, '=>')
-        if (arrow < 0) return null
-        const body = callback.slice(arrow + 2).trim()
-        if (body.startsWith('{')) {
-            const end = GerberSourceExpression.matchingDelimiter(
-                body,
-                0,
-                '{',
-                '}'
-            )
-            return {
-                source: expression.slice(0, match.index).trim(),
-                parameter: GerberSourceExpression.arrowParameter(
-                    callback.slice(0, arrow)
-                ),
-                returns: GerberApiResultContractResolver.#returnExpressions(
-                    body.slice(1, end)
-                )
-            }
-        }
-        return {
-            source: expression.slice(0, match.index).trim(),
-            parameter: GerberSourceExpression.arrowParameter(
-                callback.slice(0, arrow)
-            ),
-            returns: [body]
         }
     }
 }
