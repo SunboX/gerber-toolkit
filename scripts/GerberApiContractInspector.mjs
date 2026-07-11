@@ -1,5 +1,9 @@
 import { GerberApiResultContractResolver } from './GerberApiResultContractResolver.mjs'
 import { GerberApiSupportingClassLoader } from './GerberApiSupportingClassLoader.mjs'
+import { GerberSourceCallable } from './GerberSourceCallable.mjs'
+import { GerberSourceExpression } from './GerberSourceExpression.mjs'
+import { GerberReachableCalls } from './GerberReachableCalls.mjs'
+import { GerberPublicApiSurface } from './GerberPublicApiSurface.mjs'
 
 /**
  * Captures stable public API contracts without invoking exported callables.
@@ -71,13 +75,14 @@ export class GerberApiContractInspector {
     static #definitions(entrypointApis, supportingClasses) {
         const entries = []
         const nodesByKey = new Map()
+        const aliases =
+            GerberApiContractInspector.#exportAliases(entrypointApis)
         for (const entrypointApi of entrypointApis) {
             const exports = Object.keys(entrypointApi.api)
                 .sort()
                 .map((name) => {
                     const value = entrypointApi.api[name]
-                    const members =
-                        GerberApiContractInspector.#publicMembers(value)
+                    const members = GerberPublicApiSurface.describe(value)
                     GerberApiContractInspector.#defineCallableNodes(
                         entrypointApi.entrypoint,
                         name,
@@ -85,7 +90,14 @@ export class GerberApiContractInspector {
                         members,
                         nodesByKey
                     )
-                    return { name, value, members }
+                    return {
+                        name,
+                        value,
+                        members,
+                        aliases: aliases.get(value) || [
+                            `${entrypointApi.entrypoint}#${name}`
+                        ]
+                    }
                 })
             entries.push({
                 entrypoint: entrypointApi.entrypoint,
@@ -98,7 +110,7 @@ export class GerberApiContractInspector {
                 '*',
                 name,
                 value,
-                GerberApiContractInspector.#publicMembers(value),
+                GerberPublicApiSurface.describe(value),
                 nodesByKey
             )
         }
@@ -106,57 +118,22 @@ export class GerberApiContractInspector {
     }
 
     /**
-     * Lists own public static methods, instance methods, and accessors.
-     * @param {unknown} value Exported value.
-     * @returns {{ staticMethods: string[], instanceMethods: string[], instanceAccessors: string[], instanceFields: string[] }} Members.
+     * Catalogs exact export identity across package entrypoints.
+     * @param {{ entrypoint: string, api: Record<string, any> }[]} entrypointApis Imported entrypoints.
+     * @returns {Map<unknown, string[]>} Stable aliases by exact export value.
      */
-    static #publicMembers(value) {
-        if (typeof value !== 'function') {
-            return {
-                staticMethods: [],
-                instanceMethods: [],
-                instanceAccessors: [],
-                instanceFields: []
+    static #exportAliases(entrypointApis) {
+        const aliases = new Map()
+        for (const entrypointApi of entrypointApis) {
+            for (const name of Object.keys(entrypointApi.api).sort()) {
+                const value = entrypointApi.api[name]
+                const entries = aliases.get(value) || []
+                entries.push(`${entrypointApi.entrypoint}#${name}`)
+                aliases.set(value, entries)
             }
         }
-        const staticMethods = Object.getOwnPropertyNames(value)
-            .filter((name) => {
-                const descriptor = Object.getOwnPropertyDescriptor(value, name)
-                return (
-                    !['length', 'name', 'prototype'].includes(name) &&
-                    typeof descriptor?.value === 'function'
-                )
-            })
-            .sort()
-        const descriptors = value.prototype
-            ? Object.getOwnPropertyDescriptors(value.prototype)
-            : {}
-        const instanceMethods = Object.entries(descriptors)
-            .filter(
-                ([name, descriptor]) =>
-                    name !== 'constructor' &&
-                    typeof descriptor.value === 'function'
-            )
-            .map(([name]) => name)
-            .sort()
-        const instanceAccessors = Object.entries(descriptors)
-            .filter(
-                ([name, descriptor]) =>
-                    name !== 'constructor' &&
-                    (typeof descriptor.get === 'function' ||
-                        typeof descriptor.set === 'function')
-            )
-            .map(([name]) => name)
-            .sort()
-        const instanceFields = GerberApiContractInspector.#instanceFields(
-            Function.prototype.toString.call(value)
-        )
-        return {
-            staticMethods,
-            instanceMethods,
-            instanceAccessors,
-            instanceFields
-        }
+        for (const entries of aliases.values()) entries.sort()
+        return aliases
     }
 
     /**
@@ -194,7 +171,12 @@ export class GerberApiContractInspector {
             )
         }
         for (const methodName of members.staticMethods) {
-            const source = Function.prototype.toString.call(value[methodName])
+            const callable = GerberPublicApiSurface.descriptor(
+                value,
+                'static',
+                methodName
+            )?.value
+            const source = Function.prototype.toString.call(callable)
             GerberApiContractInspector.#addNode(
                 entrypoint,
                 exportName,
@@ -209,9 +191,12 @@ export class GerberApiContractInspector {
             )
         }
         for (const methodName of members.instanceMethods) {
-            const source = Function.prototype.toString.call(
-                value.prototype[methodName]
-            )
+            const callable = GerberPublicApiSurface.descriptor(
+                value,
+                'instance',
+                methodName
+            )?.value
+            const source = Function.prototype.toString.call(callable)
             GerberApiContractInspector.#addNode(
                 entrypoint,
                 exportName,
@@ -271,12 +256,14 @@ export class GerberApiContractInspector {
         )
         if (nodesByKey.has(key)) return
         const parameters = GerberApiContractInspector.#parseParameters(source)
+        const semantics = GerberPublicApiSurface.callableSemantics(source)
         nodesByKey.set(key, {
             key,
             entrypoint,
             exportName,
             methodName,
             methodType,
+            ...semantics,
             source,
             jsdoc,
             parameters,
@@ -293,9 +280,13 @@ export class GerberApiContractInspector {
                 ])
             ),
             resultFields: new Set(
-                GerberApiContractInspector.#resultFields(source, jsdoc)
+                semantics.generator
+                    ? []
+                    : GerberApiContractInspector.#resultFields(source, jsdoc)
             ),
-            calls: GerberApiContractInspector.#calls(source)
+            calls: semantics.generator
+                ? []
+                : GerberReachableCalls.inspect(source)
         })
     }
 
@@ -416,7 +407,8 @@ export class GerberApiContractInspector {
             exportName: exported.name,
             sourceContract: {
                 type: 'export',
-                valueType: typeof exported.value
+                valueType: typeof exported.value,
+                aliases: exported.aliases
             }
         }
     }
@@ -456,11 +448,12 @@ export class GerberApiContractInspector {
                 )
             }
         }
-        const descriptors = exported.value.prototype
-            ? Object.getOwnPropertyDescriptors(exported.value.prototype)
-            : {}
         for (const name of exported.members.instanceAccessors) {
-            const descriptor = descriptors[name]
+            const descriptor = GerberPublicApiSurface.descriptor(
+                exported.value,
+                'instance',
+                name
+            )
             features.push({
                 feature: `${entrypoint}#${exported.name}.prototype.${name}`,
                 kind: 'field',
@@ -473,6 +466,47 @@ export class GerberApiContractInspector {
                     name,
                     get: typeof descriptor?.get === 'function',
                     set: typeof descriptor?.set === 'function'
+                }
+            })
+        }
+        for (const name of exported.members.staticAccessors) {
+            const descriptor = GerberPublicApiSurface.descriptor(
+                exported.value,
+                'static',
+                name
+            )
+            features.push({
+                feature: `${entrypoint}#${exported.name}.${name}`,
+                kind: 'field',
+                entrypoint,
+                exportName: exported.name,
+                methodName: name,
+                methodType: 'static-accessor',
+                sourceContract: {
+                    type: 'accessor',
+                    name,
+                    get: typeof descriptor?.get === 'function',
+                    set: typeof descriptor?.set === 'function'
+                }
+            })
+        }
+        for (const name of exported.members.staticFields) {
+            const descriptor = GerberPublicApiSurface.descriptor(
+                exported.value,
+                'static',
+                name
+            )
+            features.push({
+                feature: `${entrypoint}#${exported.name}.${name}`,
+                kind: 'field',
+                entrypoint,
+                exportName: exported.name,
+                methodName: name,
+                methodType: 'static-field',
+                sourceContract: {
+                    type: 'static-field',
+                    name,
+                    valueType: typeof descriptor?.value
                 }
             })
         }
@@ -516,7 +550,10 @@ export class GerberApiContractInspector {
                 sourceContract: {
                     type: 'method',
                     signature: `(${node.parameters.map((entry) => entry.source).join(', ')})`,
-                    parameters: node.parameters
+                    parameters: node.parameters,
+                    async: node.async,
+                    generator: node.generator,
+                    resultKind: node.resultKind
                 }
             }
         ]
@@ -600,20 +637,9 @@ export class GerberApiContractInspector {
      * @returns {string[]} Property paths.
      */
     static #parameterProperties(source, jsdoc, parameter) {
-        const fields = new Set()
-        const escaped = parameter.replace(/[.*+?^${}()|[\]\\]/gu, '\\$&')
-        const chain = new RegExp(
-            `\\b${escaped}((?:(?:\\?\\.|\\.)\\s*[A-Za-z_$][\\w$]*)+)`,
-            'gu'
+        const fields = new Set(
+            GerberSourceCallable.parameterProperties(source, parameter)
         )
-        for (const match of source.matchAll(chain)) {
-            const names = [
-                ...String(match[1]).matchAll(/[A-Za-z_$][\w$]*/gu)
-            ].map((entry) => entry[0])
-            for (let length = 1; length <= names.length; length += 1) {
-                fields.add(names.slice(0, length).join('.'))
-            }
-        }
         for (const field of GerberApiContractInspector.#jsdocParameterFields(
             jsdoc,
             parameter
@@ -633,16 +659,21 @@ export class GerberApiContractInspector {
         const fields = new Set(
             GerberApiContractInspector.#jsdocReturnFields(jsdoc)
         )
-        for (const match of source.matchAll(/\breturn\s*\{/gu)) {
-            const open = source.indexOf('{', match.index)
-            const close = GerberApiContractInspector.#matchingDelimiter(
-                source,
-                open,
-                '{',
-                '}'
+        for (const expression of GerberSourceCallable.returnExpressions(
+            source
+        )) {
+            const value = GerberSourceExpression.stripParentheses(
+                expression.replace(/^await\s+/u, '').trim()
             )
+            if (
+                !value.startsWith('{') ||
+                GerberSourceExpression.matchingDelimiter(value, 0, '{', '}') !==
+                    value.length - 1
+            ) {
+                continue
+            }
             for (const field of GerberApiContractInspector.#objectFieldPaths(
-                source.slice(open + 1, close)
+                value.slice(1, -1)
             )) {
                 fields.add(field)
             }
@@ -770,39 +801,6 @@ export class GerberApiContractInspector {
     }
 
     /**
-     * Finds direct static calls and whether their result is returned.
-     * @param {string} source Callable source.
-     * @returns {Record<string, any>[]} Call records.
-     */
-    static #calls(source) {
-        const calls = []
-        for (const match of source.matchAll(
-            /\b([A-Za-z_$][\w$]*)\.(#?[A-Za-z_$][\w$]*)\s*\(/gu
-        )) {
-            const open = source.indexOf('(', match.index)
-            const close = GerberApiContractInspector.#matchingDelimiter(
-                source,
-                open,
-                '(',
-                ')'
-            )
-            const prefix = source.slice(
-                Math.max(0, match.index - 24),
-                match.index
-            )
-            calls.push({
-                exportName: match[1],
-                methodName: match[2],
-                arguments: GerberApiContractInspector.#splitTopLevel(
-                    source.slice(open + 1, close)
-                ),
-                returned: /\breturn\s*(?:await\s*)?$/u.test(prefix)
-            })
-        }
-        return calls
-    }
-
-    /**
      * Extracts an explicitly declared constructor.
      * @param {string} classSource Class source.
      * @returns {string} Constructor source or empty string.
@@ -829,43 +827,28 @@ export class GerberApiContractInspector {
     }
 
     /**
-     * Lists public instance fields assigned by class implementation code.
-     * @param {string} classSource Class source.
-     * @returns {string[]} Public instance field names.
-     */
-    static #instanceFields(classSource) {
-        const fields = new Set()
-        for (const match of classSource.matchAll(
-            /\bthis\.([A-Za-z_$][\w$]*)\s*=(?!=)/gu
-        )) {
-            fields.add(match[1])
-        }
-        return [...fields].sort()
-    }
-
-    /**
      * Extracts private static method sources from a class implementation.
      * @param {string} classSource Class source.
      * @returns {{ name: string, source: string, index: number }[]} Private methods.
      */
     static #privateStaticMethods(classSource) {
         const methods = []
-        for (const match of classSource.matchAll(
+        const mask = GerberSourceExpression.codeMask(classSource)
+        for (const match of mask.matchAll(
             /(?:^|\n)\s*static\s+(?:async\s+)?(#[A-Za-z_$][\w$]*)\s*\(/gu
         )) {
             const name = match[1]
             const index = match.index + match[0].indexOf('static')
-            const openParameters = classSource.indexOf('(', index)
-            const closeParameters =
-                GerberApiContractInspector.#matchingDelimiter(
-                    classSource,
-                    openParameters,
-                    '(',
-                    ')'
-                )
-            const openBody = classSource.indexOf('{', closeParameters)
-            const closeBody = GerberApiContractInspector.#matchingDelimiter(
-                classSource,
+            const openParameters = mask.indexOf('(', index)
+            const closeParameters = GerberSourceExpression.matchingDelimiter(
+                mask,
+                openParameters,
+                '(',
+                ')'
+            )
+            const openBody = mask.indexOf('{', closeParameters)
+            const closeBody = GerberSourceExpression.matchingDelimiter(
+                mask,
                 openBody,
                 '{',
                 '}'

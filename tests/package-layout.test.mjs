@@ -21,28 +21,30 @@ test('package exposes gerber parser and renderer entrypoints', async () => {
     assert.equal(pkg.type, 'module')
     assert.equal(pkg.exports['.'], './src/index.mjs')
     assert.equal(pkg.exports['./parser'], './src/parser.mjs')
+    assert.equal(pkg.exports['./project'], './src/project.mjs')
     assert.equal(pkg.exports['./renderers'], './src/renderers.mjs')
     assert.equal(pkg.exports['./scene3d'], './src/scene3d.mjs')
+    assert.equal(pkg.exports['./extensions'], './src/extensions.mjs')
     assert.equal(pkg.scripts.test, 'node --test')
 })
 
-test('public entrypoints export parser and renderer APIs', async () => {
-    const indexSource = await readPackageFile('src/index.mjs')
-    const parserSource = await readPackageFile('src/parser.mjs')
-    const rendererSource = await readPackageFile('src/renderers.mjs')
-    const scene3dSource = await readPackageFile('src/scene3d.mjs')
+test('common entrypoints expose shared APIs and extensions retain native APIs', async () => {
+    const [rootApi, parser, project, renderers, scene3d, extensions] =
+        await Promise.all([
+            import('../src/index.mjs'),
+            import('../src/parser.mjs'),
+            import('../src/project.mjs'),
+            import('../src/renderers.mjs'),
+            import('../src/scene3d.mjs'),
+            import('../src/extensions.mjs')
+        ])
 
-    assert.match(indexSource, /export \* from '\.\/parser\.mjs'/)
-    assert.match(indexSource, /export \* from '\.\/renderers\.mjs'/)
-    assert.match(indexSource, /export \* from '\.\/scene3d\.mjs'/)
-    assert.match(parserSource, /GerberParser/)
-    assert.match(parserSource, /GerberProjectLoader/)
-    assert.match(parserSource, /GerberCoordinateParser/)
-    assert.match(parserSource, /GerberLayerRoleResolver/)
-    assert.match(rendererSource, /GerberPcbSvgRenderer/)
-    assert.match(rendererSource, /PcbInteractionIndex/)
-    assert.match(rendererSource, /PcbInteractionLayerModel/)
-    assert.match(scene3dSource, /PcbScene3dBuilder/)
-    assert.match(scene3dSource, /PcbScene3dScenePreparator/)
-    assert.match(scene3dSource, /PcbScene3dModelRegistry/)
+    assert.equal(parser.Parser, rootApi.Parser)
+    assert.equal(project.ProjectLoader, rootApi.ProjectLoader)
+    assert.equal(renderers.PcbSvgRenderer, rootApi.PcbSvgRenderer)
+    assert.equal(scene3d.PcbScene3dBuilder, rootApi.PcbScene3dBuilder)
+    assert.equal(typeof extensions.GerberParser, 'function')
+    assert.equal(typeof extensions.GerberProjectLoader, 'function')
+    assert.equal(typeof extensions.GerberPcbSvgRenderer, 'function')
+    assert.equal(typeof extensions.PcbScene3dModelRegistry, 'function')
 })

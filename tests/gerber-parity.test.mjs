@@ -1,8 +1,11 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 
-import { GerberParser } from '../src/parser.mjs'
-import { GerberPcbSvgRenderer, PcbInteractionIndex } from '../src/renderers.mjs'
+import { GerberParser } from '../src/legacy-parser.mjs'
+import {
+    GerberPcbSvgRenderer,
+    PcbInteractionIndex
+} from '../src/legacy-renderers.mjs'
 
 /**
  * Encodes a text fixture as an ArrayBuffer.
@@ -38,6 +41,7 @@ test('GerberParser expands macro apertures with parameters and expressions', () 
     assert.equal(flash.name, 'PLUS')
     assert.equal(flash.x, 1)
     assert.equal(flash.y, 2)
+    assert.equal(Array.isArray(flash.primitives), true)
     assert.deepEqual(
         flash.primitives.map((primitive) => ({
             type: primitive.type,

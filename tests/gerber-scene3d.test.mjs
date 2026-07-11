@@ -5,7 +5,7 @@ import {
     PcbScene3dBuilder,
     PcbScene3dModelRegistry,
     PcbScene3dScenePreparator
-} from '../src/scene3d.mjs'
+} from '../src/legacy-scene3d.mjs'
 
 /**
  * Asserts that two scene-unit values match within rounding tolerance.
@@ -872,8 +872,11 @@ test('PcbScene3dBuilder maps clear Gerber copper regions to pour holes', () => {
     const pour = scene.detail.polygons.find((polygon) => polygon.layerId === 1)
 
     assert.equal(scene.detail.polygons.length, 1)
+    assert.equal(pour.hasSolderMask, true)
+    assert.equal(scene.zones[0].hasSolderMask, true)
     assert.equal(pour.holes.length, 1)
     assert.equal(pour.holes[0].length, 5)
+    assert.deepEqual(Object.keys(pour.holes[0][0]).sort(), ['x', 'y'])
     assertSceneValue(pour.holes[0][0].x, 157.480315)
     assertSceneValue(pour.holes[0][0].y, 157.480315)
 })

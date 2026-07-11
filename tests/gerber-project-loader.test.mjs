@@ -2,7 +2,7 @@ import assert from 'node:assert/strict'
 import test from 'node:test'
 import { zipSync } from 'fflate'
 
-import { GerberProjectLoader } from '../src/parser.mjs'
+import { GerberProjectLoader } from '../src/legacy-parser.mjs'
 
 /**
  * Encodes fixture text as bytes.

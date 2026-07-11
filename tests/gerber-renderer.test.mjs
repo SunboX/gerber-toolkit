@@ -5,7 +5,7 @@ import {
     GerberPcbSvgRenderer,
     PcbInteractionIndex,
     PcbInteractionLayerModel
-} from '../src/renderers.mjs'
+} from '../src/legacy-renderers.mjs'
 
 /**
  * Builds a normalized Gerber document for renderer tests.
@@ -484,6 +484,7 @@ test('PcbInteractionIndex filters selected Gerber source layers together', () =>
     })
 
     assert.equal(items.length, 2)
+    assert.equal(Array.isArray(items), true)
     assert.deepEqual(
         items.map((item) => item.layerId),
         ['layer-1', 'layer-3']

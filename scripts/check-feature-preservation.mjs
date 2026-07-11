@@ -1,12 +1,22 @@
 import { execFile } from 'node:child_process'
-import { access, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
+import {
+    access,
+    lstat,
+    mkdtemp,
+    readFile,
+    rm,
+    writeFile
+} from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { isDeepStrictEqual, promisify } from 'node:util'
 
 import { GerberApiContractInspector } from './GerberApiContractInspector.mjs'
+import { GerberBehaviorEvidence } from './GerberBehaviorEvidence.mjs'
+import { GerberFeatureEvidence } from './GerberFeatureEvidence.mjs'
 import { assertGerberTask1CapabilityInventory } from './GerberTask1CapabilityInventory.mjs'
+import { assertGerberTask1EvidenceContract } from './GerberTask1EvidenceContract.mjs'
 
 const execFileAsync = promisify(execFile)
 const TOOLKITS = [
@@ -23,7 +33,9 @@ const MAPPING_FIELDS = [
     'disposition',
     'replacement',
     'availability',
+    'reason',
     'sourceContract',
+    'evidence',
     'evidenceToken',
     'evidenceTokens',
     'tests',
@@ -31,8 +43,9 @@ const MAPPING_FIELDS = [
 ]
 
 /**
- * Validates an in-memory API baseline and preservation ledger.
- * @param {{ apiBaseline: Record<string, any>, ledger: Record<string, any>[], inventory?: Record<string, any>[], strict?: boolean, packageRoot?: string, repositoryRoot?: string }} options Validation inputs.
+ * Validates an in-memory API baseline and preservation ledger. Strict direct
+ * validation is Task 1 anchored unless a synthetic caller explicitly opts out.
+ * @param {{ apiBaseline: Record<string, any>, ledger: Record<string, any>[], inventory?: Record<string, any>[], strict?: boolean, packageRoot?: string, repositoryRoot?: string, task1Identity?: boolean }} options Validation inputs.
  * @returns {Promise<{ featureCount: number, strict: boolean }>} Validation summary.
  */
 export async function validateFeaturePreservation(options) {
@@ -41,6 +54,13 @@ export async function validateFeaturePreservation(options) {
     const features = Array.isArray(apiBaseline.features)
         ? apiBaseline.features
         : []
+    const task1Identity =
+        options?.strict === true && options?.task1Identity !== false
+
+    if (task1Identity) {
+        assertGerberTask1CapabilityInventory(options.inventory)
+        assertGerberTask1EvidenceContract(apiBaseline, ledger)
+    }
 
     assertUniqueFeatures(features, 'baseline')
     assertUniqueFeatures(ledger, 'ledger')
@@ -73,13 +93,17 @@ export async function validateFeaturePreservation(options) {
         const repositoryRoot = resolve(
             String(options.repositoryRoot || process.cwd())
         )
-        await assertEvidence(ledger, repositoryRoot)
         const imported = await importEntrypoints(
             apiBaseline.entrypoints || [],
             packageRoot
         )
-        assertPackedApi(features, imported)
-        assertCapabilities(ledger, imported.apis, options.inventory)
+        assertPackedApi(features, imported, {
+            allowMapped: task1Identity
+        })
+        assertCapabilities(ledger, imported.apis, options.inventory, {
+            allowCommonSuperset: task1Identity
+        })
+        await assertEvidence(ledger, repositoryRoot)
     }
 
     return { featureCount: features.length, strict: options?.strict === true }
@@ -87,7 +111,7 @@ export async function validateFeaturePreservation(options) {
 
 /**
  * Reads and validates file-backed preservation artifacts.
- * @param {{ apiPath?: string, ledgerPath?: string, inventoryPath?: string, repositoryRoot?: string, packageRoot?: string, strict?: boolean }} [options] File-backed options.
+ * @param {{ apiPath?: string, ledgerPath?: string, inventoryPath?: string, repositoryRoot?: string, packageRoot?: string, strict?: boolean, task1Identity?: boolean }} [options] File-backed options.
  * @returns {Promise<{ featureCount: number, strict: boolean }>} Validation summary.
  */
 export async function checkFeaturePreservation(options = {}) {
@@ -109,8 +133,11 @@ export async function checkFeaturePreservation(options = {}) {
         readJson(ledgerPath),
         readOptionalJson(inventoryPath)
     ])
+    const task1Identity =
+        isCanonicalGerberTask1Path(apiPath, repositoryRoot) ||
+        options.task1Identity !== false
 
-    if (options.strict === true && isGerberTask1Baseline(apiBaseline)) {
+    if (options.strict === true && task1Identity) {
         assertGerberTask1CapabilityInventory(inventory)
     }
 
@@ -125,7 +152,8 @@ export async function checkFeaturePreservation(options = {}) {
             inventory,
             strict: options.strict === true,
             packageRoot: options.packageRoot || packed?.packageRoot,
-            repositoryRoot
+            repositoryRoot,
+            task1Identity
         })
     } finally {
         await packed?.cleanup()
@@ -133,14 +161,15 @@ export async function checkFeaturePreservation(options = {}) {
 }
 
 /**
- * Returns whether an API artifact is the immutable Task 1 Gerber baseline.
- * @param {Record<string, any>} apiBaseline API baseline candidate.
- * @returns {boolean} Whether the frozen inventory binding applies.
+ * Returns whether a file-backed validation uses the canonical Task 1 path.
+ * @param {string} apiPath Resolved API artifact path.
+ * @param {string} repositoryRoot Resolved repository root.
+ * @returns {boolean} Whether trusted file context requires Task 1 anchors.
  */
-function isGerberTask1Baseline(apiBaseline) {
+function isCanonicalGerberTask1Path(apiPath, repositoryRoot) {
     return (
-        apiBaseline?.package === 'gerber-toolkit' &&
-        apiBaseline?.packageVersion === '0.1.21'
+        resolve(apiPath) ===
+        resolve(repositoryRoot, 'spec/api-baseline-v0.1.21.json')
     )
 }
 
@@ -187,13 +216,10 @@ function assertValidRow(row) {
         row.replacement.length > 0 &&
         typeof row.reason === 'string' &&
         row.reason.length > 0 &&
-        typeof row.evidenceToken === 'string' &&
-        row.evidenceToken.length > 0 &&
-        nonEmptyStringList(row.evidenceTokens) &&
         row.sourceContract &&
         typeof row.sourceContract === 'object' &&
         !Array.isArray(row.sourceContract) &&
-        nonEmptyStringList(row.tests) &&
+        validEvidence(row) &&
         nonEmptyStringList(row.documentation) &&
         validAvailability(row.availability)
     if (!valid) {
@@ -201,6 +227,73 @@ function assertValidRow(row) {
             `Invalid feature-preservation row for ${String(row?.feature || '(missing)')}`
         )
     }
+}
+
+/**
+ * Validates separated immutable-source and optional usage evidence.
+ * @param {Record<string, any>} row Preservation row.
+ * @returns {boolean} Whether the evidence contract is coherent.
+ */
+function validEvidence(row) {
+    const evidence = row.evidence
+    if (
+        !evidence ||
+        typeof evidence !== 'object' ||
+        Array.isArray(evidence) ||
+        !isDeepStrictEqual(Object.keys(evidence).sort(), ['source', 'usage']) ||
+        !isDeepStrictEqual(evidence.source, { kind: 'source-contract' })
+    ) {
+        return false
+    }
+    const sourceOnly = evidence.usage === null
+    if (sourceOnly) {
+        return (
+            row.sourceContract?.type === 'result-field' &&
+            row.evidenceToken === null &&
+            emptyStringList(row.evidenceTokens) &&
+            emptyStringList(row.tests)
+        )
+    }
+    const usage = evidence.usage
+    if (!usage || typeof usage !== 'object' || Array.isArray(usage)) {
+        return false
+    }
+    const common =
+        typeof row.evidenceToken === 'string' &&
+        row.evidenceToken.length > 0 &&
+        nonEmptyStringList(row.evidenceTokens) &&
+        row.evidenceToken === row.evidenceTokens.at(-1) &&
+        nonEmptyStringList(row.tests)
+    if (!common) return false
+    if (usage.kind === 'behavior-matcher') {
+        return (
+            row.kind === 'behavior' &&
+            row.sourceContract?.type === 'behavior' &&
+            isDeepStrictEqual(Object.keys(usage).sort(), [
+                'contract',
+                'kind',
+                'matcher'
+            ]) &&
+            typeof usage.matcher === 'string' &&
+            GerberBehaviorEvidence.supports(usage.matcher) &&
+            isDeepStrictEqual(
+                usage.contract,
+                GerberBehaviorEvidence.contract(usage.matcher)
+            )
+        )
+    }
+    if (usage.kind === 'result-path') {
+        return (
+            row.sourceContract?.type === 'result-field' &&
+            isDeepStrictEqual(Object.keys(usage), ['kind'])
+        )
+    }
+    return (
+        usage.kind === 'token-reference' &&
+        row.kind !== 'behavior' &&
+        row.sourceContract?.type !== 'result-field' &&
+        isDeepStrictEqual(Object.keys(usage), ['kind'])
+    )
 }
 
 /**
@@ -214,6 +307,15 @@ function nonEmptyStringList(value) {
         value.length > 0 &&
         value.every((entry) => typeof entry === 'string' && entry.length > 0)
     )
+}
+
+/**
+ * Returns true for one empty string list.
+ * @param {unknown} value Candidate list.
+ * @returns {boolean} Whether the value is an empty array.
+ */
+function emptyStringList(value) {
+    return Array.isArray(value) && value.length === 0
 }
 
 /**
@@ -280,16 +382,41 @@ async function assertEvidence(ledger, repositoryRoot) {
         )
     }
     for (const row of ledger) {
+        const usage = row.evidence.usage
+        if (usage === null) continue
         const evidenceTokens = Array.isArray(row.evidenceTokens)
             ? row.evidenceTokens
             : [row.evidenceToken]
-        if (
-            !row.tests.some((path) =>
-                evidenceTokens.every((token) =>
-                    sourceByPath.get(path)?.includes(token)
+        const evidenceSources = row.tests.map(
+            (path) => sourceByPath.get(path) || ''
+        )
+        if (usage.kind === 'behavior-matcher') {
+            if (
+                !GerberBehaviorEvidence.matches(usage.matcher, evidenceSources)
+            ) {
+                throw new Error(
+                    `Behavior evidence does not satisfy ${usage.matcher} for ${row.feature}`
+                )
+            }
+            continue
+        }
+        const matchingTest = GerberFeatureEvidence.matchesAcross(
+            row,
+            evidenceTokens,
+            evidenceSources
+        )
+        if (!matchingTest) {
+            const tokensMatch = row.tests.some((path) =>
+                GerberFeatureEvidence.tokensMatch(
+                    evidenceTokens,
+                    sourceByPath.get(path) || ''
                 )
             )
-        ) {
+            if (tokensMatch && row.sourceContract?.type === 'result-field') {
+                throw new Error(
+                    `Evidence tests do not reference a result path for ${row.feature}`
+                )
+            }
             throw new Error(
                 `Evidence tests do not reference ${evidenceTokens.join(' + ')} for ${row.feature}`
             )
@@ -345,9 +472,10 @@ async function importEntrypoints(entrypoints, packageRoot) {
  * Verifies each captured export and method still exists in the packed API.
  * @param {Record<string, any>[]} features Baseline features.
  * @param {{ contracts: Awaited<ReturnType<typeof GerberApiContractInspector.inspect>> }} imported Imported contracts.
+ * @param {{ allowMapped?: boolean }} [options] Mapping options.
  * @returns {void}
  */
-function assertPackedApi(features, imported) {
+function assertPackedApi(features, imported, options = {}) {
     const stale = []
     const mismatched = []
     const currentByFeature = new Map(
@@ -355,7 +483,17 @@ function assertPackedApi(features, imported) {
     )
     for (const feature of features) {
         if (!feature.entrypoint || !feature.exportName) continue
-        const current = currentByFeature.get(feature.feature)
+        if (options.allowMapped && feature.disposition === 'shared') {
+            if (!sharedReplacementExists(feature.replacement, imported.apis)) {
+                stale.push(feature.feature)
+            }
+            continue
+        }
+        const featureId =
+            options.allowMapped && feature.disposition === 'native-extension'
+                ? nativeExtensionFeatureId(feature.feature)
+                : feature.feature
+        const current = currentByFeature.get(featureId)
         if (!current) {
             if (feature.kind === 'export' || feature.kind === 'method') {
                 stale.push(feature.feature)
@@ -381,13 +519,43 @@ function assertPackedApi(features, imported) {
 }
 
 /**
+ * Moves one historical Gerber feature identity beneath the extension subpath.
+ * @param {string} feature Historical feature id.
+ * @returns {string} Extension feature id.
+ */
+function nativeExtensionFeatureId(feature) {
+    const separator = feature.indexOf('#')
+    return separator < 0 ? feature : `./extensions${feature.slice(separator)}`
+}
+
+/**
+ * Requires every class-like shared replacement token to be exported by at
+ * least one packed common entrypoint.
+ * @param {string} replacement Shared replacement description.
+ * @param {Map<string, Record<string, any>>} apis Packed APIs.
+ * @returns {boolean} Whether all providers exist.
+ */
+function sharedReplacementExists(replacement, apis) {
+    const names = [
+        ...new Set(String(replacement).match(/[A-Z][A-Za-z0-9_]*/gu) || [])
+    ]
+    return (
+        names.length > 0 &&
+        names.every((name) =>
+            [...apis.values()].some((api) => Object.hasOwn(api, name))
+        )
+    )
+}
+
+/**
  * Verifies capability ids against the packed inventory and its identity fields.
  * @param {Record<string, any>[]} ledger Ledger rows.
  * @param {Map<string, Record<string, any>>} imported Imported entrypoints.
  * @param {Record<string, any>[] | null | undefined} expectedInventory Frozen inventory fallback.
+ * @param {{ allowCommonSuperset?: boolean }} [options] Inventory options.
  * @returns {void}
  */
-function assertCapabilities(ledger, imported, expectedInventory) {
+function assertCapabilities(ledger, imported, expectedInventory, options = {}) {
     const provider = [...imported.values()]
         .map((api) => api.ToolkitCapabilities)
         .find((value) => typeof value?.inventory === 'function')
@@ -397,11 +565,18 @@ function assertCapabilities(ledger, imported, expectedInventory) {
         )
     }
     const inventory = provider ? provider.inventory() : expectedInventory
-    assertValidInventory(inventory)
+    assertValidInventory(inventory, options.allowCommonSuperset === true)
     if (provider && Array.isArray(expectedInventory)) {
-        assertExactInventory(inventory, expectedInventory)
+        if (options.allowCommonSuperset) {
+            assertRetainedInventory(inventory, expectedInventory)
+        } else {
+            assertExactInventory(inventory, expectedInventory)
+        }
     }
     const byId = new Map(inventory.map((row) => [row.id, row]))
+    const expectedById = new Map(
+        (expectedInventory || []).map((row) => [row.id, row])
+    )
     const ids = [...new Set(ledger.map((row) => row.capabilityId))]
     const fictitious = ids.filter((id) => !byId.has(id))
     if (fictitious.length) {
@@ -420,7 +595,9 @@ function assertCapabilities(ledger, imported, expectedInventory) {
         const expectedAvailability = ledger.find(
             (entry) => entry.capabilityId === id
         )?.availability
-        if (!isDeepStrictEqual(row.availability, expectedAvailability)) {
+        const availability =
+            row.availability || expectedById.get(id)?.availability
+        if (!isDeepStrictEqual(availability, expectedAvailability)) {
             throw new Error(`Capability inventory availability mismatch: ${id}`)
         }
     }
@@ -429,22 +606,39 @@ function assertCapabilities(ledger, imported, expectedInventory) {
 /**
  * Validates every capability inventory row and rejects duplicate ids.
  * @param {unknown} inventory Inventory candidate.
+ * @param {boolean} [allowCommon] Whether common capability rows are allowed.
  * @returns {void}
  */
-function assertValidInventory(inventory) {
+function assertValidInventory(inventory, allowCommon = false) {
     if (!Array.isArray(inventory)) {
         throw new Error('Capability inventory must be an array.')
     }
     const seen = new Set()
     for (const row of inventory) {
         const parts = String(row?.id || '').split('.')
-        const valid =
+        const legacy =
             row &&
             typeof row.id === 'string' &&
             row.id.includes('.') &&
             row.category === parts.slice(0, -1).join('.') &&
             row.operation === parts.at(-1) &&
             validAvailability(row.availability)
+        const common =
+            allowCommon &&
+            row &&
+            typeof row.id === 'string' &&
+            row.id.includes('.') &&
+            row.category === parts.slice(0, -1).join('.') &&
+            row.operation === parts.at(-1) &&
+            ['native', 'shared', 'derived', 'unavailable'].includes(
+                row.status
+            ) &&
+            typeof row.entrypoint === 'string' &&
+            typeof row.summary === 'string' &&
+            typeof row.reason === 'string' &&
+            row.tested === true &&
+            row.documented === true
+        const valid = legacy || common
         if (!valid || seen.has(row.id)) {
             throw new Error(
                 `Invalid capability inventory row: ${row?.id || ''}`
@@ -476,6 +670,34 @@ function assertExactInventory(actual, expected) {
 }
 
 /**
+ * Requires every immutable Task 1 capability id and identity to remain
+ * present while allowing the shared common capability catalog to grow.
+ * @param {Record<string, any>[]} actual Packed common inventory.
+ * @param {Record<string, any>[]} expected Frozen Task 1 inventory.
+ * @returns {void}
+ */
+function assertRetainedInventory(actual, expected) {
+    assertValidInventory(expected)
+    const actualById = new Map(actual.map((row) => [row.id, row]))
+    const missing = expected
+        .filter((row) => {
+            const candidate = actualById.get(row.id)
+            return (
+                !candidate ||
+                candidate.category !== row.category ||
+                candidate.operation !== row.operation
+            )
+        })
+        .map((row) => row.id)
+        .sort()
+    if (missing.length) {
+        throw new Error(
+            `Packed capability inventory drift: ${missing.join(', ')}`
+        )
+    }
+}
+
+/**
  * Packs and extracts a repository for strict entrypoint verification.
  * @param {string} repositoryRoot Repository root.
  * @returns {Promise<{ packageRoot: string, cleanup: () => Promise<void> }>} Packed fixture.
@@ -499,6 +721,25 @@ async function packRepository(repositoryRoot) {
             join(temporaryRoot, 'package.json'),
             JSON.stringify({ private: true })
         )
+        const localDependencies = await packLinkedDependencies(
+            repositoryRoot,
+            temporaryRoot,
+            repositoryPackage
+        )
+        if (localDependencies.length) {
+            await execFileAsync(
+                'npm',
+                [
+                    'install',
+                    '--ignore-scripts',
+                    '--no-audit',
+                    '--no-fund',
+                    '--package-lock=false',
+                    ...localDependencies
+                ],
+                { cwd: temporaryRoot, maxBuffer: 10 * 1024 * 1024 }
+            )
+        }
         await execFileAsync(
             'npm',
             [
@@ -523,6 +764,42 @@ async function packRepository(repositoryRoot) {
         await rm(temporaryRoot, { recursive: true, force: true })
         throw error
     }
+}
+
+/**
+ * Packs linked sibling release candidates before the package that consumes
+ * them. Registry-installed dependencies remain registry-resolved.
+ * @param {string} repositoryRoot Repository root.
+ * @param {string} destination Pack destination.
+ * @param {Record<string, any>} manifest Repository package manifest.
+ * @returns {Promise<string[]>} Local dependency tarball paths.
+ */
+async function packLinkedDependencies(repositoryRoot, destination, manifest) {
+    const tarballs = []
+    for (const name of Object.keys(manifest.dependencies || {}).sort()) {
+        const packageRoot = join(repositoryRoot, 'node_modules', name)
+        let statistics
+        try {
+            statistics = await lstat(packageRoot)
+        } catch (error) {
+            if (error?.code === 'ENOENT') continue
+            throw error
+        }
+        if (!statistics.isSymbolicLink()) continue
+        const { stdout } = await execFileAsync(
+            'npm',
+            ['pack', '--json', '--pack-destination', destination],
+            { cwd: packageRoot, maxBuffer: 10 * 1024 * 1024 }
+        )
+        const filename = JSON.parse(stdout)?.[0]?.filename
+        if (typeof filename !== 'string' || !filename) {
+            throw new Error(
+                `npm pack did not report a tarball for dependency ${name}.`
+            )
+        }
+        tarballs.push(join(destination, filename))
+    }
+    return tarballs
 }
 
 /**

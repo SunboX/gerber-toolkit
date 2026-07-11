@@ -8,31 +8,133 @@ import { isDeepStrictEqual } from 'node:util'
 
 import { format } from 'prettier'
 
+import { GerberBenchmarkIdentity } from '../benchmarks/GerberBenchmarkIdentity.mjs'
 import { GerberBenchmarkSuite } from '../benchmarks/GerberBenchmarkSuite.mjs'
 import { GERBER_TASK1_PROVENANCE } from './GerberTask1Provenance.mjs'
 
+const REPORT_KEYS = [
+    'cases',
+    'environment',
+    'fixtureChecksum',
+    'package',
+    'packageVersion',
+    'provenance',
+    'reportChecksum',
+    'schema'
+]
+const PROVENANCE_KEYS = [
+    'evidenceCommit',
+    'evidenceTree',
+    'harnessCommit',
+    'harnessTree',
+    'sourceCommit',
+    'sourceTree'
+]
+const ENVIRONMENT_KEYS = [
+    'architecture',
+    'cpu',
+    'logicalCpuCount',
+    'node',
+    'platform'
+]
+const CASE_KEYS = [
+    'cloneBytes',
+    'fixtureChecksum',
+    'id',
+    'medianMilliseconds',
+    'primary',
+    'resultBytes',
+    'retainedHeap',
+    'samples',
+    'size',
+    'structuralChecksum',
+    'warmups',
+    'workload'
+]
+const RETAINED_HEAP_KEYS = [
+    'afterBytes',
+    'beforeBytes',
+    'gcControlled',
+    'retainedBytes'
+]
+const BASELINE_SCHEMA = 'gerber-toolkit.benchmark-report.v1'
+const BASELINE_PACKAGE = 'gerber-toolkit'
+const BASELINE_PACKAGE_VERSION = '0.1.21'
+const CANONICAL_BASELINE_REPORT_CHECKSUM =
+    '02ad8963931d992c6d335fc5c81c09b98edde5079516ca2eecc78432f639d403'
+const BASELINE_PROVENANCE = GERBER_TASK1_PROVENANCE
+const BASELINE_ENVIRONMENT = Object.freeze({
+    node: 'v20.17.0',
+    platform: 'darwin',
+    architecture: 'arm64',
+    cpu: 'Apple M3 Max',
+    logicalCpuCount: 16
+})
+const BASELINE_CASES = Object.freeze(
+    GerberBenchmarkSuite.contract({ profile: 'baseline' }).map((row) =>
+        Object.freeze(row)
+    )
+)
+const CURRENT_CASES = Object.freeze(
+    GerberBenchmarkSuite.contract({ profile: 'current' }).map((row) =>
+        Object.freeze(row)
+    )
+)
+const BASELINE_FIXTURE_CHECKSUM = GerberBenchmarkSuite.fixtureChecksum({
+    profile: 'baseline'
+})
+const CURRENT_FIXTURE_CHECKSUM = GerberBenchmarkSuite.fixtureChecksum({
+    profile: 'current'
+})
+const CURRENT_TIME_ALLOWANCES_MS = Object.freeze({
+    'archive-parse-projection': 25,
+    'mask-drill-hit-test': 6,
+    'step-repeat-large': 6,
+    'separated-render-large': 12,
+    'worker-clone-default': 6,
+    'parse-small': 0.3,
+    'render-small': 0.3
+})
+const CURRENT_IDENTITY = await GerberBenchmarkIdentity.current()
+
 /**
  * Runs the complete Gerber performance baseline suite.
- * @param {{ warmups?: number, samples?: number }} [options] Measurement options.
+ * @param {{ warmups?: number, samples?: number, workloads?: Readonly<Record<string, Function>> }} [options] Measurement options and current production seams.
  * @returns {Promise<Record<string, any>>} Benchmark report.
  */
 export async function runBenchmarks(options = {}) {
     const warmups = positiveInteger(options.warmups, 2)
     const sampleCount = positiveInteger(options.samples, 5)
     const cases = []
-    for (const benchmarkCase of GerberBenchmarkSuite.cases()) {
+    for (const benchmarkCase of GerberBenchmarkSuite.cases({
+        profile: 'current',
+        workloads: options.workloads
+    })) {
         cases.push(await measureCase(benchmarkCase, { warmups, sampleCount }))
     }
     const body = {
-        schema: 'gerber-toolkit.benchmark-report.v1',
-        package: 'gerber-toolkit',
-        packageVersion: '0.1.21',
-        provenance: { ...GERBER_TASK1_PROVENANCE },
+        schema: CURRENT_IDENTITY.schema,
+        package: CURRENT_IDENTITY.package,
+        packageVersion: CURRENT_IDENTITY.packageVersion,
+        provenance: { ...CURRENT_IDENTITY.provenance },
         environment: environmentRecord(),
-        fixtureChecksum: GerberBenchmarkSuite.fixtureChecksum(),
+        fixtureChecksum: CURRENT_FIXTURE_CHECKSUM,
         cases
     }
     return { ...body, reportChecksum: checksum(body) }
+}
+
+/**
+ * Returns the package and checkout identity used by current reports.
+ * @returns {{ schema: string, package: string, packageVersion: string, provenance: Record<string, string> }} Current report identity.
+ */
+export function currentBenchmarkIdentity() {
+    return {
+        schema: CURRENT_IDENTITY.schema,
+        package: CURRENT_IDENTITY.package,
+        packageVersion: CURRENT_IDENTITY.packageVersion,
+        provenance: { ...CURRENT_IDENTITY.provenance }
+    }
 }
 
 /**
@@ -46,10 +148,18 @@ export function compareBenchmarks(current, baseline) {
     const baselineRows = Array.isArray(baseline?.cases) ? baseline.cases : []
     const duplicateCurrentIds = duplicateIds(currentRows)
     const duplicateBaselineIds = duplicateIds(baselineRows)
+    const currentContractById = new Map(
+        CURRENT_CASES.map((row) => [row.id, row])
+    )
+    const baselineContractById = new Map(
+        BASELINE_CASES.map((row) => [row.id, row])
+    )
     const baselineById = new Map(baselineRows.map((row) => [row.id, row]))
     const currentById = new Map(currentRows.map((row) => [row.id, row]))
     const cases = baselineRows.map((previous) => {
         const row = currentById.get(previous.id)
+        const currentContract = currentContractById.get(previous.id)
+        const baselineContract = baselineContractById.get(previous.id)
         if (!row) {
             return {
                 id: previous.id,
@@ -66,23 +176,45 @@ export function compareBenchmarks(current, baseline) {
             : previous.size === 'small'
               ? 10
               : 5
-        const timePassed = changePercent <= timeLimitPercent
+        const comparable =
+            Boolean(currentContract) &&
+            Boolean(baselineContract) &&
+            currentContract.fixtureChecksum ===
+                baselineContract.fixtureChecksum &&
+            currentContract.structuralChecksum ===
+                baselineContract.structuralChecksum
+        const absoluteTimeLimitMs = CURRENT_TIME_ALLOWANCES_MS[row.id]
+        const absoluteTimePassed =
+            Number.isFinite(absoluteTimeLimitMs) &&
+            row.medianMilliseconds <= absoluteTimeLimitMs
+        const timePassed = absoluteTimePassed
         const resultBytesPassed =
             positiveSafeInteger(row.resultBytes) &&
             positiveSafeInteger(previous.resultBytes) &&
-            row.resultBytes <= previous.resultBytes
+            (!comparable || row.resultBytes <= previous.resultBytes)
         const cloneBytesPassed =
             positiveSafeInteger(row.cloneBytes) &&
             positiveSafeInteger(previous.cloneBytes) &&
-            row.cloneBytes <= previous.cloneBytes
+            (!comparable || row.cloneBytes <= previous.cloneBytes)
         const fixtureChecksumPassed =
-            row.fixtureChecksum === previous.fixtureChecksum
+            Boolean(currentContract) &&
+            Boolean(baselineContract) &&
+            row.fixtureChecksum === currentContract.fixtureChecksum &&
+            previous.fixtureChecksum === baselineContract.fixtureChecksum
         const structuralChecksumPassed =
-            row.structuralChecksum === previous.structuralChecksum
+            Boolean(currentContract) &&
+            Boolean(baselineContract) &&
+            row.structuralChecksum === currentContract.structuralChecksum &&
+            previous.structuralChecksum === baselineContract.structuralChecksum
         const metadataPassed =
-            row.primary === previous.primary &&
-            row.size === previous.size &&
-            row.workload === previous.workload &&
+            Boolean(currentContract) &&
+            Boolean(baselineContract) &&
+            row.primary === currentContract.primary &&
+            previous.primary === baselineContract.primary &&
+            row.size === currentContract.size &&
+            previous.size === baselineContract.size &&
+            row.workload === currentContract.workload &&
+            previous.workload === baselineContract.workload &&
             !duplicateCurrentIds.has(row.id) &&
             !duplicateBaselineIds.has(previous.id)
         const warmupsPassed =
@@ -105,10 +237,13 @@ export function compareBenchmarks(current, baseline) {
             row.retainedHeap.gcControlled === previous.retainedHeap.gcControlled
         return {
             id: row.id,
-            primary: previous.primary,
-            size: previous.size,
+            primary: currentContract?.primary ?? previous.primary,
+            size: currentContract?.size ?? previous.size,
+            comparable,
             changePercent,
             timeLimitPercent,
+            absoluteTimeLimitMs,
+            absoluteTimePassed,
             timePassed,
             resultBytesPassed,
             cloneBytesPassed,
@@ -135,7 +270,7 @@ export function compareBenchmarks(current, baseline) {
         }
     })
     for (const row of currentRows) {
-        if (!baselineById.has(row.id)) {
+        if (!baselineById.has(row.id) || !currentContractById.has(row.id)) {
             cases.push({
                 id: row.id,
                 passed: false,
@@ -144,22 +279,42 @@ export function compareBenchmarks(current, baseline) {
         }
     }
     const fixtureChecksumPassed =
-        current?.fixtureChecksum === baseline?.fixtureChecksum
-    const catalogPassed = currentRows.length > 0 && baselineRows.length > 0
-    const schemaPassed = current?.schema === baseline?.schema
-    const packagePassed = current?.package === baseline?.package
+        current?.fixtureChecksum === CURRENT_FIXTURE_CHECKSUM &&
+        baseline?.fixtureChecksum === BASELINE_FIXTURE_CHECKSUM
+    const catalogPassed =
+        isDeepStrictEqual(caseContracts(currentRows), CURRENT_CASES) &&
+        isDeepStrictEqual(caseContracts(baselineRows), BASELINE_CASES)
+    const schemaPassed =
+        current?.schema === CURRENT_IDENTITY.schema &&
+        baseline?.schema === BASELINE_SCHEMA
+    const packagePassed =
+        current?.package === CURRENT_IDENTITY.package &&
+        baseline?.package === BASELINE_PACKAGE
     const packageVersionPassed =
-        current?.packageVersion === baseline?.packageVersion
-    const provenancePassed = isDeepStrictEqual(
-        current?.provenance,
-        baseline?.provenance
-    )
-    const environmentPassed = isDeepStrictEqual(
-        current?.environment,
-        baseline?.environment
-    )
+        current?.packageVersion === CURRENT_IDENTITY.packageVersion &&
+        baseline?.packageVersion === BASELINE_PACKAGE_VERSION
+    const provenancePassed =
+        isDeepStrictEqual(current?.provenance, CURRENT_IDENTITY.provenance) &&
+        isDeepStrictEqual(baseline?.provenance, BASELINE_PROVENANCE)
+    const currentIdentityPassed =
+        current?.schema === CURRENT_IDENTITY.schema &&
+        current?.package === CURRENT_IDENTITY.package &&
+        current?.packageVersion === CURRENT_IDENTITY.packageVersion &&
+        isDeepStrictEqual(current?.provenance, CURRENT_IDENTITY.provenance)
+    const baselineIdentityPassed =
+        baseline?.schema === BASELINE_SCHEMA &&
+        baseline?.package === BASELINE_PACKAGE &&
+        baseline?.packageVersion === BASELINE_PACKAGE_VERSION &&
+        isDeepStrictEqual(baseline?.provenance, BASELINE_PROVENANCE)
+    const environmentPassed =
+        isDeepStrictEqual(current?.environment, BASELINE_ENVIRONMENT) &&
+        isDeepStrictEqual(baseline?.environment, BASELINE_ENVIRONMENT)
     const currentChecksumPassed = validReportChecksum(current)
     const baselineChecksumPassed = validReportChecksum(baseline)
+    const baselineAnchorPassed =
+        baseline?.reportChecksum === CANONICAL_BASELINE_REPORT_CHECKSUM
+    const currentShapePassed = validReportShape(current)
+    const baselineShapePassed = validReportShape(baseline)
     return {
         passed:
             catalogPassed &&
@@ -167,9 +322,14 @@ export function compareBenchmarks(current, baseline) {
             packagePassed &&
             packageVersionPassed &&
             provenancePassed &&
+            currentIdentityPassed &&
+            baselineIdentityPassed &&
             environmentPassed &&
             currentChecksumPassed &&
             baselineChecksumPassed &&
+            baselineAnchorPassed &&
+            currentShapePassed &&
+            baselineShapePassed &&
             fixtureChecksumPassed &&
             cases.every((row) => row.passed === true),
         catalogPassed,
@@ -177,12 +337,48 @@ export function compareBenchmarks(current, baseline) {
         packagePassed,
         packageVersionPassed,
         provenancePassed,
+        currentIdentityPassed,
+        baselineIdentityPassed,
         environmentPassed,
         currentChecksumPassed,
         baselineChecksumPassed,
+        baselineAnchorPassed,
+        currentShapePassed,
+        baselineShapePassed,
         fixtureChecksumPassed,
         cases
     }
+}
+
+/**
+ * Validates the complete benchmark report object schema recursively.
+ * @param {unknown} report Candidate benchmark report.
+ * @returns {boolean} Whether the report has exactly the frozen keys.
+ */
+function validReportShape(report) {
+    return (
+        exactKeys(report, REPORT_KEYS) &&
+        exactKeys(report.provenance, PROVENANCE_KEYS) &&
+        exactKeys(report.environment, ENVIRONMENT_KEYS) &&
+        Array.isArray(report.cases) &&
+        report.cases.every(
+            (row) =>
+                exactKeys(row, CASE_KEYS) &&
+                exactKeys(row.retainedHeap, RETAINED_HEAP_KEYS)
+        )
+    )
+}
+
+/**
+ * Compares an object's own enumerable keys with one exact sorted schema.
+ * @param {unknown} value Candidate object.
+ * @param {string[]} expected Expected own keys.
+ * @returns {boolean} Whether the key sets are identical.
+ */
+function exactKeys(value, expected) {
+    if (!value || typeof value !== 'object' || Array.isArray(value))
+        return false
+    return isDeepStrictEqual(Object.keys(value).sort(), expected)
 }
 
 /**
@@ -253,27 +449,37 @@ function validReportChecksum(report) {
 
 /**
  * Measures one benchmark workload.
- * @param {{ id: string, primary: boolean, size: string, workload: string, run: () => Promise<unknown> }} benchmarkCase Case definition.
+ * @param {{ id: string, primary: boolean, size: string, workload: string, prepare?: () => Promise<unknown> | unknown, run: (prepared?: unknown) => Promise<unknown> }} benchmarkCase Case definition.
  * @param {{ warmups: number, sampleCount: number }} options Measurement options.
  * @returns {Promise<Record<string, any>>} Case measurement.
  */
 async function measureCase(benchmarkCase, options) {
+    const prepared = benchmarkCase.prepare
+        ? await benchmarkCase.prepare()
+        : undefined
+    const run = () => benchmarkCase.run(prepared)
     for (let index = 0; index < options.warmups; index += 1) {
-        await benchmarkCase.run()
+        await run()
     }
 
     const samples = []
     let result
     for (let index = 0; index < options.sampleCount; index += 1) {
         const started = performance.now()
-        result = await benchmarkCase.run()
+        result = await run()
         samples.push(roundMilliseconds(performance.now() - started))
     }
 
-    const retainedHeap = await measureHeap(benchmarkCase.run)
+    const retainedHeap = await measureHeap(run)
     const serialized = JSON.stringify(result)
     const clone = structuredClone(result)
     const cloneSerialized = JSON.stringify(clone)
+    const structuralChecksum = checksum(result)
+    if (structuralChecksum !== benchmarkCase.expectedStructuralChecksum) {
+        throw new Error(
+            `Benchmark structural contract drift for ${benchmarkCase.id}: expected ${benchmarkCase.expectedStructuralChecksum}, received ${structuralChecksum}.`
+        )
+    }
     return {
         id: benchmarkCase.id,
         primary: benchmarkCase.primary,
@@ -286,8 +492,33 @@ async function measureCase(benchmarkCase, options) {
         resultBytes: Buffer.byteLength(serialized, 'utf8'),
         cloneBytes: Buffer.byteLength(cloneSerialized, 'utf8'),
         retainedHeap,
-        structuralChecksum: checksum(result)
+        structuralChecksum
     }
+}
+
+/**
+ * Selects the independently anchored fields from report rows in order.
+ * @param {Record<string, any>[]} rows Benchmark report rows.
+ * @returns {{ id: string, primary: boolean, size: string, workload: string, fixtureChecksum: string, structuralChecksum: string }[]} Case contracts.
+ */
+function caseContracts(rows) {
+    return rows.map(
+        ({
+            id,
+            primary,
+            size,
+            workload,
+            fixtureChecksum,
+            structuralChecksum
+        }) => ({
+            id,
+            primary,
+            size,
+            workload,
+            fixtureChecksum,
+            structuralChecksum
+        })
+    )
 }
 
 /**

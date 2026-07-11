@@ -1,6 +1,6 @@
 {
     "name": "gerber-toolkit",
-    "version": "0.1.21",
+    "version": "0.2.0",
     "description": "Gerber and Excellon fabrication parsing and deterministic SVG rendering utilities",
     "repository": {
         "type": "git",
@@ -25,8 +25,18 @@
     "exports": {
         ".": "./src/index.mjs",
         "./parser": "./src/parser.mjs",
+        "./project": "./src/project.mjs",
         "./renderers": "./src/renderers.mjs",
-        "./scene3d": "./src/scene3d.mjs"
+        "./interaction": "./src/interaction.mjs",
+        "./query": "./src/query.mjs",
+        "./manufacturing": "./src/manufacturing.mjs",
+        "./simulation": "./src/simulation.mjs",
+        "./scene3d": "./src/scene3d.mjs",
+        "./capabilities": "./src/capabilities.mjs",
+        "./extensions": "./src/extensions.mjs",
+        "./testing": "./src/testing.mjs",
+        "./workers/parser.worker.mjs": "./src/workers/parser.worker.mjs",
+        "./styles/renderers.css": "./src/styles/renderers.css"
     },
     "files": [
         "src",
@@ -47,9 +57,10 @@
         "check:format": "prettier --check .",
         "capture:api": "node scripts/capture-api-baseline.mjs",
         "check:features": "node scripts/check-feature-preservation.mjs",
-        "benchmark": "node --expose-gc scripts/run-benchmarks.mjs"
+        "benchmark": "node --expose-gc scripts/run-benchmarks.mjs --compare benchmarks/baseline-v0.1.21.json"
     },
     "dependencies": {
+        "circuitjson-toolkit": "^1.1.0",
         "fflate": "^0.8.2"
     },
     "devDependencies": {

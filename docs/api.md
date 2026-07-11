@@ -1,77 +1,122 @@
 # API
 
+## Root contract
+
+`gerber-toolkit` exposes the same exact root names as the other ECAD toolkits:
+
+```js
+import {
+    BomTableRenderer,
+    CircuitJsonDocument,
+    CircuitJsonDocumentContext,
+    CircuitJsonIndexer,
+    CircuitJsonUnits,
+    ManufacturingService,
+    Parser,
+    PcbInteractionIndex,
+    PcbScene3dBuilder,
+    PcbScene3dPreparator,
+    PcbSvgRenderer,
+    ProjectLoader,
+    QueryService,
+    SchematicSvgRenderer,
+    SimulationService,
+    ToolkitCapabilities,
+    ToolkitError
+} from 'gerber-toolkit'
+```
+
+All source-neutral services operate on canonical CircuitJSON documents or
+prepared `CircuitJsonDocumentContext` values and are the same implementations
+exported by `circuitjson-toolkit`.
+
 ## Parser
 
 ```js
-import { GerberParser, GerberProjectLoader } from 'gerber-toolkit/parser'
+import { Parser } from 'gerber-toolkit/parser'
 ```
 
-### `GerberParser.parseArrayBuffer(fileName, buffer, options)`
+### `Parser.parse(input, options)`
 
-Parses one Gerber or Excellon source file and returns a normalized PCB document.
-Gerber parsing covers common RS-274X drawing commands, standard apertures,
-aperture macros, aperture blocks, step-repeat, polarity, aperture transforms,
-file/aperture/object attributes, regions, lines, arcs, and flashes. Excellon
-parsing covers tool definitions, drill hits, and routed slots.
-
-### `GerberProjectLoader.loadEntries(entries, options)`
-
-Loads selected fabrication entries into one composite Gerber PCB document. Entries use this shape:
+Parses one Gerber or Excellon source synchronously. `input` is:
 
 ```js
-{ name: 'board-F_Cu.gtl', bytes: Uint8Array }
+{
+    fileName: 'board.gtl',
+    data: stringOrArrayBufferOrUint8Array,
+    assets: []
+}
 ```
 
-ZIP entries are expanded in memory. Fabrication files inside the archive are parsed and grouped into one document.
+It returns an immutable `ecad-toolkit.document.v1` envelope. The canonical
+CircuitJSON array is `document.model`; source facts are in `document.source`,
+and Gerber-only information is namespaced under `document.extensions.gerber`.
 
-## Renderers
+### `Parser.parseAsync(input, options)`
+
+Returns the same envelope asynchronously. Common options are:
+
+- `worker`: `'auto'`, `true`, or `false`
+- `signal`: `AbortSignal`
+- `onProgress`: receives monotonic progress rows
+- `extensions`: `'none'`, `'metadata'`, `'canonical'`, `'full'`, or selected ids
+- `preserveRaw`: retains the full native model
+- `decodeAssets`: `'none'`, `'metadata'`, or `'full'`
+- `retainSource`: `'none'` or `'reference'`
+- `transferInput`: permits worker transfer of owned input buffers
+- `reports`: requested report ids; unavailable ids fail explicitly
+
+`Parser.tryParse(input, options)` returns `{ ok: true, value }` or
+`{ ok: false, error, diagnostics }`. `Parser.supports(input)` performs bounded
+filename/content detection and never throws.
+
+## Project loading
 
 ```js
-import {
-    GerberPcbSvgRenderer,
-    PcbInteractionIndex,
-    PcbInteractionLayerModel
-} from 'gerber-toolkit/renderers'
+import { ProjectLoader } from 'gerber-toolkit/project'
 ```
 
-### `GerberPcbSvgRenderer.render(documentModel, options)`
-
-Renders a Gerber PCB document to SVG. The default render mode is `composite`.
+`ProjectLoader.load(entries, options)` and `loadAsync(entries, options)` accept
+a dense array of descriptor-safe entries:
 
 ```js
-GerberPcbSvgRenderer.render(documentModel)
-GerberPcbSvgRenderer.render(documentModel, {
-    renderMode: 'separated',
-    layerId: 'gerber-board-f-cu-gtl'
-})
+;[
+    { name: 'board-F_Cu.gtl', data: topCopperBytes },
+    { name: 'board-PTH.drl', data: drillBytes },
+    { name: 'model.step', data: modelBytes }
+]
 ```
 
-### `PcbInteractionIndex.build(documentModel, options)`
+A single `{ name: 'board.zip', data: zipBytes }` entry is expanded internally;
+callers do not need a ZIP adapter. Supported fabrication members become one
+canonical document, while non-fabrication companions and attached assets are
+preserved according to `decodeAssets`. `archiveLimits` configures common entry,
+expanded-byte, and compression-ratio ceilings.
 
-Builds simple interaction bounds for rendered primitives, drill hits, and drill
-slots.
+`ProjectLoader.tryLoad()` returns a discriminated result and
+`ProjectLoader.supports()` returns a non-throwing boolean.
 
-### `PcbInteractionLayerModel.resolve(documentModel)`
+## Package layout
 
-Returns source-layer metadata for PCB layer controls.
+| Subpath                                    | Purpose                                                                 |
+| ------------------------------------------ | ----------------------------------------------------------------------- |
+| `gerber-toolkit/parser`                    | Parser envelope, worker protocol, progress, assets, diagnostics, errors |
+| `gerber-toolkit/project`                   | Project loader, archive paths and limits, project envelope              |
+| `gerber-toolkit/renderers`                 | Shared CircuitJSON SVG and BOM renderers                                |
+| `gerber-toolkit/interaction`               | Shared PCB interaction index                                            |
+| `gerber-toolkit/query`                     | Shared document query service                                           |
+| `gerber-toolkit/manufacturing`             | Shared manufacturing exporters                                          |
+| `gerber-toolkit/simulation`                | Shared injected simulation service                                      |
+| `gerber-toolkit/scene3d`                   | Shared CircuitJSON scene builder and preparator                         |
+| `gerber-toolkit/capabilities`              | Machine-readable capability inventory                                   |
+| `gerber-toolkit/extensions`                | Complete native 0.1.21 API plus shared extension helpers                |
+| `gerber-toolkit/testing`                   | Shared contract fixtures and conformance helpers                        |
+| `gerber-toolkit/workers/parser.worker.mjs` | Common parser worker protocol endpoint                                  |
+| `gerber-toolkit/styles/renderers.css`      | Optional renderer styles                                                |
 
-## Scene 3D
+## Typed failures
 
-```js
-import {
-    PcbScene3dBuilder,
-    PcbScene3dScenePreparator
-} from 'gerber-toolkit/scene3d'
-```
-
-### `PcbScene3dBuilder.build(documentModel, options)`
-
-Builds a data-only bare-board scene description for the interactive 3D PCB
-runtime. Parsed Gerber coordinates stay millimeter-based in the document model;
-the scene builder converts board, copper, pad, and drill geometry to mils for
-the shared 3D viewer contract. Fabrication files do not contain component body
-models, so Gerber scenes emit an empty `components` list.
-
-### `PcbScene3dScenePreparator.prepare(documentModel, options)`
-
-Async facade matching the shared toolkit scene preparation API.
+Parser and project failures use `ToolkitError` with stable `code`, `category`,
+`format`, `source`, and `details` fields. Cancellation is
+`ERR_CANCELLED`; unsupported inputs and capabilities fail explicitly rather
+than returning partial placeholder results.

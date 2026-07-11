@@ -5,7 +5,7 @@ import {
     GerberCoordinateParser,
     GerberLayerRoleResolver,
     GerberParser
-} from '../src/parser.mjs'
+} from '../src/legacy-parser.mjs'
 
 /**
  * Encodes a text fixture as an ArrayBuffer.
@@ -159,6 +159,10 @@ test('GerberParser flashes current aperture for standalone D03 operations', () =
     const document = GerberParser.parseArrayBuffer(
         'sample-F_Mask.gts',
         bytes(source)
+    )
+    assert.equal(
+        Array.isArray(document.pcb.fabrication.layers[0].primitives),
+        true
     )
     const flashes = document.pcb.fabrication.layers[0].primitives.filter(
         (primitive) => primitive.type === 'flash'

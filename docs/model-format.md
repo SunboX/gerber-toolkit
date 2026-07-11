@@ -1,62 +1,67 @@
 # Model Format
 
-Parsed documents use the same broad document shape expected by ECAD Forge:
+The common parser returns an immutable document envelope:
 
 ```js
 {
-    sourceFormat: 'gerber',
-    kind: 'pcb',
-    fileName: 'fabrication.zip',
-    pcb: {
-        bounds: { minX: 0, minY: 0, maxX: 10, maxY: 8 },
-        fabrication: {
-            renderMode: 'composite',
-            layers: []
+    schema: 'ecad-toolkit.document.v1',
+    model: [
+        {
+            type: 'pcb_board',
+            pcb_board_id: 'gerber_board_0',
+            center: { x: 5, y: 4 },
+            width: 10,
+            height: 8,
+            num_layers: 2
         }
+    ],
+    source: {
+        format: 'gerber',
+        fileName: 'board.gtl',
+        fileType: 'gtl'
     },
-    bom: [],
-    diagnostics: []
+    extensions: { gerber: {} },
+    assets: [],
+    diagnostics: [],
+    statistics: {}
 }
 ```
 
-Each fabrication layer contains:
+`model` is CircuitJSON and is the only representation consumed by the common
+rendering, interaction, query, manufacturing, simulation, and scene services.
+Gerber coordinates are normalized to millimeters.
 
-- `id`: stable layer id derived from the source path
-- `fileName`: original or archive-expanded source path
-- `role`: inferred fabrication role such as `top-copper`, `board-outline`, or `plated-drill`
-- `side`: `top`, `bottom`, or `both`
-- `primitives`: normalized Gerber draw, flash, arc, and region items
-- `drills`: normalized Excellon drill hits and routed slots
-- `attributes`: parsed file, aperture, and object attributes
-- `bounds`: layer bounds in millimeters
+The projection emits only semantics that fabrication data can establish:
 
-Gerber coordinates are normalized to millimeters. The renderer treats documentation layers, such as drill-map artwork, as available source layers without drawing them in the default composite stack.
+- `pcb_board` from aggregate bounds
+- `pcb_trace` from copper lines and bounded arc samples
+- `pcb_smtpad` from supported circular, rectangular, and obround flashes
+- `pcb_copper_pour` from filled copper regions
+- `pcb_hole` from Excellon hits and routed slots
+- `pcb_note_line` and `pcb_note_path` from representable documentation artwork
 
-`PcbScene3dBuilder.build(documentModel)` derives a bare-board 3D scene from the
-same fabrication layers. The scene converts millimeters to mils, maps board
-outline primitives into `board.segments`, maps copper draws into
-`detail.tracks` and `detail.arcs`, maps flashed apertures into `detail.pads`,
-and carries Excellon holes into pad drill fields so the shared 3D viewer can
-cut the board body. Gerber fabrication packages do not carry component bodies,
-so the derived scene keeps `components` empty.
+It does not invent components, nets, pin connectivity, source schematics, or
+assembly models. Clear-polarity geometry and native aperture/macro details that
+cannot be represented losslessly stay in the Gerber extension namespace.
 
-Flash primitives may use `shape: 'circle'`, `rect`, `obround`, `polygon`,
-`macro`, or `block`. Macro flashes keep their expanded child primitives under
-`primitives`. Aperture-block flashes keep their child primitives translated to
-the flashed location. Primitives include `polarity` and may include a
-`transform` object with `mirror`, `rotation`, and `scale`.
+## Native extension
 
-Excellon slots use this shape:
+The default `extensions: 'canonical'` stores compact fabrication summary
+metadata. The exact prior native document is included when callers select
+`extensions: 'full'`, `preserveRaw: true`, or
+`extensions: ['gerber.native-model']`:
 
 ```js
-{
-    type: 'slot',
-    x1: 1,
-    y1: 1,
-    x2: 3,
-    y2: 1,
-    diameter: 0.6,
-    plated: true,
-    tool: 'T01'
-}
+const document = Parser.parse(input, { extensions: 'full' })
+const native = document.extensions.gerber.native
 ```
+
+Native layers retain original roles, attributes, aperture-expanded primitives,
+drills, slots, polarity, transforms, and bounds. This keeps exact CAM inspection
+available without making native layout a hidden dependency of common consumers.
+
+## Project envelope
+
+`ProjectLoader` returns `ecad-toolkit.project.v1`. Its `documents` contain the
+same document envelopes, and `assets` contains decoded or metadata-only attached
+and companion files. Archive member paths are normalized before extraction.

@@ -11,10 +11,14 @@ import { promisify } from 'node:util'
 import { GerberBenchmarkData } from '../benchmarks/GerberBenchmarkData.mjs'
 import { GerberBenchmarkSuite } from '../benchmarks/GerberBenchmarkSuite.mjs'
 import { GerberLegacyProjectionBenchmarkAdapter } from '../benchmarks/GerberLegacyProjectionBenchmarkAdapter.mjs'
-import { PcbInteractionIndex } from '../src/renderers.mjs'
+import { PcbInteractionIndex } from '../src/legacy-renderers.mjs'
 import { GerberApiContractInspector } from '../scripts/GerberApiContractInspector.mjs'
 import { captureApiBaseline } from '../scripts/capture-api-baseline.mjs'
-import { compareBenchmarks, runBenchmarks } from '../scripts/run-benchmarks.mjs'
+import {
+    compareBenchmarks,
+    currentBenchmarkIdentity,
+    runBenchmarks
+} from '../scripts/run-benchmarks.mjs'
 
 const execFileAsync = promisify(execFile)
 
@@ -83,7 +87,22 @@ function sealBenchmarkReport(report) {
  */
 function passingBenchmarkCandidate(baseline) {
     const current = structuredClone(baseline)
+    const identity = currentBenchmarkIdentity()
+    const contract = GerberBenchmarkSuite.contract({ profile: 'current' })
+    current.schema = identity.schema
+    current.package = identity.package
+    current.packageVersion = identity.packageVersion
+    current.provenance = identity.provenance
+    current.fixtureChecksum = GerberBenchmarkSuite.fixtureChecksum({
+        profile: 'current'
+    })
     for (const row of current.cases) {
+        const expected = contract.find((entry) => entry.id === row.id)
+        row.primary = expected.primary
+        row.size = expected.size
+        row.workload = expected.workload
+        row.fixtureChecksum = expected.fixtureChecksum
+        row.structuralChecksum = expected.structuralChecksum
         const factor = row.primary ? 0.75 : 1
         const sample = Number((row.medianMilliseconds * factor).toFixed(6))
         row.samples = row.samples.map(() => sample)
@@ -375,11 +394,15 @@ test('Gerber benchmark comparison rejects resealed invalid measurement records',
     assert.equal(compareBenchmarks(current, invalidBaseline).passed, false)
 })
 
-test('Gerber benchmark reports emit the complete frozen provenance', async () => {
+test('Gerber benchmark reports distinguish current and frozen provenance', async () => {
     const baseline = await readJson('benchmarks/baseline-v0.1.21.json')
     const measured = await runBenchmarks({ warmups: 1, samples: 1 })
+    const identity = currentBenchmarkIdentity()
 
-    assert.deepEqual(measured.provenance, baseline.provenance)
+    assert.deepEqual(measured.provenance, identity.provenance)
+    assert.notDeepEqual(measured.provenance, baseline.provenance)
+    assert.equal(measured.packageVersion, identity.packageVersion)
+    assert.equal(baseline.packageVersion, '0.1.21')
 })
 
 test('Gerber hit-test benchmark freezes every query point and tolerance', () => {
@@ -583,7 +606,7 @@ test('Gerber API inspector resolves instance results and array element shapes ac
         }
 
         static #segments() {
-            return [].map(() => SceneBuilder.#line())
+            return [null].map(() => SceneBuilder.#line())
         }
 
         static #line() {
@@ -591,7 +614,7 @@ test('Gerber API inspector resolves instance results and array element shapes ac
         }
 
         static #cutouts() {
-            return [].map(() => ({ points: [] }))
+            return [null].map(() => ({ points: [] }))
         }
     }
     const contracts = await GerberApiContractInspector.inspect([
@@ -662,15 +685,35 @@ test('Gerber API baseline records complete callable, option, field, and behavior
         true
     )
     assert.equal(
-        api.features.every(
-            (feature) =>
+        api.features.every((feature) => {
+            const usage = feature.evidence?.usage
+            const sourceOnly =
+                usage === null &&
+                feature.sourceContract?.type === 'result-field' &&
+                feature.evidenceToken === null &&
+                feature.evidenceTokens?.length === 0 &&
+                feature.tests?.length === 0
+            const used =
+                usage &&
                 typeof feature.evidenceToken === 'string' &&
-                feature.evidenceToken.length > 0 &&
-                Array.isArray(feature.tests) &&
-                feature.tests.length > 0 &&
-                Array.isArray(feature.documentation) &&
-                feature.documentation.length > 0
-        ),
+                feature.evidenceTokens?.length > 0 &&
+                feature.tests?.length > 0
+            return (
+                feature.evidence?.source?.kind === 'source-contract' &&
+                Boolean(sourceOnly || used) &&
+                feature.documentation?.length > 0
+            )
+        }),
+        true
+    )
+    assert.equal(
+        api.features
+            .filter((feature) => feature.kind === 'behavior')
+            .every(
+                (feature) =>
+                    feature.evidence.usage.kind === 'behavior-matcher' &&
+                    feature.evidence.usage.contract.requirements.length > 0
+            ),
         true
     )
     for (const feature of [
@@ -849,6 +892,7 @@ test('Gerber feature ledger freezes every preservation decision and availability
         'availability',
         'reason',
         'sourceContract',
+        'evidence',
         'evidenceToken',
         'evidenceTokens',
         'tests',

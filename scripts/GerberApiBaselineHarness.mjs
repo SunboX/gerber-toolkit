@@ -3,8 +3,11 @@ import { readdir, readFile } from 'node:fs/promises'
 import { fileURLToPath } from 'node:url'
 
 import { GerberApiContractInspector } from './GerberApiContractInspector.mjs'
+import { GerberBehaviorEvidence } from './GerberBehaviorEvidence.mjs'
+import { GerberFeatureEvidence } from './GerberFeatureEvidence.mjs'
 
 const META_TEST_PATHS = new Set([
+    'tests/api-result-contract-artifacts.test.mjs',
     'tests/api-result-contract-resolver.test.mjs',
     'tests/convergence-baselines.test.mjs',
     'tests/feature-preservation-check.test.mjs'
@@ -85,32 +88,38 @@ const BEHAVIORS = [
     behavior(
         'parser preserves apertures, macros, blocks, polarity, attributes, and step-repeat',
         'parser.document.parse',
-        'GerberParser'
+        'GerberParser',
+        'parser-gerber-structures-v1'
     ),
     behavior(
         'parser preserves Excellon tools, drill hits, routes, and slots',
         'parser.document.parse',
-        'GerberParser'
+        'GerberParser',
+        'parser-excellon-routes-v1'
     ),
     behavior(
         'project loader expands synthetic ZIP fabrication packages',
         'project.archive.load',
-        'GerberProjectLoader'
+        'GerberProjectLoader',
+        'project-zip-expansion-v1'
     ),
     behavior(
         'renderer preserves composite polarity and separated source layers',
         'renderer.pcb.render',
-        'GerberPcbSvgRenderer'
+        'GerberPcbSvgRenderer',
+        'renderer-composite-separated-v1'
     ),
     behavior(
         'interaction indexes mask, drill, route, and slot bounds',
         'interaction.pcb.hitTest',
-        'PcbInteractionIndex'
+        'PcbInteractionIndex',
+        'interaction-mask-drill-route-v1'
     ),
     behavior(
         'scene builder emits a deterministic bare board without invented components',
         'scene3d.pcb.build',
-        'PcbScene3dBuilder'
+        'PcbScene3dBuilder',
+        'scene-bare-board-v1'
     )
 ]
 
@@ -119,14 +128,17 @@ const BEHAVIORS = [
  * @param {string} feature Stable behavior description.
  * @param {string} capabilityId Owning capability id.
  * @param {string} evidenceToken Public symbol used by tests.
+ * @param {string} behaviorMatcher Stable behavior matcher id.
  * @returns {Record<string, any>} Behavior feature.
  */
-function behavior(feature, capabilityId, evidenceToken) {
+function behavior(feature, capabilityId, evidenceToken, behaviorMatcher) {
     return {
         feature,
         kind: 'behavior',
         capabilityId,
         evidenceToken,
+        requiredExport: evidenceToken,
+        behaviorMatcher,
         sourceContract: { type: 'behavior', description: feature }
     }
 }
@@ -165,13 +177,12 @@ export class GerberApiBaselineHarness {
         })
         const testSources = (
             await readTestSources(new URL('tests/', options.evidenceRoot))
-        ).filter((testSource) => !META_TEST_PATHS.has(testSource.path))
+        ).filter((testSource) => !isMetaTestSource(testSource))
         const features = [
             ...contracts.features.map((feature) => mapContract(feature)),
-            ...BEHAVIORS
+            ...availableBehaviors(contracts.entrypoints)
         ]
             .map((feature) => mapFeature(feature, testSources))
-            .filter(Boolean)
             .sort((left, right) => left.feature.localeCompare(right.feature))
         const body = {
             schema: 'gerber-toolkit.api-baseline.v1',
@@ -190,6 +201,39 @@ export class GerberApiBaselineHarness {
             ledger: features.map((feature) => ledgerRow(pkg, feature))
         }
     }
+}
+
+/**
+ * Selects behaviors whose owning public export exists in the captured package.
+ * @param {Record<string, any>[]} entrypoints Captured entrypoints.
+ * @returns {Record<string, any>[]} Applicable behavior contracts.
+ */
+function availableBehaviors(entrypoints) {
+    const exports = new Set(
+        entrypoints.flatMap((entrypoint) =>
+            (entrypoint.exports || []).map((entry) => entry.name)
+        )
+    )
+    return BEHAVIORS.filter((feature) => exports.has(feature.requiredExport))
+}
+
+/**
+ * Identifies capture, verifier, artifact, and benchmark tests that describe the
+ * baseline machinery rather than historical public package behavior.
+ * @param {{ path: string, source: string }} testSource Candidate test source.
+ * @returns {boolean} Whether the source must be excluded from API evidence.
+ */
+function isMetaTestSource(testSource) {
+    if (META_TEST_PATHS.has(testSource.path)) return true
+    if (/(?:^|\/)baseline[^/]*\.test\.mjs$/u.test(testSource.path)) return true
+    return (
+        /(?:from\s+|import\s*\()\s*['"]\.\.\/scripts\//u.test(
+            testSource.source
+        ) ||
+        /(?:spec\/(?:api-baseline|feature-preservation)|benchmarks\/baseline-)/u.test(
+            testSource.source
+        )
+    )
 }
 
 /**
@@ -229,7 +273,7 @@ function capabilityFor(exportName) {
  * Adds preservation policy and pinned evidence paths to one feature.
  * @param {Record<string, any>} feature Baseline feature.
  * @param {{ path: string, source: string }[]} testSources Pinned tests.
- * @returns {Record<string, any> | null} Complete mapped feature or an untested inferred result.
+ * @returns {Record<string, any>} Complete mapped feature.
  */
 function mapFeature(feature, testSources) {
     const policy = POLICIES[feature.capabilityId]
@@ -238,34 +282,123 @@ function mapFeature(feature, testSources) {
             `Missing preservation policy for ${feature.capabilityId}.`
         )
     }
+    if (feature.kind === 'behavior') {
+        return mapBehaviorFeature(feature, policy, testSources)
+    }
     let evidenceTokens = []
     let tests = []
     for (const candidateTokens of featureEvidenceTokenSets(feature)) {
-        const candidateTests = testSources
-            .filter((testSource) =>
-                candidateTokens.every((token) =>
-                    testSource.source.includes(token)
-                )
+        const candidateSources = [
+            ...new Map(
+                testSources
+                    .filter(
+                        (testSource) =>
+                            GerberFeatureEvidence.tokensMatch(
+                                candidateTokens,
+                                testSource.source
+                            ) ||
+                            GerberFeatureEvidence.invocationMatches(
+                                feature,
+                                testSource.source
+                            )
+                    )
+                    .map((testSource) => [testSource.path, testSource])
+            ).values()
+        ]
+        if (
+            !GerberFeatureEvidence.matchesAcross(
+                feature,
+                candidateTokens,
+                candidateSources.map((testSource) => testSource.source)
             )
-            .map((testSource) => testSource.path)
-        if (!candidateTests.length) continue
+        ) {
+            continue
+        }
         evidenceTokens = candidateTokens
-        tests = candidateTests
+        tests = candidateSources.map((testSource) => testSource.path)
         break
     }
     if (!tests.length) {
-        if (feature.sourceContract?.type === 'result-field') return null
+        if (feature.sourceContract?.type === 'result-field') {
+            return mappedFeature(feature, policy, [], [], null)
+        }
         throw new Error(
             `No historical repository test references ${featureEvidenceTokens(feature).join(' + ')} for ${feature.feature}.`
         )
     }
+    return mappedFeature(feature, policy, evidenceTokens, tests, {
+        kind:
+            feature.sourceContract?.type === 'result-field'
+                ? 'result-path'
+                : 'token-reference'
+    })
+}
+
+/**
+ * Maps one behavior only when its stable matcher is fully satisfied.
+ * @param {Record<string, any>} feature Behavior feature.
+ * @param {Record<string, any>} policy Preservation policy.
+ * @param {{ path: string, source: string }[]} testSources Pinned tests.
+ * @returns {Record<string, any>} Mapped behavior.
+ */
+function mapBehaviorFeature(feature, policy, testSources) {
+    const sources = testSources.filter((testSource) =>
+        GerberBehaviorEvidence.relevant(
+            feature.behaviorMatcher,
+            testSource.source
+        )
+    )
+    if (
+        !GerberBehaviorEvidence.matches(
+            feature.behaviorMatcher,
+            sources.map((source) => source.source)
+        )
+    ) {
+        throw new Error(
+            `No behavior-specific historical evidence satisfies ${feature.behaviorMatcher} for ${feature.feature}.`
+        )
+    }
+    return mappedFeature(
+        feature,
+        policy,
+        [feature.evidenceToken],
+        sources.map((source) => source.path),
+        {
+            kind: 'behavior-matcher',
+            matcher: feature.behaviorMatcher,
+            contract: GerberBehaviorEvidence.contract(feature.behaviorMatcher)
+        }
+    )
+}
+
+/**
+ * Adds preservation and separated source/usage evidence metadata.
+ * @param {Record<string, any>} feature Captured feature.
+ * @param {Record<string, any>} policy Preservation policy.
+ * @param {string[]} evidenceTokens Usage-evidence tokens.
+ * @param {string[]} tests Usage-evidence test paths.
+ * @param {Record<string, any> | null} usage Usage-evidence descriptor.
+ * @returns {Record<string, any>} Complete mapped feature.
+ */
+function mappedFeature(feature, policy, evidenceTokens, tests, usage) {
+    const {
+        behaviorMatcher: ignoredMatcher,
+        requiredExport: ignoredExport,
+        ...captured
+    } = feature
+    void ignoredMatcher
+    void ignoredExport
     return {
-        ...feature,
+        ...captured,
         disposition: policy.disposition,
         replacement: policy.replacement,
         availability: { ...policy.availability },
         reason: policy.reason,
-        evidenceToken: evidenceTokens.at(-1),
+        evidence: {
+            source: { kind: 'source-contract' },
+            usage
+        },
+        evidenceToken: evidenceTokens.at(-1) || null,
         evidenceTokens,
         tests,
         documentation: [...policy.documentation]
@@ -325,6 +458,7 @@ function ledgerRow(pkg, feature) {
         replacement: feature.replacement,
         availability: feature.availability,
         reason: feature.reason,
+        evidence: feature.evidence,
         evidenceToken: feature.evidenceToken,
         evidenceTokens: feature.evidenceTokens,
         sourceContract: feature.sourceContract,

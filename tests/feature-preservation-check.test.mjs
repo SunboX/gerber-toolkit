@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict'
 import { execFile } from 'node:child_process'
+import { createHash } from 'node:crypto'
 import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
@@ -9,8 +10,11 @@ import { fileURLToPath } from 'node:url'
 
 import {
     checkFeaturePreservation,
-    validateFeaturePreservation
+    validateFeaturePreservation as validateSyntheticFeaturePreservation
 } from '../scripts/check-feature-preservation.mjs'
+import { GerberBehaviorEvidence } from '../scripts/GerberBehaviorEvidence.mjs'
+import { GerberFeatureEvidence } from '../scripts/GerberFeatureEvidence.mjs'
+import { assertGerberTask1EvidenceContract } from '../scripts/GerberTask1EvidenceContract.mjs'
 
 const execFileAsync = promisify(execFile)
 const AVAILABILITY = {
@@ -21,15 +25,50 @@ const AVAILABILITY = {
 }
 
 /**
+ * Runs strict synthetic fixtures with an explicit Task 1 anchor opt-out.
+ * @param {Record<string, any>} options Synthetic validation options.
+ * @returns {ReturnType<typeof validateSyntheticFeaturePreservation>} Validation promise.
+ */
+function validateFeaturePreservation(options) {
+    return validateSyntheticFeaturePreservation({
+        ...options,
+        task1Identity: false
+    })
+}
+
+test('immutable evidence rejects an identically self-resealed baseline and ledger', async () => {
+    const apiBaseline = JSON.parse(
+        await readFile('spec/api-baseline-v0.1.21.json', 'utf8')
+    )
+    const ledger = JSON.parse(
+        await readFile('spec/feature-preservation.json', 'utf8')
+    )
+    const removed = apiBaseline.features.shift()
+    const ledgerIndex = ledger.findIndex(
+        (row) => row.feature === removed.feature
+    )
+    ledger.splice(ledgerIndex, 1)
+    const { artifactChecksum: ignored, ...body } = apiBaseline
+    apiBaseline.artifactChecksum = createHash('sha256')
+        .update(JSON.stringify(body))
+        .digest('hex')
+
+    assert.throws(
+        () => assertGerberTask1EvidenceContract(apiBaseline, ledger),
+        /Immutable Task 1 evidence drift/u
+    )
+})
+
+/**
  * Creates one complete baseline feature.
  * @param {string} feature Stable feature id.
  * @param {Record<string, any>} [overrides] Feature overrides.
  * @returns {Record<string, any>} Baseline feature.
  */
 function baselineFeature(feature, overrides = {}) {
-    return {
+    const row = {
         feature,
-        kind: 'behavior',
+        kind: 'export',
         capabilityId: 'parser.document.parse',
         disposition: 'shared',
         replacement: 'Parser.parse()',
@@ -37,11 +76,15 @@ function baselineFeature(feature, overrides = {}) {
         reason: 'Gerber parsing projects native data into the shared envelope.',
         evidenceToken: 'GerberParser',
         evidenceTokens: ['GerberParser'],
-        sourceContract: { type: 'behavior', description: feature },
+        sourceContract: { type: 'export', valueType: 'function' },
         tests: ['index.mjs'],
         documentation: ['index.mjs'],
         ...overrides
     }
+    if (!Object.hasOwn(overrides, 'evidence')) {
+        row.evidence = defaultEvidence(row)
+    }
+    return row
 }
 
 /**
@@ -51,10 +94,31 @@ function baselineFeature(feature, overrides = {}) {
  * @returns {Record<string, any>} Ledger row.
  */
 function ledgerRow(feature, overrides = {}) {
-    return {
+    const row = {
         package: 'gerber-toolkit@0.1.21',
         ...baselineFeature(feature),
         ...overrides
+    }
+    if (!Object.hasOwn(overrides, 'evidence')) {
+        row.evidence = defaultEvidence(row)
+    }
+    return row
+}
+
+/**
+ * Creates synthetic usage evidence consistent with one source contract.
+ * @param {Record<string, any>} row Synthetic feature.
+ * @returns {Record<string, any>} Evidence descriptor.
+ */
+function defaultEvidence(row) {
+    return {
+        source: { kind: 'source-contract' },
+        usage: {
+            kind:
+                row.sourceContract?.type === 'result-field'
+                    ? 'result-path'
+                    : 'token-reference'
+        }
     }
 }
 
@@ -586,6 +650,218 @@ test('strict feature checker validates evidence paths and symbol references', as
     )
 })
 
+test('strict feature checker rejects token-only behavior evidence', async (context) => {
+    const inventory = [capabilityRow('parser.document.parse')]
+    const packageRoot = await packageFixture(context, inventory, {
+        files: {
+            'evidence.test.mjs': 'void GerberParser\n'
+        }
+    })
+    const evidence = {
+        source: { kind: 'source-contract' },
+        usage: {
+            kind: 'behavior-matcher',
+            matcher: 'parser-gerber-structures-v1',
+            contract: GerberBehaviorEvidence.contract(
+                'parser-gerber-structures-v1'
+            )
+        }
+    }
+    const feature = baselineFeature('parser preserves Gerber structures', {
+        kind: 'behavior',
+        sourceContract: {
+            type: 'behavior',
+            description: 'parser preserves Gerber structures'
+        },
+        evidence,
+        tests: ['evidence.test.mjs']
+    })
+
+    await assert.rejects(
+        () =>
+            validateFeaturePreservation({
+                apiBaseline: {
+                    entrypoints: [{ entrypoint: '.', target: './index.mjs' }],
+                    features: [feature]
+                },
+                ledger: [ledgerRow(feature.feature, feature)],
+                inventory,
+                strict: true,
+                packageRoot,
+                repositoryRoot: packageRoot
+            }),
+        /Behavior evidence does not satisfy parser-gerber-structures-v1/u
+    )
+
+    const tampered = structuredClone(feature)
+    tampered.evidence.usage.contract.requirements = []
+    await assert.rejects(
+        () =>
+            validateFeaturePreservation({
+                apiBaseline: {
+                    entrypoints: [{ entrypoint: '.', target: './index.mjs' }],
+                    features: [tampered]
+                },
+                ledger: [ledgerRow(tampered.feature, tampered)],
+                inventory,
+                strict: true,
+                packageRoot,
+                repositoryRoot: packageRoot
+            }),
+        /Invalid feature-preservation row/u
+    )
+})
+
+test('strict feature checker accepts source-only inferred result contracts', async (context) => {
+    const inventory = [capabilityRow('parser.document.parse')]
+    const packageRoot = await packageFixture(context, inventory, {
+        source: `export class GerberParser { static parse() { return { unobserved: true } } }\nexport class ToolkitCapabilities { static inventory() { return ${JSON.stringify(inventory)} } }\n`
+    })
+    const feature = baselineFeature(
+        '.#GerberParser.parse().result.unobserved',
+        {
+            kind: 'field',
+            entrypoint: '.',
+            exportName: 'GerberParser',
+            methodName: 'parse',
+            methodType: 'static',
+            sourceContract: {
+                type: 'result-field',
+                name: 'unobserved'
+            },
+            evidence: {
+                source: { kind: 'source-contract' },
+                usage: null
+            },
+            evidenceToken: null,
+            evidenceTokens: [],
+            tests: []
+        }
+    )
+
+    const result = await validateFeaturePreservation({
+        apiBaseline: {
+            entrypoints: [{ entrypoint: '.', target: './index.mjs' }],
+            features: [feature]
+        },
+        ledger: [ledgerRow(feature.feature, feature)],
+        inventory,
+        strict: true,
+        packageRoot,
+        repositoryRoot: packageRoot
+    })
+
+    assert.deepEqual(result, { featureCount: 1, strict: true })
+})
+
+test('strict feature checker rejects class method and leaf coincidence without result-path evidence', async (context) => {
+    const inventory = [capabilityRow('parser.document.parse')]
+    const packageRoot = await packageFixture(context, inventory, {
+        source: `export class GerberParser {\n    static parse() {\n        return { holes: { x: 1 } }\n    }\n}\nexport class ToolkitCapabilities { static inventory() { return ${JSON.stringify(inventory)} } }\n`,
+        files: {
+            'evidence.test.mjs':
+                'const result = GerberParser.parse()\nconst unrelated = { x: true }\nvoid result.real\nvoid unrelated\n'
+        }
+    })
+    const feature = baselineFeature('.#GerberParser.parse().result.holes.x', {
+        kind: 'field',
+        entrypoint: '.',
+        exportName: 'GerberParser',
+        methodName: 'parse',
+        methodType: 'static',
+        sourceContract: {
+            type: 'result-field',
+            name: 'holes.x'
+        },
+        evidenceToken: 'x',
+        evidenceTokens: ['GerberParser', 'parse', 'x'],
+        tests: ['evidence.test.mjs']
+    })
+    const row = ledgerRow(feature.feature, feature)
+
+    await assert.rejects(
+        () =>
+            validateFeaturePreservation({
+                apiBaseline: {
+                    entrypoints: [{ entrypoint: '.', target: './index.mjs' }],
+                    features: [feature]
+                },
+                ledger: [row],
+                inventory,
+                strict: true,
+                packageRoot,
+                repositoryRoot: packageRoot
+            }),
+        /Evidence tests do not reference a result path for \.#GerberParser\.parse\(\)\.result\.holes\.x/u
+    )
+})
+
+test('result-path evidence keeps same-named aliases scoped to their test files', () => {
+    const feature = baselineFeature('.#GerberParser.parse().result.holes.x', {
+        kind: 'field',
+        entrypoint: '.',
+        exportName: 'GerberParser',
+        methodName: 'parse',
+        methodType: 'static',
+        sourceContract: {
+            type: 'result-field',
+            name: 'holes.x'
+        }
+    })
+
+    assert.equal(
+        GerberFeatureEvidence.matchesAcross(
+            feature,
+            ['GerberParser', 'parse', 'x'],
+            [
+                'const result = GerberParser.parse()\nconst x = true\nvoid result.real\nvoid x\n',
+                'const result = unrelated()\nvoid result.holes.x\n'
+            ]
+        ),
+        false
+    )
+})
+
+test('strict feature checker accepts exact whole-result equality delegation', async (context) => {
+    const inventory = [capabilityRow('parser.document.parse')]
+    const packageRoot = await packageFixture(context, inventory, {
+        source: `export class GerberBuilder { static build() { return { zones: [{ type: 'fill' }] } } }\nexport class GerberPreparator { static prepare() { return GerberBuilder.build() } }\nexport class ToolkitCapabilities { static inventory() { return ${JSON.stringify(inventory)} } }\n`,
+        files: {
+            'evidence.test.mjs':
+                "import assert from 'node:assert/strict'\nimport { GerberBuilder, GerberPreparator } from './index.mjs'\nconst built = GerberBuilder.build()\nconst prepared = GerberPreparator.prepare()\nconst type = true\nassert.deepEqual(prepared, built)\nvoid type\n"
+        }
+    })
+    const feature = baselineFeature(
+        '.#GerberPreparator.prepare().result.zones.type',
+        {
+            kind: 'field',
+            entrypoint: '.',
+            exportName: 'GerberPreparator',
+            methodName: 'prepare',
+            methodType: 'static',
+            sourceContract: {
+                type: 'result-field',
+                name: 'zones.type'
+            },
+            evidenceToken: 'type',
+            evidenceTokens: ['GerberPreparator', 'prepare', 'type'],
+            tests: ['evidence.test.mjs']
+        }
+    )
+
+    await validateFeaturePreservation({
+        apiBaseline: {
+            entrypoints: [{ entrypoint: '.', target: './index.mjs' }],
+            features: [feature]
+        },
+        ledger: [ledgerRow(feature.feature, feature)],
+        inventory,
+        strict: true,
+        packageRoot,
+        repositoryRoot: packageRoot
+    })
+})
+
 test('file-backed and command feature checks use requested artifacts', async (context) => {
     const root = await mkdtemp(join(tmpdir(), 'gerber-feature-files-'))
     const apiPath = join(root, 'api.json')
@@ -677,6 +953,7 @@ test('strict file-backed checker imports capabilities from an npm pack', async (
         apiPath,
         ledgerPath,
         repositoryRoot: root,
+        task1Identity: false,
         strict: true
     })
 
