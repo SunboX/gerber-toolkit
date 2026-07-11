@@ -2,6 +2,24 @@ const ASSET_MODES = new Set(['none', 'metadata', 'full'])
 const EXTENSION_MODES = new Set(['none', 'metadata', 'canonical', 'full'])
 const RETAIN_SOURCE_MODES = new Set(['none', 'reference'])
 const WORKER_MODES = new Set(['auto', true, false])
+const ARRAY_BUFFER_LENGTH = Object.getOwnPropertyDescriptor(
+    ArrayBuffer.prototype,
+    'byteLength'
+)?.get
+const TYPED_ARRAY_PROTOTYPE = Object.getPrototypeOf(Uint8Array.prototype)
+const TYPED_ARRAY_BUFFER = Object.getOwnPropertyDescriptor(
+    TYPED_ARRAY_PROTOTYPE,
+    'buffer'
+)?.get
+const TYPED_ARRAY_OFFSET = Object.getOwnPropertyDescriptor(
+    TYPED_ARRAY_PROTOTYPE,
+    'byteOffset'
+)?.get
+const TYPED_ARRAY_LENGTH = Object.getOwnPropertyDescriptor(
+    TYPED_ARRAY_PROTOTYPE,
+    'byteLength'
+)?.get
+const UINT8_ARRAY_SET = Uint8Array.prototype.set
 
 /** Normalizes source-neutral parser requests for the Gerber adapter. */
 export class ParserInput {
@@ -114,6 +132,13 @@ export class ParserInput {
                 value = ''
             }
         }
+        if (
+            value !== undefined &&
+            value !== null &&
+            !['string', 'number', 'boolean', 'bigint'].includes(typeof value)
+        ) {
+            return ''
+        }
         return String(value || '')
             .replaceAll('\\', '/')
             .replace(/^\.\//u, '')
@@ -126,21 +151,8 @@ export class ParserInput {
      */
     static bytes(data) {
         if (typeof data === 'string') return new TextEncoder().encode(data)
-        if (data instanceof ArrayBuffer) return new Uint8Array(data)
-        if (data instanceof Uint8Array) {
-            if (
-                data.byteOffset === 0 &&
-                data.byteLength === data.buffer.byteLength
-            ) {
-                return data
-            }
-            return new Uint8Array(
-                data.buffer.slice(
-                    data.byteOffset,
-                    data.byteOffset + data.byteLength
-                )
-            )
-        }
+        const range = ParserInput.#binaryRange(data)
+        if (range) return ParserInput.#copyRange(range)
         throw new TypeError(
             'Gerber parser data must be a string, ArrayBuffer, or Uint8Array.'
         )
@@ -148,10 +160,8 @@ export class ParserInput {
 
     /** @param {unknown} value Candidate. @returns {boolean} Data support. */
     static isData(value) {
-        return (
-            typeof value === 'string' ||
-            value instanceof ArrayBuffer ||
-            value instanceof Uint8Array
+        return Boolean(
+            typeof value === 'string' || ParserInput.#binaryRange(value)
         )
     }
 
@@ -226,16 +236,17 @@ export class ParserInput {
      */
     static stringList(value) {
         if (value === undefined) return []
-        if (!Array.isArray(value)) {
-            throw new TypeError('Gerber option list must be an array.')
-        }
+        const descriptors = ParserInput.#arrayDescriptors(value)
         const values = []
         const seen = new Set()
-        for (let index = 0; index < value.length; index += 1) {
-            const normalized = String(value[index]).trim()
-            if (!normalized) {
-                throw new TypeError('Gerber option ids must not be empty.')
+        for (let index = 0; index < descriptors.length.value; index += 1) {
+            const item = descriptors[String(index)].value
+            if (typeof item !== 'string' || !item.trim()) {
+                throw new TypeError(
+                    'Gerber option ids must be non-empty strings.'
+                )
             }
+            const normalized = item.trim()
             if (!seen.has(normalized)) {
                 seen.add(normalized)
                 values.push(normalized)
@@ -251,9 +262,116 @@ export class ParserInput {
      */
     static sample(data) {
         if (typeof data === 'string') return data.slice(0, 2048)
+        const range = ParserInput.#binaryRange(data)
+        if (!range) {
+            throw new TypeError(
+                'Gerber parser data must be a string, ArrayBuffer, or Uint8Array.'
+            )
+        }
         return new TextDecoder().decode(
-            ParserInput.bytes(data).subarray(0, 2048)
+            ParserInput.#copyRange({
+                ...range,
+                byteLength: Math.min(range.byteLength, 2048)
+            })
         )
+    }
+
+    /**
+     * Reads one dense option array without invoking iteration or accessors.
+     * @param {unknown} value Array candidate.
+     * @returns {Record<string, PropertyDescriptor>} Safe descriptors.
+     */
+    static #arrayDescriptors(value) {
+        if (!Array.isArray(value)) {
+            throw new TypeError('Gerber option list must be an array.')
+        }
+        let prototype
+        let descriptors
+        try {
+            prototype = Object.getPrototypeOf(value)
+            descriptors = Object.getOwnPropertyDescriptors(value)
+        } catch {
+            throw new TypeError('Gerber option list could not be inspected.')
+        }
+        const length = descriptors.length?.value
+        if (
+            prototype !== Array.prototype ||
+            !Number.isSafeInteger(length) ||
+            length < 0 ||
+            Reflect.ownKeys(descriptors).length !== length + 1
+        ) {
+            throw new TypeError('Gerber option list must be a dense array.')
+        }
+        for (let index = 0; index < length; index += 1) {
+            const descriptor = descriptors[String(index)]
+            if (!descriptor || !Object.hasOwn(descriptor, 'value')) {
+                throw new TypeError(
+                    'Gerber option list must use data properties.'
+                )
+            }
+        }
+        return descriptors
+    }
+
+    /**
+     * Captures intrinsic binary range slots for ArrayBuffer or Uint8Array.
+     * @param {unknown} value Binary candidate.
+     * @returns {{ buffer: ArrayBuffer | SharedArrayBuffer, byteOffset: number, byteLength: number } | null} Captured range.
+     */
+    static #binaryRange(value) {
+        const arrayLength = ParserInput.#callLength(ARRAY_BUFFER_LENGTH, value)
+        if (arrayLength !== null) {
+            return { buffer: value, byteOffset: 0, byteLength: arrayLength }
+        }
+        try {
+            const buffer = TYPED_ARRAY_BUFFER?.call(value)
+            const byteOffset = TYPED_ARRAY_OFFSET?.call(value)
+            const byteLength = TYPED_ARRAY_LENGTH?.call(value)
+            if (
+                Object.getPrototypeOf(value) !== Uint8Array.prototype &&
+                !(value instanceof Uint8Array)
+            ) {
+                return null
+            }
+            return { buffer, byteOffset, byteLength }
+        } catch {
+            return null
+        }
+    }
+
+    /**
+     * Calls a captured buffer-length getter as a brand check.
+     * @param {Function | null | undefined} getter Intrinsic getter.
+     * @param {unknown} value Candidate.
+     * @returns {number | null} Byte length or null.
+     */
+    static #callLength(getter, value) {
+        if (typeof getter !== 'function') return null
+        try {
+            return getter.call(value)
+        } catch {
+            return null
+        }
+    }
+
+    /**
+     * Copies one captured range into isolated non-shared memory.
+     * @param {{ buffer: ArrayBuffer | SharedArrayBuffer, byteOffset: number, byteLength: number }} range Captured range.
+     * @returns {Uint8Array} Owned bytes.
+     */
+    static #copyRange(range) {
+        try {
+            const source = new Uint8Array(
+                range.buffer,
+                range.byteOffset,
+                range.byteLength
+            )
+            const bytes = new Uint8Array(range.byteLength)
+            UINT8_ARRAY_SET.call(bytes, source)
+            return bytes
+        } catch {
+            throw new TypeError('Gerber binary data changed during capture.')
+        }
     }
 }
 

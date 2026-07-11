@@ -142,8 +142,8 @@ test('GerberParser applies step-repeat, layer polarity, attributes, and aperture
         '%FSLAX24Y24*%',
         '%MOMM*%',
         '%TF.FileFunction,Copper,L1,Top*%',
-        '%ADD10R,0.400X0.800*%',
         '%TA.AperFunction,SMDPad*%',
+        '%ADD10R,0.400X0.800*%',
         '%TO.N,SIG_A*%',
         '%LMX*%',
         '%LR90*%',
@@ -191,6 +191,55 @@ test('GerberParser applies step-repeat, layer polarity, attributes, and aperture
     })
 })
 
+test('GerberParser binds TA attributes to aperture definitions', () => {
+    const source = [
+        '%FSLAX24Y24*%',
+        '%MOMM*%',
+        '%TA.AperFunction,SMDPad*%',
+        '%ADD10C,1.000*%',
+        '%TD.AperFunction*%',
+        '%TA.AperFunction,Conductor*%',
+        '%ADD11C,0.500*%',
+        '%TD.AperFunction*%',
+        'D10*',
+        'X010000Y010000D03*',
+        'D11*',
+        'X020000Y010000D03*',
+        'M02*'
+    ].join('\n')
+    const primitives = GerberParser.parseArrayBuffer(
+        'attributes.gtl',
+        bytes(source)
+    ).pcb.fabrication.layers[0].primitives
+
+    assert.deepEqual(primitives[0].attributes.aperture.AperFunction, ['SMDPad'])
+    assert.deepEqual(primitives[1].attributes.aperture.AperFunction, [
+        'Conductor'
+    ])
+})
+
+test('GerberParser keeps immutable TF attributes across TD commands', () => {
+    const source = [
+        '%FSLAX24Y24*%',
+        '%MOMM*%',
+        '%TF.FileFunction,Copper,L1,Top*%',
+        '%TF.FilePolarity,Negative*%',
+        '%TD.FileFunction*%',
+        '%TD.FilePolarity*%',
+        '%ADD10C,1.000*%',
+        'D10*',
+        'X010000Y010000D03*',
+        'M02*'
+    ].join('\n')
+    const attributes = GerberParser.parseArrayBuffer(
+        'immutable.gtl',
+        bytes(source)
+    ).pcb.fabrication.layers[0].attributes.file
+
+    assert.deepEqual(attributes.FileFunction, ['Copper', 'L1', 'Top'])
+    assert.deepEqual(attributes.FilePolarity, ['Negative'])
+})
+
 test('GerberParser parses Excellon slots as drill routes', () => {
     const source = [
         'M48',
@@ -219,6 +268,337 @@ test('GerberParser parses Excellon slots as drill routes', () => {
         diameter: 0.6,
         plated: true,
         tool: 'T01'
+    })
+})
+
+test('GerberParser applies Excellon M71 and M72 unit commands', () => {
+    const inch = [
+        'M48',
+        'M72',
+        'T01C0.100',
+        '%',
+        'T01',
+        'X1.000Y0.500',
+        'M30'
+    ].join('\n')
+    const metric = [
+        'M48',
+        'M71',
+        'T01C1.000',
+        '%',
+        'T01',
+        'X1.000Y0.500',
+        'M30'
+    ].join('\n')
+    const inchDrill = GerberParser.parseArrayBuffer('inch.drl', bytes(inch)).pcb
+        .fabrication.layers[0].drills[0]
+    const metricDrill = GerberParser.parseArrayBuffer(
+        'metric.drl',
+        bytes(metric)
+    ).pcb.fabrication.layers[0].drills[0]
+
+    assert.deepEqual(
+        { x: inchDrill.x, y: inchDrill.y, diameter: inchDrill.diameter },
+        { x: 25.4, y: 12.7, diameter: 2.54 }
+    )
+    assert.deepEqual(
+        { x: metricDrill.x, y: metricDrill.y, diameter: metricDrill.diameter },
+        { x: 1, y: 0.5, diameter: 1 }
+    )
+})
+
+test('GerberParser parses inline-start and prior-point G85 slots', () => {
+    const source = [
+        'M48',
+        'METRIC,TZ',
+        'T01C0.600',
+        '%',
+        'T01',
+        'X000000Y000000G85X020000Y020000',
+        'X030000Y030000',
+        'G85X050000Y030000',
+        'M30'
+    ].join('\n')
+    const layer = GerberParser.parseArrayBuffer('inline-PTH.drl', bytes(source))
+        .pcb.fabrication.layers[0]
+    const slots = layer.drills.filter((drill) => drill.type === 'slot')
+
+    assert.deepEqual(
+        slots.map(({ x1, y1, x2, y2 }) => ({ x1, y1, x2, y2 })),
+        [
+            { x1: 0, y1: 0, x2: 2, y2: 2 },
+            { x1: 3, y1: 3, x2: 5, y2: 3 }
+        ]
+    )
+})
+
+test('GerberParser preserves curved and multi-contour regions', () => {
+    const source = [
+        '%FSLAX24Y24*%',
+        '%MOMM*%',
+        '%TF.FileFunction,Copper,L1,Top*%',
+        'G36*',
+        'X000000Y000000D02*',
+        'G03*',
+        'X020000Y000000I010000J000000D01*',
+        'G01*',
+        'X000000Y000000D01*',
+        'X040000Y040000D02*',
+        'X060000Y040000D01*',
+        'X060000Y060000D01*',
+        'X040000Y040000D01*',
+        'G37*',
+        'M02*'
+    ].join('\n')
+    const layer = GerberParser.parseArrayBuffer('regions.gtl', bytes(source))
+        .pcb.fabrication.layers[0]
+    const regions = layer.primitives.filter(
+        (primitive) => primitive.type === 'region'
+    )
+
+    assert.equal(regions.length, 2)
+    assert.equal(regions[0].points.length > 4, true)
+    assert.equal(
+        regions[0].points.some((point) => Math.abs(point.y) > 0.1),
+        true
+    )
+    assert.deepEqual(regions[1].points[0], { x: 4, y: 4 })
+})
+
+test('GerberParser resolves G74 center signs for arcs and region arcs', () => {
+    const source = [
+        '%FSLAX24Y24*%',
+        '%MOMM*%',
+        '%ADD10C,0.100*%',
+        'D10*',
+        'G74*',
+        'X010000Y000000D02*',
+        'G03*',
+        'X000000Y010000I010000J000000D01*',
+        'G36*',
+        'X030000Y000000D02*',
+        'X020000Y010000I010000J000000D01*',
+        'G01*',
+        'X020000Y000000D01*',
+        'X030000Y000000D01*',
+        'G37*',
+        'M02*'
+    ].join('\n')
+    const primitives = GerberParser.parseArrayBuffer(
+        'single-quadrant.gtl',
+        bytes(source)
+    ).pcb.fabrication.layers[0].primitives
+    const arc = primitives.find((primitive) => primitive.type === 'arc')
+    const region = primitives.find((primitive) => primitive.type === 'region')
+
+    assert.equal(arc.i, -1)
+    assert.equal(arc.j, 0)
+    assert.equal(region.points.length > 4, true)
+    assert.equal(
+        region.points.some(
+            (point) => point.x < 3 && point.x > 2 && point.y > 0
+        ),
+        true
+    )
+})
+
+test('GerberParser preserves modal D operations on coordinate-only commands', () => {
+    const source = [
+        '%FSLAX24Y24*%',
+        '%MOMM*%',
+        '%ADD10C,1.000*%',
+        'D10*',
+        'X010000Y010000D03*',
+        'X020000Y020000*',
+        'X030000Y030000D02*',
+        'X040000Y040000*',
+        'X050000Y050000D01*',
+        'X060000Y060000*',
+        'M02*'
+    ].join('\n')
+    const primitives = GerberParser.parseArrayBuffer('modal.gtl', bytes(source))
+        .pcb.fabrication.layers[0].primitives
+
+    assert.deepEqual(
+        primitives.map((primitive) => primitive.type),
+        ['flash', 'flash', 'line', 'line']
+    )
+    assert.deepEqual(
+        primitives.slice(0, 2).map(({ x, y }) => ({ x, y })),
+        [
+            { x: 1, y: 1 },
+            { x: 2, y: 2 }
+        ]
+    )
+    assert.deepEqual(
+        primitives.slice(2).map(({ x1, y1, x2, y2 }) => ({
+            x1,
+            y1,
+            x2,
+            y2
+        })),
+        [
+            { x1: 4, y1: 4, x2: 5, y2: 5 },
+            { x1: 5, y1: 5, x2: 6, y2: 6 }
+        ]
+    )
+})
+
+test('GerberParser applies interpolation codes combined with coordinates', () => {
+    const source = [
+        '%FSLAX24Y24*%',
+        '%MOMM*%',
+        '%ADD10C,0.100*%',
+        'D10*',
+        'X010000Y000000D02*',
+        'G74G03X000000Y010000I010000J000000D01*',
+        'G75G02X010000Y000000I010000J000000D01*',
+        'M02*'
+    ].join('\n')
+    const primitives = GerberParser.parseArrayBuffer(
+        'combined.gtl',
+        bytes(source)
+    ).pcb.fabrication.layers[0].primitives
+
+    assert.deepEqual(
+        primitives.map((primitive) => [
+            primitive.type,
+            primitive.clockwise,
+            primitive.i,
+            primitive.j
+        ]),
+        [
+            ['arc', false, -1, 0],
+            ['arc', true, 1, 0]
+        ]
+    )
+})
+
+test('GerberParser includes directed arc extrema in fabrication bounds', () => {
+    const source = [
+        '%FSLAX24Y24*%',
+        '%MOMM*%',
+        '%ADD10C,0.100*%',
+        'D10*',
+        'G75*',
+        'X010000Y000000D02*',
+        'G03X-010000Y000000I-010000J000000D01*',
+        'M02*'
+    ].join('\n')
+    const bounds = GerberParser.parseArrayBuffer(
+        'arc-bounds.gtl',
+        bytes(source)
+    ).pcb.fabrication.layers[0].bounds
+
+    assert.deepEqual(bounds, {
+        minX: -1.05,
+        minY: -0.05,
+        maxX: 1.05,
+        maxY: 1.05
+    })
+
+    const oblique = [
+        '%FSLAX24Y24*%',
+        '%MOMM*%',
+        '%ADD10C,0.100*%',
+        'D10*',
+        'G75*',
+        'X9.84807753Y1.73648178D02*',
+        'G03X-1.21869343Y9.92546152I-9.84807753J-1.73648178D01*',
+        'M02*'
+    ].join('\n')
+    const obliqueBounds = GerberParser.parseArrayBuffer(
+        'oblique-arc.gtl',
+        bytes(oblique)
+    ).pcb.fabrication.layers[0].bounds
+
+    assert.equal(obliqueBounds.maxY, 10.05)
+})
+
+test('GerberParser applies outer transforms to macro and aperture-block bounds', () => {
+    const common = ['%FSLAX24Y24*%', '%MOMM*%']
+    const macro = [
+        ...common,
+        '%AMOFF*',
+        '1,1,1.000,2.000,0,0*%',
+        '%ADD10OFF,0*%',
+        '%LR90*%',
+        '%LS2*%',
+        'D10*',
+        'X100000Y100000D03*',
+        'M02*'
+    ].join('\n')
+    const block = [
+        ...common,
+        '%ADD11C,1.000*%',
+        '%ABD10*%',
+        'D11*',
+        'X020000Y000000D03*',
+        '%AB*%',
+        '%LR90*%',
+        '%LS2*%',
+        'D10*',
+        'X100000Y100000D03*',
+        'M02*'
+    ].join('\n')
+    const parseBounds = (name, source) =>
+        GerberParser.parseArrayBuffer(name, bytes(source)).pcb.fabrication
+            .layers[0].bounds
+
+    assert.deepEqual(parseBounds('macro.gtl', macro), {
+        minX: 9,
+        minY: 13,
+        maxX: 11,
+        maxY: 15
+    })
+    assert.deepEqual(parseBounds('block.gtl', block), {
+        minX: 9,
+        minY: 13,
+        maxX: 11,
+        maxY: 15
+    })
+})
+
+test('GerberParser composes macro-child rotation and nested block placement in bounds', () => {
+    const rotated = [
+        '%FSLAX24Y24*%',
+        '%MOMM*%',
+        '%AMROT*',
+        '20,1,1.000,2.000,0,4.000,0,90*%',
+        '%ADD10ROT,0*%',
+        'D10*',
+        'X000000Y000000D03*',
+        'M02*'
+    ].join('\n')
+    const nested = [
+        '%FSLAX24Y24*%',
+        '%MOMM*%',
+        '%AMOFF*',
+        '1,1,1.000,2.000,0,0*%',
+        '%ADD12OFF,0*%',
+        '%ABD10*%',
+        'D12*',
+        'X030000Y000000D03*',
+        '%AB*%',
+        'D10*',
+        'X100000Y100000D03*',
+        'M02*'
+    ].join('\n')
+    const parseBounds = (name, source) =>
+        GerberParser.parseArrayBuffer(name, bytes(source)).pcb.fabrication
+            .layers[0].bounds
+
+    assert.deepEqual(parseBounds('rotated-macro.gtl', rotated), {
+        minX: -0.5,
+        minY: 1.5,
+        maxX: 0.5,
+        maxY: 4.5
+    })
+    assert.deepEqual(parseBounds('nested-macro.gtl', nested), {
+        minX: 14.5,
+        minY: 9.5,
+        maxX: 15.5,
+        maxY: 10.5
     })
 })
 

@@ -61,7 +61,8 @@
     },
     "dependencies": {
         "circuitjson-toolkit": "^1.1.0",
-        "fflate": "^0.8.2"
+        "fflate": "^0.8.2",
+        "polygon-clipping": "^0.15.7"
     },
     "devDependencies": {
         "prettier": "^3.4.2"

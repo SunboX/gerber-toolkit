@@ -24,7 +24,7 @@ export class GerberSourceAstSupport {
             })
             return { callable: ast.program.body[0], offset: prefix.length }
         }
-        const classPrefix = 'class __GerberCallable {\n'
+        const classPrefix = 'class __GerberCallable extends Object {\n'
         try {
             const ast = parsers.babel.parse(`${classPrefix}${source}\n}`, {
                 filepath: 'gerber-callable.mjs'

@@ -3,9 +3,9 @@ import { createHash } from 'node:crypto'
 import { GERBER_TASK1_PROVENANCE } from './GerberTask1Provenance.mjs'
 
 export const GERBER_TASK1_API_CONTRACT_CHECKSUM =
-    'd7cfc63587c737a8abce56dbd0f353b941020eabc96dd6045bb50905c43c7a70'
+    '2f3f9a9cfeab953d1319f512a11b92030f5a5ed9610e4f33dfa5cf2c98932678'
 export const GERBER_TASK1_LEDGER_CHECKSUM =
-    '6de6e47417d3c1b88cca3d0c8bd23af812dcafb2f1b0172c963fcd3fa1004372'
+    'f288d06505440c1b3c0ea7eba8f9ed8ad8a9306b3ad8c74e026e1ab03e26e50a'
 const PROVENANCE_FIELDS = Object.freeze([
     'sourceCommit',
     'sourceTree',

@@ -4,6 +4,7 @@ import test from 'node:test'
 import { zipSync } from 'fflate'
 import { ToolkitContractFixtures } from 'circuitjson-toolkit/testing'
 
+import { GerberParser } from '../src/core/gerber/GerberParser.mjs'
 import { ProjectLoader } from '../src/project.mjs'
 
 const FIXTURES = ToolkitContractFixtures.gerber()
@@ -67,6 +68,21 @@ test('project limits include expanded ZIP bytes', () => {
     )
 })
 
+test('zero archive depth rejects a top-level ZIP before expansion', () => {
+    const archive = zipSync({
+        'contract.gtl': new TextEncoder().encode(FIXTURES.parserInput.data)
+    })
+    assert.throws(
+        () =>
+            ProjectLoader.load([{ name: 'contract.zip', data: archive }], {
+                archiveLimits: { maxArchiveDepth: 0 }
+            }),
+        (error) =>
+            error?.code === 'ERR_ARCHIVE_LIMIT_EXCEEDED' &&
+            error?.details?.limit === 'maxArchiveDepth'
+    )
+})
+
 test('project retains companion and attached assets under common modes', () => {
     const attached = new Uint8Array([1, 2, 3])
     const companion = new Uint8Array([4, 5, 6, 7])
@@ -88,6 +104,47 @@ test('project retains companion and attached assets under common modes', () => {
     assert.deepEqual(project.assets[0].data, attached)
     project.assets[0].data[0] = 99
     assert.deepEqual(attached, new Uint8Array([1, 2, 3]))
+})
+
+test('project partial success reports the common statistics contract', () => {
+    const original = GerberParser.parseArrayBuffer
+    GerberParser.parseArrayBuffer = (fileName, data, options) => {
+        if (fileName === 'bad.gtl') throw new Error('synthetic parse failure')
+        return Reflect.apply(original, GerberParser, [fileName, data, options])
+    }
+    try {
+        const entries = [
+            { name: 'good.gtl', data: FIXTURES.parserInput.data },
+            { name: 'bad.gtl', data: FIXTURES.parserInput.data }
+        ]
+        const project = ProjectLoader.load(entries)
+        const totalBytes = entries.reduce(
+            (total, entry) =>
+                total + new TextEncoder().encode(entry.data).byteLength,
+            0
+        )
+
+        assert.equal(project.documents.length, 1)
+        assert.equal(project.diagnostics.length, 1)
+        assert.deepEqual(
+            {
+                entryCount: project.statistics.entryCount,
+                candidateCount: project.statistics.candidateCount,
+                documentCount: project.statistics.documentCount,
+                failureCount: project.statistics.failureCount,
+                totalBytes: project.statistics.totalBytes
+            },
+            {
+                entryCount: 2,
+                candidateCount: 2,
+                documentCount: 1,
+                failureCount: 1,
+                totalBytes
+            }
+        )
+    } finally {
+        GerberParser.parseArrayBuffer = original
+    }
 })
 
 test('direct async project loading emits common progress and cancellation', async () => {

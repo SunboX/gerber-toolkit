@@ -19,8 +19,13 @@ interaction, and native 3D APIs remain available from
 ## Features
 
 - Parses RS-274X Gerber and Excellon sources in browsers and Node.js.
-- Projects representable board, copper, documentation, and drill geometry into
-  CircuitJSON without inventing nets, components, or assembly semantics.
+- Projects representable board, copper, solder-mask, paste, legend,
+  documentation, and drill geometry into CircuitJSON. X2 `TO.C`, `TO.P`, and
+  `TO.N` attributes become components, ports, and connectivity only when those
+  source attributes establish the ownership explicitly.
+- Preserves disjoint board outlines and cutouts, ordered dark/clear image
+  composition, X2 `FilePolarity`, legacy `IPNEG`, aperture holes, macro/block
+  transforms, plated/non-plated hits, and straight routed slots.
 - Loads `{ name, data }` entry arrays and expands a single ZIP entry internally
   with bounded entry, byte, compression-ratio, and path checks.
 - Uses one common parser/project contract with progress, cancellation, workers,
@@ -29,6 +34,8 @@ interaction, and native 3D APIs remain available from
   queries, manufacturing exports, injected simulation, and 3D scene services.
 - Retains exact native fabrication geometry on request through the Gerber
   extension namespace.
+- Uses bounded polygon composition only for artwork that needs it; ordinary
+  traces and pads retain their compact canonical rows and stable identities.
 - Runs locally; parsing does not send source data over the network.
 
 ## Install

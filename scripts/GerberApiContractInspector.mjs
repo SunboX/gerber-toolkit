@@ -255,8 +255,14 @@ export class GerberApiContractInspector {
             methodType
         )
         if (nodesByKey.has(key)) return
+        const native = /\{\s*\[native code\]\s*\}/u.test(source)
         const parameters = GerberApiContractInspector.#parseParameters(source)
-        const semantics = GerberPublicApiSurface.callableSemantics(source)
+        const analysisSource = native
+            ? `${methodName}(${parameters.map((parameter) => parameter.source).join(', ')}) {}`
+            : source
+        const semantics = native
+            ? { async: false, generator: false, resultKind: 'native' }
+            : GerberPublicApiSurface.callableSemantics(source)
         nodesByKey.set(key, {
             key,
             entrypoint,
@@ -264,29 +270,32 @@ export class GerberApiContractInspector {
             methodName,
             methodType,
             ...semantics,
-            source,
+            source: analysisSource,
             jsdoc,
             parameters,
             parameterFields: new Map(
                 parameters.map((parameter) => [
                     parameter.name,
                     new Set(
-                        GerberApiContractInspector.#parameterProperties(
-                            source,
-                            jsdoc,
-                            parameter.name
-                        )
+                        native
+                            ? []
+                            : GerberApiContractInspector.#parameterProperties(
+                                  source,
+                                  jsdoc,
+                                  parameter.name
+                              )
                     )
                 ])
             ),
             resultFields: new Set(
-                semantics.generator
+                native || semantics.generator
                     ? []
                     : GerberApiContractInspector.#resultFields(source, jsdoc)
             ),
-            calls: semantics.generator
-                ? []
-                : GerberReachableCalls.inspect(source)
+            calls:
+                native || semantics.generator
+                    ? []
+                    : GerberReachableCalls.inspect(source)
         })
     }
 

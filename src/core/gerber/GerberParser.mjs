@@ -1,4 +1,7 @@
+import { GerberApertureBuilder } from './GerberApertureBuilder.mjs'
 import { GerberApertureMacro } from './GerberApertureMacro.mjs'
+import { GerberArcCenterResolver } from './GerberArcCenterResolver.mjs'
+import { GerberArcSampler } from './GerberArcSampler.mjs'
 import { GerberBoardOutlineBuilder } from './GerberBoardOutlineBuilder.mjs'
 import { GerberBounds } from './GerberBounds.mjs'
 import { GerberCoordinateParser } from './GerberCoordinateParser.mjs'
@@ -84,6 +87,7 @@ export class GerberParser {
             diagnostics: state.diagnostics,
             bounds: state.bounds.toObject(),
             attributes: state.attributes,
+            imagePolarity: state.imagePolarity,
             options
         })
     }
@@ -123,6 +127,7 @@ export class GerberParser {
             currentAperture: null,
             currentX: 0,
             currentY: 0,
+            currentOperation: '01',
             interpolation: 'linear',
             quadrantMode: 'multi',
             polarity: 'dark',
@@ -133,6 +138,7 @@ export class GerberParser {
             },
             stepRepeat: null,
             apertureBlock: null,
+            imagePolarity: 'positive',
             attributes: {
                 file: {},
                 aperture: {},
@@ -140,6 +146,7 @@ export class GerberParser {
             },
             inRegion: false,
             regionPoints: [],
+            regionApertureAttributes: {},
             primitives: [],
             diagnostics: [],
             bounds: new GerberBounds()
@@ -217,9 +224,16 @@ export class GerberParser {
             return
         }
 
+        if (GerberParser.#applyCombinedModalCoordinate(command, state)) {
+            return
+        }
+
         if (command === 'G36') {
             state.inRegion = true
             state.regionPoints = []
+            state.regionApertureAttributes = {
+                ...state.attributes.aperture
+            }
             return
         }
 
@@ -326,6 +340,15 @@ export class GerberParser {
             return
         }
 
+        if (command === 'IPPOS' || command === 'IPNEG') {
+            state.imagePolarity = command === 'IPNEG' ? 'negative' : 'positive'
+            state.diagnostics.push({
+                severity: 'warning',
+                message: `Deprecated ${command} image-polarity command was applied.`
+            })
+            return
+        }
+
         if (command.startsWith('AD')) {
             GerberParser.#applyApertureDefinition(command, state)
             return
@@ -382,6 +405,7 @@ export class GerberParser {
 
         state.apertureBlock = {
             code: match[1],
+            apertureAttributes: { ...state.attributes.aperture },
             state: GerberParser.#childGerberState(state)
         }
     }
@@ -402,7 +426,10 @@ export class GerberParser {
             primitives: blockState.primitives.map((primitive) =>
                 GerberPrimitiveBuilder.clone(primitive)
             ),
-            bounds: blockState.bounds.toObject()
+            bounds: blockState.bounds.toObject(),
+            apertureAttributes: {
+                ...state.apertureBlock.apertureAttributes
+            }
         })
         state.diagnostics.push(...blockState.diagnostics)
         state.apertureBlock = null
@@ -488,6 +515,13 @@ export class GerberParser {
                 : scopeToken === 'A'
                   ? state.attributes.aperture
                   : state.attributes.object
+        if (scopeToken === 'F' && Object.hasOwn(scope, key)) {
+            state.diagnostics.push({
+                severity: 'warning',
+                message: `Ignored immutable X2 file-attribute redefinition: ${key}`
+            })
+            return
+        }
         scope[key] = parts
     }
 
@@ -505,7 +539,6 @@ export class GerberParser {
         }
 
         const normalized = key.replace(/^\./u, '')
-        delete state.attributes.file[normalized]
         delete state.attributes.aperture[normalized]
         delete state.attributes.object[normalized]
     }
@@ -559,121 +592,15 @@ export class GerberParser {
         const values = String(match[3] || '')
             .split('X')
             .map((value) => Number.parseFloat(value))
-        state.apertures.set(
-            code,
-            GerberParser.#buildAperture(template, values, state)
-        )
-    }
-
-    /**
-     * Builds an aperture model from a template.
-     * @param {string} template Aperture template.
-     * @param {number[]} values Aperture values.
-     * @param {object} state Parser state.
-     * @returns {object}
-     */
-    static #buildAperture(template, values, state) {
-        const macro = state.macros.get(template)
-        if (macro) {
-            return {
-                shape: 'macro',
-                name: template,
-                primitives: GerberApertureMacro.expand(macro, values).map(
-                    (primitive) =>
-                        GerberParser.#scaleMacroPrimitive(primitive, state.unit)
-                )
-            }
-        }
-
-        if (template === 'R') {
-            return {
-                shape: 'rect',
-                width: GerberParser.#unitValue(values[0], state.unit),
-                height: GerberParser.#unitValue(
-                    values[1] || values[0],
-                    state.unit
-                )
-            }
-        }
-
-        if (template === 'O') {
-            return {
-                shape: 'obround',
-                width: GerberParser.#unitValue(values[0], state.unit),
-                height: GerberParser.#unitValue(
-                    values[1] || values[0],
-                    state.unit
-                )
-            }
-        }
-
-        if (template === 'P') {
-            return {
-                shape: 'polygon',
-                diameter: GerberParser.#unitValue(values[0], state.unit),
-                vertices: Number(values[1] || 3),
-                rotation: Number(values[2] || 0)
-            }
-        }
-
-        return {
-            shape: 'circle',
-            diameter: GerberParser.#unitValue(values[0], state.unit)
-        }
-    }
-
-    /**
-     * Converts one expanded macro primitive from source units to millimeters.
-     * @param {object} primitive Macro primitive.
-     * @param {string} unit Source unit.
-     * @returns {object}
-     */
-    static #scaleMacroPrimitive(primitive, unit) {
-        const scaled = { ...primitive }
-        for (const key of GerberParser.#macroLengthKeys(primitive)) {
-            scaled[key] = GerberParser.#unitValue(primitive[key], unit)
-        }
-
-        if (Array.isArray(primitive.points)) {
-            scaled.points = primitive.points.map((point) => ({
-                x: GerberParser.#unitValue(point.x, unit),
-                y: GerberParser.#unitValue(point.y, unit)
-            }))
-        }
-
-        return scaled
-    }
-
-    /**
-     * Returns macro primitive fields that carry source-unit lengths.
-     * @param {object} primitive Macro primitive.
-     * @returns {string[]}
-     */
-    static #macroLengthKeys(primitive) {
-        const keys = ['x', 'y']
-        if (primitive.type === 'circle' || primitive.type === 'polygon') {
-            keys.push('diameter')
-        }
-        if (primitive.type === 'line') {
-            keys.push('width', 'x1', 'y1', 'x2', 'y2')
-        }
-        if (primitive.type === 'rect') {
-            keys.push('width', 'height')
-        }
-        if (primitive.type === 'moire') {
-            keys.push(
-                'outerDiameter',
-                'ringThickness',
-                'ringGap',
-                'crosshairThickness',
-                'crosshairLength'
-            )
-        }
-        if (primitive.type === 'thermal') {
-            keys.push('outerDiameter', 'innerDiameter', 'gap')
-        }
-
-        return keys.filter((key) => primitive[key] !== undefined)
+        state.apertures.set(code, {
+            ...GerberApertureBuilder.build(
+                template,
+                values,
+                state.macros,
+                state.unit
+            ),
+            apertureAttributes: { ...state.attributes.aperture }
+        })
     }
 
     /**
@@ -698,9 +625,13 @@ export class GerberParser {
         const nextY = yMatch
             ? state.coordinateParser.parseY(yMatch[1])
             : state.currentY
-        const code = operation?.[1] || '01'
+        const code = operation?.[1] || state.currentOperation
+        if (operation) state.currentOperation = code
 
         if (code === '02') {
+            if (state.inRegion && state.regionPoints.length) {
+                GerberParser.#flushRegionContour(state)
+            }
             state.currentX = nextX
             state.currentY = nextY
             GerberParser.#appendRegionPoint(state, nextX, nextY)
@@ -720,6 +651,38 @@ export class GerberParser {
     }
 
     /**
+     * Applies leading modal interpolation/quadrant codes that share a command
+     * with coordinate words.
+     * @param {string} command Gerber command.
+     * @param {object} state Parser state.
+     * @returns {boolean} Whether a combined modal command was consumed.
+     */
+    static #applyCombinedModalCoordinate(command, state) {
+        let remaining = command
+        let changed = false
+        while (remaining) {
+            const match = /^(G0?[123]|G7[45])(?=G|[XYIJ])/u.exec(remaining)
+            if (!match) break
+            changed = true
+            remaining = remaining.slice(match[0].length)
+            if (match[1] === 'G74' || match[1] === 'G75') {
+                state.quadrantMode = match[1] === 'G74' ? 'single' : 'multi'
+            } else {
+                const code = Number(match[1].slice(1))
+                state.interpolation =
+                    code === 1
+                        ? 'linear'
+                        : code === 2
+                          ? 'clockwise'
+                          : 'counterclockwise'
+            }
+        }
+        if (!changed || !remaining) return false
+        GerberParser.#applyCoordinateCommand(remaining, state)
+        return true
+    }
+
+    /**
      * Appends one draw primitive.
      * @param {object} state Parser state.
      * @param {number} x End X.
@@ -729,8 +692,30 @@ export class GerberParser {
      * @returns {void}
      */
     static #draw(state, x, y, iToken, jToken) {
+        const arc =
+            state.interpolation === 'linear'
+                ? null
+                : GerberArcCenterResolver.resolve(
+                      {
+                          x1: state.currentX,
+                          y1: state.currentY,
+                          x2: x,
+                          y2: y,
+                          i: state.coordinateParser.parseOffset(iToken) || 0,
+                          j: state.coordinateParser.parseOffset(jToken) || 0,
+                          clockwise: state.interpolation === 'clockwise'
+                      },
+                      state.quadrantMode
+                  )
         if (state.inRegion) {
-            GerberParser.#appendRegionPoint(state, x, y)
+            if (state.interpolation === 'linear') {
+                GerberParser.#appendRegionPoint(state, x, y)
+            } else {
+                const points = GerberArcSampler.points(arc)
+                for (const point of points.slice(1)) {
+                    GerberParser.#appendRegionPoint(state, point.x, point.y)
+                }
+            }
             return
         }
 
@@ -747,18 +732,14 @@ export class GerberParser {
                       y1: state.currentY,
                       x2: x,
                       y2: y,
-                      width
+                      width,
+                      apertureAttributes: aperture.apertureAttributes
                   }
                 : {
                       type: 'arc',
-                      x1: state.currentX,
-                      y1: state.currentY,
-                      x2: x,
-                      y2: y,
-                      i: state.coordinateParser.parseOffset(iToken) || 0,
-                      j: state.coordinateParser.parseOffset(jToken) || 0,
-                      clockwise: state.interpolation === 'clockwise',
-                      width
+                      ...arc,
+                      width,
+                      apertureAttributes: aperture.apertureAttributes
                   }
 
         GerberPrimitiveBuilder.append(state, primitive)
@@ -777,6 +758,7 @@ export class GerberParser {
         const primitive = {
             type: 'flash',
             ...GerberParser.#flashShape(aperture, state),
+            apertureAttributes: aperture.apertureAttributes,
             x,
             y
         }
@@ -805,13 +787,25 @@ export class GerberParser {
      * @returns {void}
      */
     static #closeRegion(state) {
+        GerberParser.#flushRegionContour(state)
+        state.inRegion = false
+        state.regionPoints = []
+        state.regionApertureAttributes = {}
+    }
+
+    /**
+     * Appends one completed region contour while leaving region mode active.
+     * @param {object} state Parser state.
+     * @returns {void}
+     */
+    static #flushRegionContour(state) {
         if (state.regionPoints.length >= 3) {
             GerberPrimitiveBuilder.append(state, {
                 type: 'region',
-                points: state.regionPoints
+                points: state.regionPoints,
+                apertureAttributes: state.regionApertureAttributes
             })
         }
-        state.inRegion = false
         state.regionPoints = []
     }
 
@@ -836,7 +830,7 @@ export class GerberParser {
      * Converts an aperture into a flash shape.
      * @param {object} aperture Aperture model.
      * @param {object} state Parser state.
-     * @returns {object}
+     * @returns {{ shape: string, name?: string, primitives?: { type: string, exposure: number, diameter?: number, width?: number }[], transform?: object, width?: number, height?: number, diameter?: number, vertices?: number, rotation?: number, hole?: object }} Canonical flash shape.
      */
     static #flashShape(aperture, state) {
         const scale = state.apertureTransform.scale
@@ -867,7 +861,8 @@ export class GerberParser {
                 shape: aperture.shape,
                 width: GerberParser.#round(aperture.width * scale),
                 height: GerberParser.#round(aperture.height * scale),
-                transform
+                transform,
+                hole: GerberParser.#scaledApertureHole(aperture.hole, scale)
             }
         }
 
@@ -877,14 +872,37 @@ export class GerberParser {
                 diameter: GerberParser.#round(aperture.diameter * scale),
                 vertices: aperture.vertices,
                 rotation: aperture.rotation,
-                transform
+                transform,
+                hole: GerberParser.#scaledApertureHole(aperture.hole, scale)
             }
         }
 
         return {
             shape: 'circle',
             diameter: GerberParser.#round((aperture.diameter || 0.1) * scale),
-            transform
+            transform,
+            hole: GerberParser.#scaledApertureHole(aperture.hole, scale)
+        }
+    }
+
+    /**
+     * Applies the active aperture scale to an optional standard hole.
+     * @param {Record<string, any> | undefined} hole Aperture hole.
+     * @param {number} scale Active LS scale.
+     * @returns {Record<string, any> | undefined} Scaled hole.
+     */
+    static #scaledApertureHole(hole, scale) {
+        if (!hole) return undefined
+        if (hole.shape === 'rect') {
+            return {
+                shape: 'rect',
+                width: GerberParser.#round(hole.width * scale),
+                height: GerberParser.#round(hole.height * scale)
+            }
+        }
+        return {
+            shape: 'circle',
+            diameter: GerberParser.#round(hole.diameter * scale)
         }
     }
 
@@ -908,6 +926,9 @@ export class GerberParser {
             attributes: GerberPrimitiveBuilder.cloneAttributes(
                 payload.attributes || {}
             ),
+            ...(payload.imagePolarity === 'negative'
+                ? { imagePolarity: 'negative' }
+                : {}),
             diagnostics: payload.diagnostics.map((diagnostic) => ({
                 ...diagnostic,
                 fileName

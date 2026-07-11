@@ -12,7 +12,8 @@ extensions.
   transforms, and attributes.
 - Drill hits and routed slots.
 - `{ name, data }` project entries and bounded ZIP expansion.
-- Canonical CircuitJSON projection for representable PCB geometry.
+- Canonical CircuitJSON projection for representable PCB geometry, physical
+  mask/polarity state, and explicit X2 ownership/connectivity facts.
 - Common immutable envelopes, assets, diagnostics, errors, progress,
   cancellation, archive limits, workers, and capability discovery.
 - Shared CircuitJSON rendering, interaction, query, manufacturing, simulation,
@@ -24,7 +25,8 @@ extensions.
 
 - CAM editing or manufacturing-rule certification.
 - Inventing connectivity, component, schematic, or assembly semantics absent
-  from fabrication files.
+  from fabrication files. Explicit X2 `TO.C`, `TO.P`, and `TO.N` facts are in
+  scope and are not inference.
 - Component-body reconstruction from Gerber packages alone.
 - Server-native binaries, native GUI bindings, or network parsing services.
 

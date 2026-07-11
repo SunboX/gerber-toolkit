@@ -455,9 +455,7 @@ async function importEntrypoints(entrypoints, packageRoot) {
         imported.push({
             entrypoint,
             target,
-            api: await import(
-                `${pathToFileURL(resolve(packageRoot, target)).href}?strict=${Date.now()}-${encodeURIComponent(entrypoint)}`
-            )
+            api: await importEntrypoint(packageRoot, target, entrypoint)
         })
     }
     return {
@@ -466,6 +464,24 @@ async function importEntrypoints(entrypoints, packageRoot) {
             sourceRoot: packageRoot
         })
     }
+}
+
+/**
+ * Imports JavaScript package exports and verifies non-module assets by path.
+ * @param {string} packageRoot Extracted package root.
+ * @param {string} target Package-relative export target.
+ * @param {string} entrypoint Package export key.
+ * @returns {Promise<Record<string, any>>} Module namespace or empty asset namespace.
+ */
+async function importEntrypoint(packageRoot, target, entrypoint) {
+    const path = resolve(packageRoot, target)
+    if (!/\.(?:cjs|js|mjs)$/iu.test(path)) {
+        await access(path)
+        return Object.freeze({})
+    }
+    return await import(
+        `${pathToFileURL(path).href}?strict=${Date.now()}-${encodeURIComponent(entrypoint)}`
+    )
 }
 
 /**
@@ -502,9 +518,7 @@ function assertPackedApi(features, imported, options = {}) {
             }
             continue
         }
-        if (
-            !isDeepStrictEqual(current.sourceContract, feature.sourceContract)
-        ) {
+        if (!sourceContractsMatch(current.sourceContract, feature)) {
             mismatched.push(feature.feature)
         }
     }
@@ -516,6 +530,28 @@ function assertPackedApi(features, imported, options = {}) {
             `Packed API contract mismatch: ${mismatched.sort().join(', ')}`
         )
     }
+}
+
+/**
+ * Compares one packed source contract with its historical preservation row.
+ * Native-extension exports intentionally move entrypoints, so their alias list
+ * is location metadata rather than part of the retained callable contract.
+ * @param {Record<string, any>} current Packed source contract.
+ * @param {Record<string, any>} feature Historical preservation feature.
+ * @returns {boolean} Whether the preserved contract still matches.
+ */
+function sourceContractsMatch(current, feature) {
+    const expected = feature.sourceContract
+    if (
+        feature.disposition !== 'native-extension' ||
+        expected?.type !== 'export' ||
+        current?.type !== 'export'
+    ) {
+        return isDeepStrictEqual(current, expected)
+    }
+    const { aliases: ignoredCurrentAliases, ...currentContract } = current
+    const { aliases: ignoredExpectedAliases, ...expectedContract } = expected
+    return isDeepStrictEqual(currentContract, expectedContract)
 }
 
 /**
@@ -537,7 +573,7 @@ function nativeExtensionFeatureId(feature) {
  */
 function sharedReplacementExists(replacement, apis) {
     const names = [
-        ...new Set(String(replacement).match(/[A-Z][A-Za-z0-9_]*/gu) || [])
+        ...new Set(String(replacement).match(/\b[A-Z][A-Za-z0-9_]*/gu) || [])
     ]
     return (
         names.length > 0 &&

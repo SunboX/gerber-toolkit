@@ -188,3 +188,46 @@ test('export contracts preserve exact root and subpath identity', async () => {
         ['./testing#DistinctExport']
     )
 })
+
+test('public method contracts parse private field references in class scope', async () => {
+    class PrivateFieldSurface {
+        #record = { value: true }
+
+        static read(instance) {
+            return instance.#record
+        }
+    }
+
+    const contracts = await GerberApiContractInspector.inspect([
+        {
+            entrypoint: '.',
+            target: './index.mjs',
+            api: { PrivateFieldSurface }
+        }
+    ])
+
+    assert.ok(feature(contracts, '.#PrivateFieldSurface.read()'))
+})
+
+test('API inspection preserves inherited native callables without parsing bodies', async () => {
+    class NativeSurface extends Error {}
+
+    const contracts = await GerberApiContractInspector.inspect([
+        {
+            entrypoint: '.',
+            target: './index.mjs',
+            api: { NativeSurface }
+        }
+    ])
+
+    assert.equal(
+        feature(contracts, '.#NativeSurface.captureStackTrace()').sourceContract
+            .resultKind,
+        'native'
+    )
+    assert.equal(
+        feature(contracts, '.#NativeSurface.prototype.toString()')
+            .sourceContract.resultKind,
+        'native'
+    )
+})

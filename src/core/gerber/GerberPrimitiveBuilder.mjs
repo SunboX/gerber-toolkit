@@ -1,3 +1,6 @@
+import { GerberArcSampler } from './GerberArcSampler.mjs'
+import { GerberBounds } from './GerberBounds.mjs'
+
 /**
  * Appends Gerber primitives while applying repeat, metadata, and bounds.
  */
@@ -40,8 +43,14 @@ export class GerberPrimitiveBuilder {
         const decorated = {
             ...primitive,
             polarity: primitive.polarity || state.polarity,
-            attributes: GerberPrimitiveBuilder.attributeSnapshot(state)
+            attributes: GerberPrimitiveBuilder.cloneAttributes({
+                file: state.attributes.file,
+                aperture:
+                    primitive.apertureAttributes ?? state.attributes.aperture,
+                object: state.attributes.object
+            })
         }
+        delete decorated.apertureAttributes
 
         if (decorated.shape === 'block') {
             decorated.primitives = (decorated.primitives || []).map((child) =>
@@ -89,7 +98,10 @@ export class GerberPrimitiveBuilder {
                 y: GerberPrimitiveBuilder.#round(point.y + dy)
             }))
         }
-        if (Array.isArray(translated.primitives)) {
+        if (
+            Array.isArray(translated.primitives) &&
+            translated.shape !== 'macro'
+        ) {
             translated.primitives = translated.primitives.map((child) =>
                 GerberPrimitiveBuilder.translate(child, dx, dy)
             )
@@ -165,7 +177,7 @@ export class GerberPrimitiveBuilder {
      * @returns {void}
      */
     static #includeBounds(bounds, primitive) {
-        if (primitive.type === 'line' || primitive.type === 'arc') {
+        if (primitive.type === 'line') {
             bounds.includeSegment(
                 primitive.x1,
                 primitive.y1,
@@ -173,6 +185,14 @@ export class GerberPrimitiveBuilder {
                 primitive.y2,
                 Number(primitive.width || 0) / 2
             )
+            return
+        }
+
+        if (primitive.type === 'arc') {
+            const radius = Number(primitive.width || 0) / 2
+            for (const point of GerberArcSampler.extrema(primitive)) {
+                bounds.includePoint(point.x, point.y, radius)
+            }
             return
         }
 
@@ -185,7 +205,13 @@ export class GerberPrimitiveBuilder {
 
         if (primitive.shape === 'block') {
             for (const child of primitive.primitives || []) {
-                GerberPrimitiveBuilder.#includeBounds(bounds, child)
+                GerberPrimitiveBuilder.#includeTransformedBounds(
+                    bounds,
+                    child,
+                    primitive.transform,
+                    primitive.x,
+                    primitive.y
+                )
             }
             return
         }
@@ -208,11 +234,31 @@ export class GerberPrimitiveBuilder {
         const scale = Number(primitive.transform?.scale || 1)
         for (const child of primitive.primitives || []) {
             if (child.type === 'line') {
+                const childStart = GerberPrimitiveBuilder.#rotatePoint(
+                    { x: child.x1, y: child.y1 },
+                    child.rotation
+                )
+                const childEnd = GerberPrimitiveBuilder.#rotatePoint(
+                    { x: child.x2, y: child.y2 },
+                    child.rotation
+                )
+                const start = GerberPrimitiveBuilder.#transformPoint(
+                    childStart,
+                    primitive.transform,
+                    primitive.x,
+                    primitive.y
+                )
+                const end = GerberPrimitiveBuilder.#transformPoint(
+                    childEnd,
+                    primitive.transform,
+                    primitive.x,
+                    primitive.y
+                )
                 bounds.includeSegment(
-                    primitive.x + child.x1,
-                    primitive.y + child.y1,
-                    primitive.x + child.x2,
-                    primitive.y + child.y2,
+                    start.x,
+                    start.y,
+                    end.x,
+                    end.y,
                     (Number(child.width || 0) * scale) / 2
                 )
                 continue
@@ -220,10 +266,16 @@ export class GerberPrimitiveBuilder {
 
             if (child.type === 'region') {
                 for (const point of child.points || []) {
-                    bounds.includePoint(
-                        primitive.x + point.x,
-                        primitive.y + point.y
+                    const transformed = GerberPrimitiveBuilder.#transformPoint(
+                        GerberPrimitiveBuilder.#rotatePoint(
+                            point,
+                            child.rotation
+                        ),
+                        primitive.transform,
+                        primitive.x,
+                        primitive.y
                     )
+                    bounds.includePoint(transformed.x, transformed.y)
                 }
                 continue
             }
@@ -234,11 +286,146 @@ export class GerberPrimitiveBuilder {
                 Number(child.width || 0),
                 Number(child.height || 0)
             )
-            bounds.includePoint(
-                primitive.x + Number(child.x || 0),
-                primitive.y + Number(child.y || 0),
-                (diameter * scale) / 2
+            const center = GerberPrimitiveBuilder.#transformPoint(
+                GerberPrimitiveBuilder.#rotatePoint(
+                    { x: child.x, y: child.y },
+                    child.rotation
+                ),
+                primitive.transform,
+                primitive.x,
+                primitive.y
             )
+            bounds.includePoint(center.x, center.y, (diameter * scale) / 2)
+        }
+    }
+
+    /**
+     * Includes a block child after applying the outer block transform.
+     * @param {object} bounds Bounds accumulator.
+     * @param {object} primitive Child primitive in positioned coordinates.
+     * @param {object} transform Outer aperture transform.
+     * @param {number} pivotX Block flash X.
+     * @param {number} pivotY Block flash Y.
+     * @returns {void}
+     */
+    static #includeTransformedBounds(
+        bounds,
+        primitive,
+        transform,
+        pivotX,
+        pivotY
+    ) {
+        if (primitive.shape === 'macro' || primitive.shape === 'block') {
+            const localBounds = new GerberBounds()
+            GerberPrimitiveBuilder.#includeBounds(localBounds, primitive)
+            const box = localBounds.toObject()
+            for (const point of [
+                { x: box.minX, y: box.minY },
+                { x: box.maxX, y: box.minY },
+                { x: box.maxX, y: box.maxY },
+                { x: box.minX, y: box.maxY }
+            ]) {
+                const transformed = GerberPrimitiveBuilder.#transformPoint(
+                    {
+                        x: point.x - Number(pivotX),
+                        y: point.y - Number(pivotY)
+                    },
+                    transform,
+                    pivotX,
+                    pivotY
+                )
+                bounds.includePoint(transformed.x, transformed.y)
+            }
+            return
+        }
+        const scale = Math.abs(Number(transform?.scale || 1))
+        const transformPosition = (point) =>
+            GerberPrimitiveBuilder.#transformPoint(
+                {
+                    x: Number(point.x) - Number(pivotX),
+                    y: Number(point.y) - Number(pivotY)
+                },
+                transform,
+                pivotX,
+                pivotY
+            )
+        if (primitive.type === 'line' || primitive.type === 'arc') {
+            const points =
+                primitive.type === 'arc'
+                    ? GerberArcSampler.extrema(primitive)
+                    : [
+                          { x: primitive.x1, y: primitive.y1 },
+                          { x: primitive.x2, y: primitive.y2 }
+                      ]
+            const radius = (Number(primitive.width || 0) * scale) / 2
+            for (const point of points) {
+                const transformed = transformPosition(point)
+                bounds.includePoint(transformed.x, transformed.y, radius)
+            }
+            return
+        }
+        if (primitive.type === 'region') {
+            for (const point of primitive.points || []) {
+                const transformed = transformPosition(point)
+                bounds.includePoint(transformed.x, transformed.y)
+            }
+            return
+        }
+        const center = transformPosition({
+            x: primitive.x ?? pivotX,
+            y: primitive.y ?? pivotY
+        })
+        const diameter = Math.max(
+            Number(primitive.diameter || 0),
+            Number(primitive.width || 0),
+            Number(primitive.height || 0)
+        )
+        bounds.includePoint(center.x, center.y, (diameter * scale) / 2)
+    }
+
+    /**
+     * Applies LM/LS/LR to a local point and translates it to an origin.
+     * @param {{ x?: number, y?: number }} point Local point.
+     * @param {object} transform Aperture transform.
+     * @param {number} originX Output origin X.
+     * @param {number} originY Output origin Y.
+     * @returns {{ x: number, y: number }} Transformed point.
+     */
+    static #transformPoint(point, transform, originX, originY) {
+        const mirror = String(transform?.mirror || 'none')
+        const scale = Number(transform?.scale || 1)
+        const x =
+            Number(point.x || 0) *
+            (mirror === 'x' || mirror === 'xy' ? -scale : scale)
+        const y =
+            Number(point.y || 0) *
+            (mirror === 'y' || mirror === 'xy' ? -scale : scale)
+        const radians = (Number(transform?.rotation || 0) * Math.PI) / 180
+        return {
+            x:
+                Number(originX || 0) +
+                x * Math.cos(radians) -
+                y * Math.sin(radians),
+            y:
+                Number(originY || 0) +
+                x * Math.sin(radians) +
+                y * Math.cos(radians)
+        }
+    }
+
+    /**
+     * Rotates one macro-child point around the macro origin.
+     * @param {{ x?: number, y?: number }} point Local point.
+     * @param {unknown} rotation Rotation degrees.
+     * @returns {{ x: number, y: number }} Rotated point.
+     */
+    static #rotatePoint(point, rotation) {
+        const radians = (Number(rotation || 0) * Math.PI) / 180
+        const x = Number(point.x || 0)
+        const y = Number(point.y || 0)
+        return {
+            x: x * Math.cos(radians) - y * Math.sin(radians),
+            y: x * Math.sin(radians) + y * Math.cos(radians)
         }
     }
 

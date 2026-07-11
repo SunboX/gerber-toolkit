@@ -85,9 +85,156 @@ test('canonical projection retains every standards-representable fabrication pri
     assert.equal(types.has('pcb_trace'), true)
     assert.equal(types.has('pcb_smtpad'), true)
     assert.equal(types.has('pcb_copper_pour'), true)
-    assert.equal(types.has('pcb_hole'), true)
+    assert.equal(types.has('pcb_plated_hole'), true)
     assert.equal(
         project.documents[0].statistics.canonicalElementCount,
         project.documents[0].model.length
+    )
+})
+
+test('canonical board outline follows connected profile geometry instead of aggregate bounds', () => {
+    const outline = [
+        '%FSLAX24Y24*%',
+        '%MOMM*%',
+        '%ADD10C,0.100*%',
+        'D10*',
+        'X000000Y000000D02*',
+        'X040000Y000000D01*',
+        'X040000Y020000D01*',
+        'X020000Y020000D01*',
+        'X020000Y040000D01*',
+        'X000000Y040000D01*',
+        'X000000Y000000D01*',
+        'M02*'
+    ].join('\n')
+    const project = ProjectLoader.load([
+        { name: 'neutral-profile.gko', data: outline }
+    ])
+    const board = project.documents[0].model.find(
+        (element) => element.type === 'pcb_board'
+    )
+
+    assert.deepEqual(board.outline, [
+        { x: 0, y: 0 },
+        { x: 4, y: 0 },
+        { x: 4, y: 2 },
+        { x: 2, y: 2 },
+        { x: 2, y: 4 },
+        { x: 0, y: 4 }
+    ])
+})
+
+test('canonical board outline preserves implicitly closed Gerber regions', () => {
+    const outline = [
+        '%FSLAX24Y24*%',
+        '%MOMM*%',
+        '%ADD10C,0.100*%',
+        'D10*',
+        'G36*',
+        'X000000Y000000D02*',
+        'X040000Y000000D01*',
+        'X040000Y020000D01*',
+        'X020000Y020000D01*',
+        'X020000Y040000D01*',
+        'X000000Y040000D01*',
+        'G37*',
+        'M02*'
+    ].join('\n')
+    const project = ProjectLoader.load([
+        { name: 'neutral-region-profile.gko', data: outline }
+    ])
+    const board = project.documents[0].model.find(
+        (element) => element.type === 'pcb_board'
+    )
+
+    assert.deepEqual(board.outline, [
+        { x: 0, y: 0 },
+        { x: 4, y: 0 },
+        { x: 4, y: 2 },
+        { x: 2, y: 2 },
+        { x: 2, y: 4 },
+        { x: 0, y: 4 }
+    ])
+})
+
+test('canonical drill projection preserves plated and nonplated semantics', () => {
+    const drill = [
+        'M48',
+        'METRIC,TZ',
+        'T01C0.600',
+        '%',
+        'T01',
+        'X050000Y060000',
+        'M30'
+    ].join('\n')
+    const plated = ProjectLoader.load([
+        { name: 'neutral-PTH.drl', data: drill }
+    ]).documents[0].model
+    const nonplated = ProjectLoader.load([
+        { name: 'neutral-NPTH.drl', data: drill }
+    ]).documents[0].model
+
+    assert.equal(
+        plated.some((element) => element.type === 'pcb_plated_hole'),
+        true
+    )
+    assert.equal(
+        nonplated.some((element) => element.type === 'pcb_hole'),
+        true
+    )
+    assert.notDeepEqual(plated, nonplated)
+})
+
+test('canonical projection resolves X2 copper roles and keeps ambiguous artwork neutral', () => {
+    const x2Copper = [
+        '%FSLAX24Y24*%',
+        '%MOMM*%',
+        '%TF.FileFunction,Copper,L1,Top*%',
+        '%ADD10C,1.000*%',
+        'D10*',
+        'X010000Y020000D03*',
+        'M02*'
+    ].join('\n')
+    const ambiguous = [
+        '%FSLAX24Y24*%',
+        '%MOMM*%',
+        '%ADD10C,1.000*%',
+        'D10*',
+        'X010000Y020000D03*',
+        'G36*',
+        'X030000Y030000D02*',
+        'X040000Y030000D01*',
+        'X040000Y040000D01*',
+        'X030000Y040000D01*',
+        'G37*',
+        'M02*'
+    ].join('\n')
+
+    const x2Model = ProjectLoader.load([
+        { name: 'neutral.gbr', data: x2Copper }
+    ]).documents[0].model
+    const ambiguousModel = ProjectLoader.load([
+        { name: 'ambiguous.gbr', data: ambiguous }
+    ]).documents[0].model
+
+    assert.equal(
+        x2Model.some(
+            (element) =>
+                element.type === 'pcb_smtpad' && element.layer === 'top'
+        ),
+        true
+    )
+    assert.equal(
+        ambiguousModel.some((element) => element.type === 'pcb_smtpad'),
+        false
+    )
+    assert.equal(
+        ambiguousModel.some((element) => element.type === 'pcb_copper_pour'),
+        false
+    )
+    assert.equal(
+        ambiguousModel.filter((element) => element.type.startsWith('pcb_note_'))
+            .length,
+        2
     )
 })

@@ -2,25 +2,32 @@ import { ToolkitWorkerProtocol } from 'circuitjson-toolkit/parser'
 
 import { Parser } from '../convergence/Parser.mjs'
 import { ProjectLoader } from '../convergence/ProjectLoader.mjs'
+import { GerberAsyncInputOwnership } from '../convergence/GerberAsyncInputOwnership.mjs'
 
 /** @param {object} payload Request. @param {object} runtime Runtime. @returns {Promise<object>} Document. */
 async function parseInWorker(payload, runtime) {
-    return await Parser.parseAsync(payload.input, {
-        ...(payload.options || {}),
-        worker: false,
-        signal: runtime.signal,
-        onProgress: runtime.onProgress
-    })
+    return await Parser.parseAsync(
+        GerberAsyncInputOwnership.markParser(payload.input),
+        {
+            ...(payload.options || {}),
+            worker: false,
+            signal: runtime.signal,
+            onProgress: runtime.onProgress
+        }
+    )
 }
 
 /** @param {object} payload Request. @param {object} runtime Runtime. @returns {Promise<object>} Project. */
 async function loadProjectInWorker(payload, runtime) {
-    return await ProjectLoader.loadAsync(payload.entries, {
-        ...(payload.options || {}),
-        worker: false,
-        signal: runtime.signal,
-        onProgress: runtime.onProgress
-    })
+    return await ProjectLoader.loadAsync(
+        GerberAsyncInputOwnership.markProject(payload.entries),
+        {
+            ...(payload.options || {}),
+            worker: false,
+            signal: runtime.signal,
+            onProgress: runtime.onProgress
+        }
+    )
 }
 
 /**

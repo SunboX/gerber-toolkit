@@ -35,6 +35,9 @@ export class GerberApiResultContractResolver {
                 node,
                 collectionCallDepths
             )
+            for (const field of node.resultFields) {
+                contract.result.fields.add(field)
+            }
             for (const field of contract.result.fields) {
                 node.resultFields.add(field)
             }

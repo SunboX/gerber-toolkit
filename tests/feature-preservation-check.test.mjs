@@ -922,14 +922,18 @@ test('strict file-backed checker imports capabilities from an npm pack', async (
             name: 'gerber-feature-fixture',
             version: '1.0.0',
             type: 'module',
-            exports: { '.': './index.mjs' },
-            files: ['index.mjs']
+            exports: {
+                '.': './index.mjs',
+                './styles/renderers.css': './renderers.css'
+            },
+            files: ['index.mjs', 'renderers.css']
         })
     )
     await writeFile(
         join(root, 'index.mjs'),
         `export class GerberParser {}\nexport class ToolkitCapabilities { static inventory() { return ${JSON.stringify([capabilityRow('parser.document.parse')])} } }\n`
     )
+    await writeFile(join(root, 'renderers.css'), '.board { display: block; }\n')
     await writeFile(
         apiPath,
         JSON.stringify({

@@ -31,18 +31,43 @@ The common parser returns an immutable document envelope:
 rendering, interaction, query, manufacturing, simulation, and scene services.
 Gerber coordinates are normalized to millimeters.
 
-The projection emits only semantics that fabrication data can establish:
+The projection emits only semantics established by fabrication geometry or
+explicit X2 attributes:
 
-- `pcb_board` from aggregate bounds
-- `pcb_trace` from copper lines and bounded arc samples
-- `pcb_smtpad` from supported circular, rectangular, and obround flashes
-- `pcb_copper_pour` from filled copper regions
-- `pcb_hole` from Excellon hits and routed slots
-- `pcb_note_line` and `pcb_note_path` from representable documentation artwork
+- one `pcb_board` per disjoint closed profile, with nested/clear contours as
+  board-owned `pcb_cutout` rows; aggregate bounds are a documented fallback
+  when no closed profile exists
+- `pcb_trace`, `pcb_smtpad`, and `pcb_copper_pour` for copper strokes, flashes,
+  regions, standard aperture holes, polygons, macros, and aperture blocks
+- ordered BREP composition when clear exposures, file/image polarity, partial
+  solder-mask coverage, or complex apertures cannot remain simple rows
+- `pcb_silkscreen_*` for X2 Legend artwork, `pcb_solder_paste` for directly
+  representable paste flashes, and neutral `pcb_note_*` rows for unsupported or
+  ambiguous nonconductive artwork
+- `pcb_hole` and `pcb_plated_hole` for non-plated/plated round hits and straight
+  routed slots, including pill rotation and outer dimensions
+- `source_component`/`pcb_component`, `source_port`/`pcb_port`,
+  `source_net`/`pcb_net`, and `source_trace` only when X2 `TO.C`, `TO.P`, and
+  `TO.N` establish those facts
 
-It does not invent components, nets, pin connectivity, source schematics, or
-assembly models. Clear-polarity geometry and native aperture/macro details that
-cannot be represented losslessly stay in the Gerber extension namespace.
+X2 ownership is indexed document-wide, so repeated pad flashes share the same
+refdes/pin identity and cross-layer component facts deduplicate. `TO.P` owns a
+pad when it conflicts with `TO.C`, and the document reports a diagnostic.
+Missing net attributes remain unknown, explicit empty net attributes remain
+unconnected, and multi-name `TO.N` connectivity is never collapsed to one
+arbitrary name.
+
+Gerber image generation is composed before physical interpretation. X2
+`FilePolarity` is interpreted once inside the finite union of board profiles
+minus cutouts; deprecated `IPNEG` reverses image generation first. Solder-mask
+files become physical opening images, and partially intersected copper is split
+into covered and exposed BREP rows. If polarity needs a domain but no profile is
+available, aggregate fabrication bounds are used with an explicit diagnostic.
+
+The adapter does not infer components, nets, pins, schematics, or assembly
+models when the source omits the corresponding facts. Native details that have
+no lossless CircuitJSON representation remain available in the Gerber
+extension.
 
 ## Native extension
 
@@ -56,9 +81,11 @@ const document = Parser.parse(input, { extensions: 'full' })
 const native = document.extensions.gerber.native
 ```
 
-Native layers retain original roles, attributes, aperture-expanded primitives,
-drills, slots, polarity, transforms, and bounds. This keeps exact CAM inspection
-available without making native layout a hidden dependency of common consumers.
+Native layers retain original roles, immutable file attributes,
+definition-bound aperture attributes, object attributes, aperture-expanded
+primitives, drills, slots, `FilePolarity`/`IPNEG`, transforms, exact arc-aware
+bounds, and diagnostics. This keeps CAM inspection available without making
+native layout a hidden dependency of common consumers.
 
 ## Project envelope
 

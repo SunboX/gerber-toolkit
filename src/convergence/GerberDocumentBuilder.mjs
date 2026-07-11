@@ -14,7 +14,10 @@ export class GerberDocumentBuilder {
     static decode(normalized) {
         return GerberParser.parseArrayBuffer(
             normalized.input.fileName,
-            ParserInput.bytes(normalized.input.data)
+            normalized.inputOwned === true &&
+                normalized.input.data instanceof Uint8Array
+                ? normalized.input.data
+                : ParserInput.bytes(normalized.input.data)
         )
     }
 

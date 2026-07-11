@@ -72,7 +72,7 @@ test('parser applies common extension and asset policies', () => {
         extensions: ['gerber.native-model']
     })
 
-    assert.equal(none.extensions.gerber.$meta.completeness, 'none')
+    assert.deepEqual(none.extensions, {})
     assert.equal(metadata.extensions.gerber.$meta.completeness, 'metadata')
     assert.equal(Object.hasOwn(metadata.extensions.gerber, 'native'), false)
     assert.equal(Object.hasOwn(full.extensions.gerber, 'native'), true)

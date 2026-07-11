@@ -3,6 +3,35 @@ import test from 'node:test'
 
 import { GerberApiContractInspector } from '../scripts/GerberApiContractInspector.mjs'
 
+test('Gerber API inspector propagates JSDoc result fields through helper calls', async () => {
+    class TypedHelper {
+        /** @returns {{ items: { type: string }[] }} Typed helper payload. */
+        static build() {
+            return { items: [] }
+        }
+    }
+    class TypedDelegate {
+        static build() {
+            return { payload: TypedHelper.build() }
+        }
+    }
+    const contracts = await GerberApiContractInspector.inspect([
+        {
+            entrypoint: '.',
+            target: './index.mjs',
+            api: { TypedDelegate, TypedHelper }
+        }
+    ])
+
+    assert.equal(
+        contracts.features.some(
+            ({ feature }) =>
+                feature === '.#TypedDelegate.build().result.payload.items.type'
+        ),
+        true
+    )
+})
+
 test('Gerber API inspector follows aliased constructed instance receivers', async () => {
     class ValueBox {
         toObject() {

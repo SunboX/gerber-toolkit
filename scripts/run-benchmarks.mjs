@@ -61,7 +61,7 @@ const BASELINE_SCHEMA = 'gerber-toolkit.benchmark-report.v1'
 const BASELINE_PACKAGE = 'gerber-toolkit'
 const BASELINE_PACKAGE_VERSION = '0.1.21'
 const CANONICAL_BASELINE_REPORT_CHECKSUM =
-    '02ad8963931d992c6d335fc5c81c09b98edde5079516ca2eecc78432f639d403'
+    '8e52d115f8247ecba3284f4a16b254938e02ff24ebdac33b868f46ede9bfac2a'
 const BASELINE_PROVENANCE = GERBER_TASK1_PROVENANCE
 const BASELINE_ENVIRONMENT = Object.freeze({
     node: 'v20.17.0',

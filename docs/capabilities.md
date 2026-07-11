@@ -37,6 +37,20 @@ functionality is not duplicated into unrelated format packages; functionality
 that truthfully operates on CircuitJSON is supplied to every toolkit through
 the shared services.
 
+## Canonical fidelity
+
+The native adapter performs one projection into CircuitJSON before shared
+services run. Simple dark traces and pads stay simple. Ordered polygon
+composition is reserved for clear exposures, macros/blocks, standard aperture
+holes, physical file/image polarity, and partial solder-mask intersections.
+Closed profiles define finite physical domains, including multiple boards and
+cutouts. Explicit X2 object attributes supply component, port, net, and trace
+ownership; absent attributes never produce guessed connectivity.
+
+Project ZIP input is inspected before inflation, enforces entry/depth/byte and
+compression-ratio limits, normalizes member paths, verifies metadata and CRC,
+and retains non-fabrication companions according to `decodeAssets`.
+
 ```js
 import { ToolkitCapabilities } from 'gerber-toolkit/capabilities'
 

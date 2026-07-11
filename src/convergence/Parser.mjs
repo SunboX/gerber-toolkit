@@ -1,10 +1,12 @@
 import {
     ToolkitDiagnostic,
     ToolkitError,
-    ToolkitProgress
+    ToolkitProgress,
+    ToolkitAsset
 } from 'circuitjson-toolkit/parser'
 
 import { GerberDocumentBuilder } from './GerberDocumentBuilder.mjs'
+import { GerberAsyncInputOwnership } from './GerberAsyncInputOwnership.mjs'
 import { GerberWorkerClient } from './GerberWorkerClient.mjs'
 import { ParserInput } from './ParserInput.mjs'
 
@@ -82,6 +84,7 @@ export class Parser {
      */
     static async parseAsync(input, options = {}) {
         let normalized
+        const inputOwned = GerberAsyncInputOwnership.ownsParser(input)
         try {
             normalized = ParserInput.normalize(input, options)
             Parser.#assertSupported(normalized.input)
@@ -106,6 +109,15 @@ export class Parser {
                 throw Parser.#parseError(attempt.error, input)
             }
             GerberWorkerClient.dispose()
+        }
+        if (!inputOwned) {
+            try {
+                normalized = Parser.#ownAsyncInput(normalized)
+            } catch (error) {
+                throw Parser.#parseError(error, input)
+            }
+        } else {
+            normalized = { ...normalized, inputOwned: true }
         }
         let progress = Parser.#progress(normalized, 'detect')
         Parser.#assertNotCancelled(normalized)
@@ -136,6 +148,28 @@ export class Parser {
     /** @param {unknown} input Candidate. @returns {boolean} Support result. */
     static supports(input) {
         return ParserInput.supports(input)
+    }
+
+    /**
+     * Owns mutable parser bytes and assets before any callback or worker turn.
+     * @param {Record<string, any>} normalized Normalized request.
+     * @returns {Record<string, any>} Stable async request.
+     */
+    static #ownAsyncInput(normalized) {
+        return {
+            ...normalized,
+            inputOwned: true,
+            input: {
+                ...normalized.input,
+                data:
+                    typeof normalized.input.data === 'string'
+                        ? normalized.input.data
+                        : ParserInput.bytes(normalized.input.data),
+                assets: ToolkitAsset.prepareAll(normalized.input.assets, {
+                    mode: normalized.options.decodeAssets
+                })
+            }
+        }
     }
 
     /** @param {Record<string, any>} normalized Request. @returns {void} */

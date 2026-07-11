@@ -11,16 +11,16 @@ import { GerberBenchmarkWorkloads } from './GerberBenchmarkWorkloads.mjs'
 const STRUCTURAL_CHECKSUMS = Object.freeze({
     archive: '51d74710d2699af3982f923c94c91a34146d9eca3f9cb08543987f71c616290a',
     currentArchive:
-        '12339961d175ca9770818036f66077e54cedbd3960dea80576c6a6ecd996c2f8',
+        '8ede57443600338ed9e47ea1672d98bd661ce57750211442b625127253510eb0',
     hitTest: '4909cfcf2ba7e1060cada21b0932da63914e7d1f5be463c9df33b68533587b08',
     currentHitTest:
-        '8fbcaa3a14476a1bb7d23ae2c877c482023b569cec59dc7a3b7531435aee076f',
+        '1c5eacc1903dbc06018c8128020c492e8d37e2dfef9e7c9402c85a6ccc81ec4e',
     repeat: '77d49e9c381212f4c35c86c4a6ebd8b937a1245f6af8065807eb6c45aaae1891',
     render: '006ec0bab3b85c723baf9bd47581d2e0a20a578bc06834d37ee5252b4784d3a3',
     baselineClone:
         'e05b9b3e9a29eb3b0bd40d4c3a42f805779eea699f6555fc708450df38f18acf',
     currentClone:
-        'a47308e2ee10c99f7524152436a0d64fcdfab387612d6706b6a86110954a4489',
+        'a02f0bb282dfc7c7f1d686e6d2c4e24b6882db271ab6a258110f4ccb7026fced',
     smallParse:
         '93c6eea8c928ebb92e72a03237866c5dac70a36ad2d341c7db948a450b2ce5f6',
     smallRender:

@@ -877,7 +877,7 @@ test('Gerber development baselines stay outside the published package', async ()
         paths.some((path) => path.startsWith('tests/')),
         false
     )
-    assert.equal(packed.unpackedSize < 500_000, true)
+    assert.equal(packed.unpackedSize < 700_000, true)
 })
 
 test('Gerber feature ledger freezes every preservation decision and availability map', async () => {

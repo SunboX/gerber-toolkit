@@ -1,4 +1,3 @@
-import { unzipSync } from 'fflate'
 import {
     ToolkitAsset,
     ToolkitDiagnostic,
@@ -13,7 +12,9 @@ import {
 
 import { GerberParser } from '../core/gerber/GerberParser.mjs'
 import { GerberDocumentBuilder } from './GerberDocumentBuilder.mjs'
+import { GerberAsyncInputOwnership } from './GerberAsyncInputOwnership.mjs'
 import { GerberWorkerClient } from './GerberWorkerClient.mjs'
+import { GerberProjectArchive } from './GerberProjectArchive.mjs'
 import { Parser } from './Parser.mjs'
 import { ParserInput } from './ParserInput.mjs'
 
@@ -37,6 +38,7 @@ const EXTENSION_IDS = new Set([
     'gerber.entry-order',
     'gerber.archive'
 ])
+const OWNED_PROJECT_ENTRIES = new WeakSet()
 
 /** Loads app-shaped fabrication entries into one canonical Gerber project. */
 export class ProjectLoader {
@@ -47,18 +49,27 @@ export class ProjectLoader {
      * @returns {Record<string, any>} Canonical project.
      */
     static load(entries, options = {}) {
-        const normalized = ProjectLoader.#normalizeOptions(options)
-        if (normalized.worker === true) {
-            throw ProjectLoader.#error(
-                'Synchronous Gerber project loading cannot use a worker.',
-                'ERR_WORKER_SYNC_UNAVAILABLE',
-                'unsupported'
+        try {
+            const normalized = ProjectLoader.#normalizeOptions(options)
+            if (normalized.worker === true) {
+                throw ProjectLoader.#error(
+                    'Synchronous Gerber project loading cannot use a worker.',
+                    'ERR_WORKER_SYNC_UNAVAILABLE',
+                    'unsupported'
+                )
+            }
+            ProjectLoader.#assertNotCancelled(normalized.signal)
+            const snapshot = ProjectLoader.#snapshotEntries(
+                entries,
+                normalized.archiveLimits.maxEntries,
+                normalized.decodeAssets
             )
+            const classified = ProjectLoader.#classify(snapshot, normalized)
+            ProjectLoader.#assertNotCancelled(normalized.signal)
+            return ProjectLoader.#build(classified, normalized, entries)
+        } catch (error) {
+            throw ProjectLoader.#inputError(error)
         }
-        ProjectLoader.#assertNotCancelled(normalized.signal)
-        const classified = ProjectLoader.#classify(entries, normalized)
-        ProjectLoader.#assertNotCancelled(normalized.signal)
-        return ProjectLoader.#build(classified, normalized, entries)
     }
 
     /**
@@ -94,8 +105,14 @@ export class ProjectLoader {
      * @returns {Promise<Record<string, any>>} Canonical project.
      */
     static async loadAsync(entries, options = {}) {
-        const normalized = ProjectLoader.#normalizeOptions(options)
-        ProjectLoader.#assertNotCancelled(normalized.signal)
+        let normalized
+        const entriesOwned = GerberAsyncInputOwnership.ownsProject(entries)
+        try {
+            normalized = ProjectLoader.#normalizeOptions(options)
+            ProjectLoader.#assertNotCancelled(normalized.signal)
+        } catch (error) {
+            throw ProjectLoader.#inputError(error)
+        }
         const useWorker =
             normalized.worker === true ||
             (normalized.worker === 'auto' &&
@@ -112,6 +129,21 @@ export class ProjectLoader {
             }
             GerberWorkerClient.dispose()
         }
+        let snapshot
+        try {
+            snapshot = entriesOwned
+                ? ProjectLoader.#markReceiverEntries(
+                      entries,
+                      normalized.archiveLimits.maxEntries
+                  )
+                : ProjectLoader.#snapshotEntries(
+                      entries,
+                      normalized.archiveLimits.maxEntries,
+                      normalized.decodeAssets
+                  )
+        } catch (error) {
+            throw ProjectLoader.#inputError(error)
+        }
         let progress = ProjectLoader.#progress(normalized, {
             stage: 'detect',
             completed: 0,
@@ -120,7 +152,12 @@ export class ProjectLoader {
         })
         await ProjectLoader.#yieldTurn()
         ProjectLoader.#assertNotCancelled(normalized.signal)
-        const classified = ProjectLoader.#classify(entries, normalized)
+        let classified
+        try {
+            classified = ProjectLoader.#classify(snapshot, normalized)
+        } catch (error) {
+            throw ProjectLoader.#inputError(error)
+        }
         progress = ProjectLoader.#progress(
             normalized,
             {
@@ -131,18 +168,32 @@ export class ProjectLoader {
             },
             progress
         )
-        await ProjectLoader.#yieldTurn()
-        ProjectLoader.#assertNotCancelled(normalized.signal)
-        const project = ProjectLoader.#build(classified, normalized, entries)
-        progress = ProjectLoader.#progress(
+        const state = ProjectLoader.#buildState()
+        for (let index = 0; index < classified.candidates.length; index += 1) {
+            await ProjectLoader.#yieldTurn()
+            ProjectLoader.#assertNotCancelled(normalized.signal)
+            ProjectLoader.#parseCandidate(
+                classified.candidates[index],
+                normalized,
+                state
+            )
+            progress = ProjectLoader.#progress(
+                normalized,
+                {
+                    stage: 'project',
+                    completed: index + 1,
+                    total: classified.candidates.length,
+                    detail: classified.candidates[index].name,
+                    message: 'Loaded Gerber project entry.'
+                },
+                progress
+            )
+        }
+        const project = ProjectLoader.#finish(
+            classified,
             normalized,
-            {
-                stage: 'project',
-                completed: classified.candidates.length,
-                total: classified.candidates.length,
-                message: 'Loaded Gerber project entries.'
-            },
-            progress
+            entries,
+            state
         )
         ProjectLoader.#progress(
             normalized,
@@ -166,9 +217,44 @@ export class ProjectLoader {
                 decodeAssets: 'none',
                 extensions: 'none'
             })
-            return (
-                ProjectLoader.#classify(entries, options).candidates.length > 0
+            const descriptors = ProjectLoader.#entryArray(entries)
+            const count = descriptors.length.value
+            ProjectLoader.#assertLimit(
+                'maxEntries',
+                options.archiveLimits.maxEntries,
+                count
             )
+            const names = []
+            let supported = false
+            for (let index = 0; index < count; index += 1) {
+                const fields = ParserInput.plainFields(
+                    descriptors[String(index)].value,
+                    'Gerber project entry must be a plain object.'
+                )
+                const name = ArchiveEntryPath.normalize(fields.name)
+                names.push(name)
+                if (!ParserInput.isData(fields.data)) return false
+                if (!name.toLowerCase().endsWith('.zip')) {
+                    if (
+                        Parser.supports({ fileName: name, data: fields.data })
+                    ) {
+                        supported = true
+                    }
+                    continue
+                }
+                const archiveBytes = ParserInput.bytes(fields.data)
+                if (
+                    GerberProjectArchive.supports(
+                        name,
+                        archiveBytes,
+                        options.archiveLimits
+                    )
+                ) {
+                    supported = true
+                }
+            }
+            ArchiveEntryPath.unique(names)
+            return supported
         } catch {
             return false
         }
@@ -207,6 +293,69 @@ export class ProjectLoader {
     }
 
     /**
+     * Owns project bytes and assets before callbacks, workers, or parsing.
+     * @param {unknown} entries Caller entries.
+     * @param {number} maximumEntries Configured entry ceiling.
+     * @param {'none' | 'metadata' | 'full'} assetMode Asset ownership mode.
+     * @returns {Record<string, any>[]} Stable entry snapshots.
+     */
+    static #snapshotEntries(entries, maximumEntries, assetMode) {
+        const descriptors = ProjectLoader.#entryArray(entries)
+        const count = descriptors.length.value
+        ProjectLoader.#assertLimit('maxEntries', maximumEntries, count)
+        const snapshot = new Array(count)
+        for (let index = 0; index < count; index += 1) {
+            const fields = ParserInput.plainFields(
+                descriptors[String(index)].value,
+                'Gerber project entry must be a plain object.'
+            )
+            let assetBytes = 0
+            const preparedAssets = ToolkitAsset.prepareAll(
+                fields.assets || [],
+                {
+                    mode: assetMode,
+                    acceptPayload: (byteLength) => {
+                        assetBytes += byteLength
+                    }
+                }
+            )
+            const entry = {
+                name: fields.name,
+                data:
+                    typeof fields.data === 'string'
+                        ? fields.data
+                        : ParserInput.bytes(fields.data),
+                assets: preparedAssets,
+                assetBytes
+            }
+            OWNED_PROJECT_ENTRIES.add(entry)
+            snapshot[index] = entry
+        }
+        return snapshot
+    }
+
+    /**
+     * Marks structured-cloned worker entries as receiver-owned without copying.
+     * @param {unknown} entries Worker-received entries.
+     * @param {number} maximumEntries Configured entry ceiling.
+     * @returns {Record<string, any>[]} Same dense entry array.
+     */
+    static #markReceiverEntries(entries, maximumEntries) {
+        const descriptors = ProjectLoader.#entryArray(entries)
+        const count = descriptors.length.value
+        ProjectLoader.#assertLimit('maxEntries', maximumEntries, count)
+        for (let index = 0; index < count; index += 1) {
+            const entry = descriptors[String(index)].value
+            ParserInput.plainFields(
+                entry,
+                'Gerber project entry must be a plain object.'
+            )
+            OWNED_PROJECT_ENTRIES.add(entry)
+        }
+        return entries
+    }
+
+    /**
      * Validates, expands, and classifies all entries.
      * @param {unknown} entries Entry candidates.
      * @param {Record<string, any>} options Normalized options.
@@ -227,7 +376,10 @@ export class ProjectLoader {
         )
         const expanded = []
         const attachedAssets = []
+        const originalNames = []
         let totalBytes = 0
+        let accountedBytes = 0
+        let expandedBytes = 0
         let archiveExpanded = false
         for (let index = 0; index < count; index += 1) {
             const entry = descriptors[String(index)].value
@@ -236,13 +388,18 @@ export class ProjectLoader {
                 'Gerber project entry must be a plain object.'
             )
             const name = ArchiveEntryPath.normalize(fields.name)
+            originalNames.push(name)
             if (!ParserInput.isData(fields.data)) {
                 throw ProjectLoader.#inputError(
                     new TypeError('Gerber project entry data is invalid.'),
                     name
                 )
             }
-            const bytes = ParserInput.bytes(fields.data)
+            const bytes =
+                OWNED_PROJECT_ENTRIES.has(entry) &&
+                fields.data instanceof Uint8Array
+                    ? fields.data
+                    : ParserInput.bytes(fields.data)
             ProjectLoader.#assertLimit(
                 'maxEntryBytes',
                 options.archiveLimits.maxEntryBytes,
@@ -250,51 +407,80 @@ export class ProjectLoader {
                 name
             )
             totalBytes += bytes.byteLength
+            accountedBytes += bytes.byteLength
             ProjectLoader.#assertLimit(
                 'maxTotalBytes',
                 options.archiveLimits.maxTotalBytes,
-                totalBytes,
+                accountedBytes,
                 name
             )
             let entryBytes = bytes.byteLength
-            try {
-                attachedAssets.push(
-                    ...ToolkitAsset.prepareAll(fields.assets || [], {
-                        mode: options.decodeAssets,
-                        acceptPayload: (byteLength) => {
-                            entryBytes += byteLength
-                            totalBytes += byteLength
-                            ProjectLoader.#assertLimit(
-                                'maxEntryBytes',
-                                options.archiveLimits.maxEntryBytes,
-                                entryBytes,
-                                name
-                            )
-                            ProjectLoader.#assertLimit(
-                                'maxTotalBytes',
-                                options.archiveLimits.maxTotalBytes,
-                                totalBytes,
-                                name
-                            )
-                        }
-                    })
+            if (
+                OWNED_PROJECT_ENTRIES.has(entry) &&
+                Number.isSafeInteger(fields.assetBytes)
+            ) {
+                entryBytes += fields.assetBytes
+                totalBytes += fields.assetBytes
+                accountedBytes += fields.assetBytes
+                attachedAssets.push(...(fields.assets || []))
+                ProjectLoader.#assertLimit(
+                    'maxEntryBytes',
+                    options.archiveLimits.maxEntryBytes,
+                    entryBytes,
+                    name
                 )
-            } catch (error) {
-                throw ProjectLoader.#inputError(error, name)
+                ProjectLoader.#assertLimit(
+                    'maxTotalBytes',
+                    options.archiveLimits.maxTotalBytes,
+                    accountedBytes,
+                    name
+                )
+            } else {
+                try {
+                    attachedAssets.push(
+                        ...ToolkitAsset.prepareAll(fields.assets || [], {
+                            mode: options.decodeAssets,
+                            acceptPayload: (byteLength) => {
+                                entryBytes += byteLength
+                                totalBytes += byteLength
+                                accountedBytes += byteLength
+                                ProjectLoader.#assertLimit(
+                                    'maxEntryBytes',
+                                    options.archiveLimits.maxEntryBytes,
+                                    entryBytes,
+                                    name
+                                )
+                                ProjectLoader.#assertLimit(
+                                    'maxTotalBytes',
+                                    options.archiveLimits.maxTotalBytes,
+                                    accountedBytes,
+                                    name
+                                )
+                            }
+                        })
+                    )
+                } catch (error) {
+                    throw ProjectLoader.#inputError(error, name)
+                }
             }
             if (name.toLowerCase().endsWith('.zip')) {
                 archiveExpanded = true
-                const extracted = ProjectLoader.#expandZip(
+                const extracted = GerberProjectArchive.expand(
                     name,
                     bytes,
-                    options.archiveLimits
+                    options.archiveLimits,
+                    {
+                        baseEntryCount: expanded.length,
+                        baseTotalBytes: accountedBytes
+                    }
                 )
                 for (const member of extracted) {
-                    totalBytes += member.bytes.byteLength
+                    accountedBytes += member.bytes.byteLength
+                    expandedBytes += member.bytes.byteLength
                     ProjectLoader.#assertLimit(
                         'maxTotalBytes',
                         options.archiveLimits.maxTotalBytes,
-                        totalBytes,
+                        accountedBytes,
                         member.name
                     )
                     expanded.push(member)
@@ -332,6 +518,7 @@ export class ProjectLoader {
         const candidateEntries = new Set(candidates)
         return {
             originalCount: count,
+            originalNames,
             entries: expanded,
             candidates,
             companions: expanded.filter(
@@ -340,71 +527,9 @@ export class ProjectLoader {
             entryNames: names,
             attachedAssets,
             totalBytes,
+            expandedBytes,
             archiveExpanded
         }
-    }
-
-    /**
-     * Expands one ZIP archive with hard size and ratio ceilings.
-     * @param {string} archiveName Archive name.
-     * @param {Uint8Array} bytes Archive bytes.
-     * @param {Record<string, number>} limits Limits.
-     * @returns {Record<string, any>[]} Expanded entries.
-     */
-    static #expandZip(archiveName, bytes, limits) {
-        let files
-        try {
-            files = unzipSync(bytes)
-        } catch (error) {
-            throw ProjectLoader.#inputError(error, archiveName)
-        }
-        const prefix = archiveName.replace(/\.zip$/iu, '')
-        const result = []
-        let uncompressedBytes = 0
-        for (const [memberName, memberBytes] of Object.entries(files)) {
-            const normalizedMember = String(memberName).replaceAll('\\', '/')
-            if (!normalizedMember || normalizedMember.endsWith('/')) {
-                continue
-            }
-            const safeMember = ArchiveEntryPath.normalize(normalizedMember)
-            if (
-                safeMember.startsWith('__MACOSX/') ||
-                safeMember.split('/').some((part) => part.startsWith('.'))
-            ) {
-                continue
-            }
-            if (safeMember.toLowerCase().endsWith('.zip')) {
-                throw ProjectLoader.#limitError(
-                    'maxArchiveDepth',
-                    limits.maxArchiveDepth,
-                    2,
-                    safeMember
-                )
-            }
-            ProjectLoader.#assertLimit(
-                'maxEntryBytes',
-                limits.maxEntryBytes,
-                memberBytes.byteLength,
-                safeMember
-            )
-            uncompressedBytes += memberBytes.byteLength
-            result.push({
-                name: ArchiveEntryPath.normalize(`${prefix}/${safeMember}`),
-                bytes: memberBytes,
-                assets: [],
-                archiveDepth: 1
-            })
-        }
-        const ratio = uncompressedBytes / Math.max(bytes.byteLength, 1)
-        if (ratio > limits.maxCompressionRatio) {
-            throw ProjectLoader.#limitError(
-                'maxCompressionRatio',
-                limits.maxCompressionRatio,
-                ratio,
-                archiveName
-            )
-        }
-        return result
     }
 
     /**
@@ -415,36 +540,88 @@ export class ProjectLoader {
      * @returns {Record<string, any>} Canonical project.
      */
     static #build(classified, options, sourceReference) {
-        const layers = []
-        const diagnostics = []
+        const state = ProjectLoader.#buildState()
         for (const entry of classified.candidates) {
             ProjectLoader.#assertNotCancelled(options.signal)
-            try {
-                const native = GerberParser.parseArrayBuffer(
-                    entry.name,
-                    entry.bytes
-                )
-                layers.push(...(native.pcb?.fabrication?.layers || []))
-                diagnostics.push(...(native.diagnostics || []))
-            } catch (error) {
-                const normalized = ProjectLoader.#loadError(error, entry.name)
-                diagnostics.push(
-                    ToolkitDiagnostic.create({
-                        code: normalized.code,
-                        severity: 'error',
-                        message: normalized.message,
-                        source: entry.name,
-                        details: {
-                            category: normalized.category,
-                            format: normalized.format
-                        }
-                    })
-                )
-            }
+            ProjectLoader.#parseCandidate(entry, options, state)
+        }
+        return ProjectLoader.#finish(
+            classified,
+            options,
+            sourceReference,
+            state
+        )
+    }
+
+    /**
+     * Creates mutable state shared by sync and incremental project loading.
+     * @returns {{ layers: object[], diagnostics: object[], failureCount: number, successfulCandidateCount: number }} Build state.
+     */
+    static #buildState() {
+        return {
+            layers: [],
+            diagnostics: [],
+            failureCount: 0,
+            successfulCandidateCount: 0
+        }
+    }
+
+    /**
+     * Parses one fabrication candidate with deterministic partial success.
+     * @param {{ name: string, bytes: Uint8Array }} entry Candidate entry.
+     * @param {Record<string, any>} options Normalized options.
+     * @param {ReturnType<ProjectLoader['#buildState']>} state Build state.
+     * @returns {void}
+     */
+    static #parseCandidate(entry, options, state) {
+        ProjectLoader.#assertNotCancelled(options.signal)
+        try {
+            const native = GerberParser.parseArrayBuffer(
+                entry.name,
+                entry.bytes
+            )
+            state.successfulCandidateCount += 1
+            state.layers.push(...(native.pcb?.fabrication?.layers || []))
+            state.diagnostics.push(...(native.diagnostics || []))
+        } catch (error) {
+            state.failureCount += 1
+            const normalized = ProjectLoader.#loadError(error, entry.name)
+            state.diagnostics.push(
+                ToolkitDiagnostic.create({
+                    code: normalized.code,
+                    severity: 'error',
+                    message: normalized.message,
+                    source: entry.name,
+                    details: {
+                        category: normalized.category,
+                        format: normalized.format
+                    }
+                })
+            )
+        }
+    }
+
+    /**
+     * Materializes one canonical composite after candidate parsing completes.
+     * @param {Record<string, any>} classified Classified entries.
+     * @param {Record<string, any>} options Normalized options.
+     * @param {unknown} sourceReference Original caller entries.
+     * @param {{ layers: object[], diagnostics: object[], failureCount: number, successfulCandidateCount: number }} state Build state.
+     * @returns {Record<string, any>} Canonical project.
+     */
+    static #finish(classified, options, sourceReference, state) {
+        if (!state.successfulCandidateCount) {
+            throw ProjectLoader.#error(
+                'Gerber project could not parse any supported fabrication entries.',
+                'ERR_GERBER_PROJECT',
+                'parse',
+                '',
+                { failureCount: state.failureCount }
+            )
         }
         const documentName = ProjectLoader.#documentName(classified)
-        const native = GerberParser.fromLayers(documentName, layers)
-        native.diagnostics = diagnostics
+        const native = GerberParser.fromLayers(documentName, state.layers)
+        native.diagnostics = state.diagnostics
         const documentRequest = {
             input: { fileName: documentName, data: '', assets: [] },
             sourceReference,
@@ -464,10 +641,11 @@ export class ProjectLoader {
             { mode: options.decodeAssets }
         )
         const assets = [...classified.attachedAssets, ...companionAssets]
+        const extension = ProjectLoader.#extension(classified, options)
         return ProjectResult.create({
             source: {
                 format: 'gerber',
-                entryNames: classified.entryNames
+                entryNames: classified.originalNames
             },
             documents: [document],
             project: {
@@ -475,16 +653,19 @@ export class ProjectLoader {
                 format: 'gerber',
                 relationships: []
             },
-            extensions: {
-                gerber: ProjectLoader.#extension(classified, options)
-            },
+            extensions: extension ? { gerber: extension } : {},
             assets,
-            diagnostics,
+            diagnostics: state.diagnostics,
             statistics: {
+                entryCount: classified.originalCount,
+                candidateCount: classified.candidates.length,
+                documentCount: 1,
+                failureCount: state.failureCount,
+                totalBytes: classified.totalBytes,
                 inputEntryCount: classified.originalCount,
                 expandedEntryCount: classified.entries.length,
-                loadedLayerCount: layers.length,
-                documentCount: 1,
+                expandedBytes: classified.expandedBytes,
+                loadedLayerCount: state.layers.length,
                 assetCount: assets.length,
                 byteLength: classified.totalBytes
             }
@@ -501,6 +682,7 @@ export class ProjectLoader {
         const none =
             options.extensions === 'none' ||
             (Array.isArray(options.extensions) && !options.extensions.length)
+        if (none) return null
         const selected = Array.isArray(options.extensions)
             ? options.extensions
             : ['gerber.entry-order', 'gerber.archive']
@@ -510,15 +692,14 @@ export class ProjectLoader {
         return {
             $meta: {
                 schema: 'ecad-toolkit.extension.v1',
-                completeness: none
-                    ? 'none'
-                    : Array.isArray(options.extensions)
-                      ? 'canonical'
-                      : options.extensions,
+                completeness: Array.isArray(options.extensions)
+                    ? 'canonical'
+                    : options.extensions,
                 included,
                 omitted: []
             },
             entryNames: classified.entryNames,
+            expandedEntryNames: classified.entryNames,
             archiveExpanded: classified.archiveExpanded
         }
     }
@@ -526,9 +707,14 @@ export class ProjectLoader {
     /** @param {Record<string, any>} classified Entries. @returns {string} Project name. */
     static #documentName(classified) {
         if (classified.originalCount === 1 && classified.archiveExpanded) {
-            return classified.entryNames[0]?.split('/')[0] || 'fabrication'
+            return (
+                classified.originalNames[0]
+                    ?.split('/')
+                    .at(-1)
+                    ?.replace(/\.zip$/iu, '') || 'fabrication'
+            )
         }
-        if (classified.originalCount === 1) return classified.entryNames[0]
+        if (classified.originalCount === 1) return classified.originalNames[0]
         return 'fabrication-package'
     }
 

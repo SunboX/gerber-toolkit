@@ -68,6 +68,14 @@ export class GerberDrillParser {
             return
         }
 
+        if (/^M7[12]$/iu.test(line)) {
+            GerberDrillParser.#setUnit(
+                state,
+                /^M72$/iu.test(line) ? 'inch' : 'mm'
+            )
+            return
+        }
+
         if (GerberDrillParser.#applyToolDefinition(line, state)) return
         if (GerberDrillParser.#applyToolSelection(line, state)) return
         if (GerberDrillParser.#applyRoutingControl(line, state)) return
@@ -222,17 +230,27 @@ export class GerberDrillParser {
      * @returns {boolean}
      */
     static #applySlotCommand(line, state) {
-        const match = /G85X([+-]?[0-9.]+)Y([+-]?[0-9.]+)/iu.exec(line)
+        const match =
+            /^(?:X([+-]?[0-9.]+)Y([+-]?[0-9.]+))?G85X([+-]?[0-9.]+)Y([+-]?[0-9.]+)$/iu.exec(
+                line
+            )
+        if (!match) return false
+        if (match[1] !== undefined && match[2] !== undefined) {
+            GerberDrillParser.#setCurrentPoint(
+                state,
+                state.coordinateParser.parseX(match[1]),
+                state.coordinateParser.parseY(match[2])
+            )
+        }
         if (
-            !match ||
             !Number.isFinite(state.currentX) ||
             !Number.isFinite(state.currentY)
         ) {
             return false
         }
 
-        const x = state.coordinateParser.parseX(match[1])
-        const y = state.coordinateParser.parseY(match[2])
+        const x = state.coordinateParser.parseX(match[3])
+        const y = state.coordinateParser.parseY(match[4])
         GerberDrillParser.#appendSlot(state, x, y)
         GerberDrillParser.#setCurrentPoint(state, x, y)
         return true
