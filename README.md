@@ -12,6 +12,12 @@ package subpaths. The root now exposes the same 17-class API as
 returns an `ecad-toolkit.document.v1` envelope whose `model` is CircuitJSON,
 and `ProjectLoader.load()` returns an `ecad-toolkit.project.v1` envelope.
 
+Version 0.3.0 updates the shared runtime baseline to CircuitJSON Toolkit 1.2
+and makes performance release gates hardware-aware. Comparable environments
+retain their absolute and relative timing thresholds, while different hardware
+still has to pass the deterministic structural and size gates. See the
+[0.3.0 release notes](docs/release-notes-v0.3.0.md).
+
 No Gerber functionality was removed. The complete 0.1.21 parser, renderer,
 interaction, and native 3D APIs remain available from
 `gerber-toolkit/extensions`. See the [migration guide](docs/migration.md).
@@ -111,6 +117,7 @@ const nativeScene = PcbScene3dBuilder.build(nativeDocument)
 - [API](docs/api.md)
 - [Capabilities](docs/capabilities.md)
 - [Migration from 0.1.21](docs/migration.md)
+- [0.3.0 release notes](docs/release-notes-v0.3.0.md)
 - [0.2.0 release notes](docs/release-notes-v0.2.0.md)
 - [Model format](docs/model-format.md)
 - [Testing and performance](docs/testing.md)
