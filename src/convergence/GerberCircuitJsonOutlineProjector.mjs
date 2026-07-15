@@ -357,7 +357,7 @@ export class GerberCircuitJsonOutlineProjector {
         let path = initial
         while (
             unused.size &&
-            !GerberCircuitJsonOutlineProjector.#closedPoints(path)
+            !GerberCircuitJsonOutlineProjector.#isClosedPath(path)
         ) {
             const target = prepend ? path[0] : path.at(-1)
             const index = (
@@ -391,6 +391,19 @@ export class GerberCircuitJsonOutlineProjector {
         const rows = index.get(key) || []
         rows.push(segment)
         index.set(key, rows)
+    }
+
+    /**
+     * Tests whether an assembled path has returned to its quantized start.
+     * @param {{ x: number, y: number }[]} points Assembled path points.
+     * @returns {boolean} Whether the path has enough points to form a closed polygon.
+     */
+    static #isClosedPath(points) {
+        return (
+            points.length >= 4 &&
+            GerberCircuitJsonOutlineProjector.#key(points[0]) ===
+                GerberCircuitJsonOutlineProjector.#key(points.at(-1))
+        )
     }
 
     /**
