@@ -395,6 +395,41 @@ test('closed source contours survive a following shared-vertex stroke', () => {
     ])
 })
 
+test('quantized-degenerate arcs preserve valid source contours', () => {
+    const outline = [
+        '%FSLAX27Y27*%',
+        '%MOMM*%',
+        '%ADD10C,0.100*%',
+        'D10*',
+        'X000000000Y000000000D02*',
+        'X120000000Y000000000D01*',
+        'X120000000Y120000000D01*',
+        'X000000000Y120000000D01*',
+        'X000000000Y000000000D01*',
+        'X020000000Y020000000D02*',
+        'G75*',
+        'G03*',
+        'X020000000Y020000000I000000001J000000000D01*',
+        'G01*',
+        'X050000000Y020000000D01*',
+        'X050000000Y050000000D01*',
+        'X020000000Y050000000D01*',
+        'X020000000Y020000000D01*',
+        'M02*'
+    ].join('\n')
+    const model = ProjectLoader.load([{ name: 'shape-d.gm1', data: outline }])
+        .documents[0].model
+    const cutouts = model.filter((element) => element.type === 'pcb_cutout')
+
+    assert.equal(cutouts.length, 1)
+    assert.deepEqual(cutouts[0].points, [
+        { x: 2, y: 2 },
+        { x: 5, y: 2 },
+        { x: 5, y: 5 },
+        { x: 2, y: 5 }
+    ])
+})
+
 test('profile cutouts target only their containing board', () => {
     const model = ProjectLoader.load([
         {

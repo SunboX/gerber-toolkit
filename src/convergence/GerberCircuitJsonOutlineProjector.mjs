@@ -248,9 +248,9 @@ export class GerberCircuitJsonOutlineProjector {
     }
 
     /**
-     * Converts a line or arc to one directed point sequence.
+     * Converts a line or arc to one normalized directed point sequence.
      * @param {Record<string, any>} primitive Native primitive.
-     * @returns {{ x: number, y: number }[] | null} Segment points.
+     * @returns {{ x: number, y: number }[] | null} Normalized segment points.
      */
     static #segment(primitive) {
         if (primitive?.type === 'line') {
@@ -260,7 +260,9 @@ export class GerberCircuitJsonOutlineProjector {
             ])
         }
         if (primitive?.type === 'arc') {
-            return GerberCircuitJsonArcSampler.points(primitive)
+            return GerberCircuitJsonOutlineProjector.#finitePoints(
+                GerberCircuitJsonArcSampler.points(primitive)
+            )
         }
         return null
     }
@@ -333,9 +335,10 @@ export class GerberCircuitJsonOutlineProjector {
                 path = []
             }
             path = path.length ? [...path, ...segment.slice(1)] : [...segment]
-            const closed = GerberCircuitJsonOutlineProjector.#closedPoints(path)
-            if (closed) {
-                paths.push(closed)
+            if (GerberCircuitJsonOutlineProjector.#isClosedPath(path)) {
+                const closed =
+                    GerberCircuitJsonOutlineProjector.#closedPoints(path)
+                if (closed) paths.push(closed)
                 path = []
             }
         }
