@@ -12,11 +12,17 @@ export class GerberCircuitJsonOutlineProjector {
      */
     static project(layers) {
         const candidates = []
+        const eligibleCutouts = new Set()
         const explicitCutouts = []
         for (const layer of layers) {
             if (!GerberCircuitJsonLayerSemantics.isBoardOutline(layer)) continue
             const projected = GerberCircuitJsonOutlineProjector.#layer(layer)
             candidates.push(...projected.dark)
+            for (const points of projected.eligibleDark) {
+                eligibleCutouts.add(
+                    GerberCircuitJsonOutlineProjector.#contourKey(points)
+                )
+            }
             explicitCutouts.push(...projected.clear)
         }
         const dark = candidates.filter(
@@ -33,7 +39,15 @@ export class GerberCircuitJsonOutlineProjector {
             .sort((left, right) => left.index - right.index)
             .map((row, boardIndex) => ({ ...row, boardIndex }))
         const cutoutRows = classified
-            .filter((row) => row.depth % 2 === 1)
+            .filter(
+                (row) =>
+                    row.depth % 2 === 1 &&
+                    eligibleCutouts.has(
+                        GerberCircuitJsonOutlineProjector.#contourKey(
+                            row.points
+                        )
+                    )
+            )
             .map((row) => ({
                 points: row.points,
                 boardIndex:
@@ -170,9 +184,9 @@ export class GerberCircuitJsonOutlineProjector {
     }
 
     /**
-     * Builds closed dark and clear paths for one outline layer.
+     * Builds closed dark, eligible dark, and clear paths for one outline layer.
      * @param {Record<string, any>} layer Native outline layer.
-     * @returns {{ dark: { x: number, y: number }[][], clear: { x: number, y: number }[][] }} Closed paths.
+     * @returns {{ dark: { x: number, y: number }[][], eligibleDark: { x: number, y: number }[][], clear: { x: number, y: number }[][] }} Closed paths.
      */
     static #layer(layer) {
         const darkSegments = []
@@ -191,11 +205,20 @@ export class GerberCircuitJsonOutlineProjector {
             const points = GerberCircuitJsonOutlineProjector.#segment(primitive)
             if (points) (clear ? clearSegments : darkSegments).push(points)
         }
+        const darkChains =
+            GerberCircuitJsonOutlineProjector.#closedChains(darkSegments)
+        const eligibleDark =
+            GerberCircuitJsonOutlineProjector.#isExplicitProfile(layer)
+                ? [...darkRegions, ...darkChains]
+                : [
+                      ...darkRegions,
+                      ...GerberCircuitJsonOutlineProjector.#sourceClosedChains(
+                          darkSegments
+                      )
+                  ]
         return {
-            dark: [
-                ...darkRegions,
-                ...GerberCircuitJsonOutlineProjector.#closedChains(darkSegments)
-            ],
+            dark: [...darkRegions, ...darkChains],
+            eligibleDark,
             clear: [
                 ...clearRegions,
                 ...GerberCircuitJsonOutlineProjector.#closedChains(
@@ -203,6 +226,25 @@ export class GerberCircuitJsonOutlineProjector {
                 )
             ]
         }
+    }
+
+    /**
+     * Returns whether X2 metadata explicitly declares a Profile layer.
+     * @param {Record<string, any>} layer Native outline layer.
+     * @returns {boolean} Whether the first FileFunction token is Profile.
+     */
+    static #isExplicitProfile(layer) {
+        const value = layer?.attributes?.file?.FileFunction
+        const tokens = Array.isArray(value)
+            ? value
+            : typeof value === 'string'
+              ? value.split(',')
+              : []
+        return (
+            String(tokens[0] || '')
+                .trim()
+                .toLowerCase() === 'profile'
+        )
     }
 
     /**
@@ -268,6 +310,37 @@ export class GerberCircuitJsonOutlineProjector {
             const closed = GerberCircuitJsonOutlineProjector.#closedPoints(path)
             if (closed) paths.push(closed)
         }
+        return paths
+    }
+
+    /**
+     * Chains only source-ordered, forward-directed segments into closed paths.
+     * @param {{ x: number, y: number }[][]} segments Directed segments.
+     * @returns {{ x: number, y: number }[][]} Source-continuous closed paths.
+     */
+    static #sourceClosedChains(segments) {
+        const paths = []
+        let path = []
+        for (const segment of segments) {
+            const continuous =
+                path.length > 0 &&
+                GerberCircuitJsonOutlineProjector.#key(segment[0]) ===
+                    GerberCircuitJsonOutlineProjector.#key(path.at(-1))
+            if (path.length > 0 && !continuous) {
+                const closed =
+                    GerberCircuitJsonOutlineProjector.#closedPoints(path)
+                if (closed) paths.push(closed)
+                path = []
+            }
+            path = path.length ? [...path, ...segment.slice(1)] : [...segment]
+            const closed = GerberCircuitJsonOutlineProjector.#closedPoints(path)
+            if (closed) {
+                paths.push(closed)
+                path = []
+            }
+        }
+        const closed = GerberCircuitJsonOutlineProjector.#closedPoints(path)
+        if (closed) paths.push(closed)
         return paths
     }
 
@@ -376,6 +449,25 @@ export class GerberCircuitJsonOutlineProjector {
             points.push(point)
         }
         return points
+    }
+
+    /**
+     * Builds a rotation- and winding-independent signature for one contour.
+     * @param {{ x: number, y: number }[]} points Polygon points.
+     * @returns {string} Quantized unordered-edge signature.
+     */
+    static #contourKey(points) {
+        const edges = []
+        for (let index = 0; index < points.length; index += 1) {
+            const endpointKeys = [
+                GerberCircuitJsonOutlineProjector.#key(points[index]),
+                GerberCircuitJsonOutlineProjector.#key(
+                    points[(index + 1) % points.length]
+                )
+            ].sort()
+            edges.push(endpointKeys.join('>'))
+        }
+        return edges.sort().join('|')
     }
 
     /**
