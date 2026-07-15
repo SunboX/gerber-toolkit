@@ -16,7 +16,10 @@ cancellation, workers, typed errors, the native compatibility API, renderer and
 Fidelity regressions cover ordered polarity, physical board domains,
 solder-mask coverage, X2 ownership, aperture/macro/block geometry, modal Gerber
 operations, arc extrema, Excellon units/slots, descriptor-safe inputs, and
-worker/direct byte ownership.
+worker/direct byte ownership. Outline-specific coverage includes D02-separated
+frames, step-repeat draw-run identity, transparent containment nodes, concave
+crossings, 140,000-segment chain flattening, and bounded 8,000/16,000-segment
+scaling.
 
 `npm run benchmark` compares production canonical parsing, project loading,
 interaction lookup, rendering, and cloning workloads against the immutable

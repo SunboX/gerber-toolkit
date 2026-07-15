@@ -21,8 +21,10 @@ const STRUCTURAL_CHECKSUMS = Object.freeze({
         'e05b9b3e9a29eb3b0bd40d4c3a42f805779eea699f6555fc708450df38f18acf',
     currentClone:
         'a02f0bb282dfc7c7f1d686e6d2c4e24b6882db271ab6a258110f4ccb7026fced',
-    smallParse:
+    baselineSmallParse:
         '93c6eea8c928ebb92e72a03237866c5dac70a36ad2d341c7db948a450b2ce5f6',
+    currentSmallParse:
+        'f6561f0d83bf74de22dd49dabfdaea9f56e05e342cb4f6f301c0ca5c113df40d',
     smallRender:
         'deb0a12d569b8dc6f2eee52772b1623122581c857b94d9636ae05f854b381a90'
 })
@@ -165,7 +167,10 @@ export class GerberBenchmarkSuite {
                 size: 'small',
                 workload: 'small-gerber-parse',
                 fixtureChecksum: GerberBenchmarkSuite.#checksum(small),
-                expectedStructuralChecksum: STRUCTURAL_CHECKSUMS.smallParse,
+                expectedStructuralChecksum:
+                    profile === 'baseline'
+                        ? STRUCTURAL_CHECKSUMS.baselineSmallParse
+                        : STRUCTURAL_CHECKSUMS.currentSmallParse,
                 run: async () =>
                     GerberParser.parseArrayBuffer(small.fileName, small.bytes)
             },

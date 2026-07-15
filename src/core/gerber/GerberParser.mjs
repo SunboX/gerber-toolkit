@@ -8,6 +8,7 @@ import { GerberCoordinateParser } from './GerberCoordinateParser.mjs'
 import { GerberDrillParser } from './GerberDrillParser.mjs'
 import { GerberLayerRoleResolver } from './GerberLayerRoleResolver.mjs'
 import { GerberPrimitiveBuilder } from './GerberPrimitiveBuilder.mjs'
+import { GerberStepRepeatParser } from './GerberStepRepeatParser.mjs'
 
 /**
  * Parses one Gerber or Excellon source file into a PCB document.
@@ -136,6 +137,9 @@ export class GerberParser {
                 rotation: 0,
                 scale: 1
             },
+            sourcePathSequence: 0,
+            activeSourcePathId: null,
+            stepRepeatSequence: 0,
             stepRepeat: null,
             apertureBlock: null,
             imagePolarity: 'positive',
@@ -229,6 +233,7 @@ export class GerberParser {
         }
 
         if (command === 'G36') {
+            GerberParser.#breakSourcePath(state)
             state.inRegion = true
             state.regionPoints = []
             state.regionApertureAttributes = {
@@ -341,6 +346,7 @@ export class GerberParser {
         }
 
         if (command === 'IPPOS' || command === 'IPNEG') {
+            GerberParser.#breakSourcePath(state)
             state.imagePolarity = command === 'IPNEG' ? 'negative' : 'positive'
             state.diagnostics.push({
                 severity: 'warning',
@@ -355,11 +361,12 @@ export class GerberParser {
         }
 
         if (command.startsWith('SR')) {
-            GerberParser.#applyStepRepeat(command, state)
+            GerberStepRepeatParser.apply(command, state)
             return
         }
 
         if (command === 'LPD' || command === 'LPC') {
+            GerberParser.#breakSourcePath(state)
             state.polarity = command === 'LPC' ? 'clear' : 'dark'
             return
         }
@@ -452,30 +459,6 @@ export class GerberParser {
         )
         child.polarity = parent.polarity
         return child
-    }
-
-    /**
-     * Applies a step-repeat command.
-     * @param {string} command Step-repeat command.
-     * @param {object} state Parser state.
-     * @returns {void}
-     */
-    static #applyStepRepeat(command, state) {
-        if (command === 'SR') {
-            state.stepRepeat = null
-            return
-        }
-
-        const x = /X(\d+)/u.exec(command)
-        const y = /Y(\d+)/u.exec(command)
-        const i = /I([+-]?[0-9.]+)/u.exec(command)
-        const j = /J([+-]?[0-9.]+)/u.exec(command)
-        state.stepRepeat = {
-            x: Math.max(1, Number.parseInt(x?.[1] || '1', 10)),
-            y: Math.max(1, Number.parseInt(y?.[1] || '1', 10)),
-            i: GerberParser.#unitValue(i?.[1], state.unit),
-            j: GerberParser.#unitValue(j?.[1], state.unit)
-        }
     }
 
     /**
@@ -629,6 +612,7 @@ export class GerberParser {
         if (operation) state.currentOperation = code
 
         if (code === '02') {
+            GerberParser.#breakSourcePath(state)
             if (state.inRegion && state.regionPoints.length) {
                 GerberParser.#flushRegionContour(state)
             }
@@ -639,6 +623,7 @@ export class GerberParser {
         }
 
         if (code === '03') {
+            GerberParser.#breakSourcePath(state)
             GerberParser.#flash(state, nextX, nextY)
             state.currentX = nextX
             state.currentY = nextY
@@ -724,6 +709,7 @@ export class GerberParser {
         const width =
             GerberParser.#apertureStrokeWidth(aperture) *
             state.apertureTransform.scale
+        const sourcePathId = GerberParser.#sourcePathId(state)
         const primitive =
             state.interpolation === 'linear'
                 ? {
@@ -733,12 +719,14 @@ export class GerberParser {
                       x2: x,
                       y2: y,
                       width,
+                      sourcePathId,
                       apertureAttributes: aperture.apertureAttributes
                   }
                 : {
                       type: 'arc',
                       ...arc,
                       width,
+                      sourcePathId,
                       apertureAttributes: aperture.apertureAttributes
                   }
 
@@ -791,6 +779,29 @@ export class GerberParser {
         state.inRegion = false
         state.regionPoints = []
         state.regionApertureAttributes = {}
+        GerberParser.#breakSourcePath(state)
+    }
+
+    /**
+     * Resolves the stable identity for the active source draw run.
+     * @param {object} state Parser state.
+     * @returns {string} Source path identity.
+     */
+    static #sourcePathId(state) {
+        if (!state.activeSourcePathId) {
+            state.sourcePathSequence += 1
+            state.activeSourcePathId = `gerber_source_path_${state.sourcePathSequence}`
+        }
+        return state.activeSourcePathId
+    }
+
+    /**
+     * Ends the active source draw run before a non-drawing boundary.
+     * @param {object} state Parser state.
+     * @returns {void}
+     */
+    static #breakSourcePath(state) {
+        state.activeSourcePathId = null
     }
 
     /**
@@ -959,17 +970,6 @@ export class GerberParser {
      */
     static #collectDiagnostics(layers) {
         return layers.flatMap((layer) => layer.diagnostics || [])
-    }
-
-    /**
-     * Converts a parameter value from current Gerber units to millimeters.
-     * @param {string | undefined} value Numeric text.
-     * @param {string} unit Unit token.
-     * @returns {number}
-     */
-    static #unitValue(value, unit) {
-        const number = Number.parseFloat(String(value || '0'))
-        return GerberParser.#round(unit === 'inch' ? number * 25.4 : number)
     }
 
     /**

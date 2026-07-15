@@ -34,6 +34,18 @@ projection instead of repeatedly normalizing growing paths. Public APIs and
 return shapes remain unchanged. See the
 [0.4.1 release notes](docs/release-notes-v0.4.1.md).
 
+Version 0.4.2 supersedes 0.4.1 with parser-owned draw-run provenance and a
+material-aware containment tree. D02 moves, flashes, polarity transitions,
+regions, and step-repeat instances can no longer be collapsed into one inferred
+cutout path. Ineligible artwork remains transparent to nested material parity,
+while X2 profiles, Gerber regions, clear geometry, fragmented outer profiles,
+and disjoint boards retain their established behavior. Chunked chaining and an
+indexed contour-boundary test also remove the quadratic growth and large-array
+overflow paths found during release review. Canonical envelopes and service
+return shapes are unchanged; native line and arc primitives add
+`sourcePathId`. See the
+[0.4.2 release notes](docs/release-notes-v0.4.2.md).
+
 No Gerber functionality was removed. The complete 0.1.21 parser, renderer,
 interaction, and native 3D APIs remain available from
 `gerber-toolkit/extensions`. See the [migration guide](docs/migration.md).
@@ -133,6 +145,7 @@ const nativeScene = PcbScene3dBuilder.build(nativeDocument)
 - [API](docs/api.md)
 - [Capabilities](docs/capabilities.md)
 - [Migration from 0.1.21](docs/migration.md)
+- [0.4.2 release notes](docs/release-notes-v0.4.2.md)
 - [0.4.1 release notes](docs/release-notes-v0.4.1.md)
 - [0.4.0 release notes](docs/release-notes-v0.4.0.md)
 - [0.3.0 release notes](docs/release-notes-v0.3.0.md)

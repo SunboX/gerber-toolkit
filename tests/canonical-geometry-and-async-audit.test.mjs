@@ -358,6 +358,224 @@ test('pen-separated mechanical frames do not become canonical cutouts', () => {
     ])
 })
 
+test('ordered pen-separated mechanical frames remain topologically inert', () => {
+    const outline = [
+        '%FSLAX24Y24*%',
+        '%MOMM*%',
+        '%ADD10C,0.100*%',
+        'D10*',
+        'X000000Y000000D02*',
+        'X120000Y000000D01*',
+        'X120000Y120000D01*',
+        'X000000Y120000D01*',
+        'X000000Y000000D01*',
+        'X030000Y030000D02*',
+        'X090000Y030000D01*',
+        'X090000Y030000D02*',
+        'X090000Y090000D01*',
+        'X090000Y090000D02*',
+        'X030000Y090000D01*',
+        'X030000Y090000D02*',
+        'X030000Y030000D01*',
+        'M02*'
+    ].join('\n')
+    const model = ProjectLoader.load([
+        { name: 'ordered-breaks.gm1', data: outline }
+    ]).documents[0].model
+
+    assert.equal(
+        model.filter((element) => element.type === 'pcb_board').length,
+        1
+    )
+    assert.equal(
+        model.filter((element) => element.type === 'pcb_cutout').length,
+        0
+    )
+})
+
+test('ineligible mechanical frames do not change nested cutout parity', () => {
+    const outline = [
+        '%FSLAX24Y24*%',
+        '%MOMM*%',
+        '%ADD10C,0.100*%',
+        'D10*',
+        'X000000Y000000D02*',
+        'X120000Y000000D01*',
+        'X120000Y120000D01*',
+        'X000000Y120000D01*',
+        'X000000Y000000D01*',
+        'X020000Y100000D02*',
+        'X100000Y100000D01*',
+        'X100000Y020000D02*',
+        'X100000Y100000D01*',
+        'X020000Y020000D02*',
+        'X100000Y020000D01*',
+        'X020000Y020000D02*',
+        'X020000Y100000D01*',
+        'X040000Y040000D02*',
+        'X060000Y040000D01*',
+        'X060000Y060000D01*',
+        'X040000Y060000D01*',
+        'X040000Y040000D01*',
+        'M02*'
+    ].join('\n')
+    const model = ProjectLoader.load([
+        { name: 'nested-artwork.gm1', data: outline }
+    ]).documents[0].model
+    const boards = model.filter((element) => element.type === 'pcb_board')
+    const cutouts = model.filter((element) => element.type === 'pcb_cutout')
+
+    assert.equal(boards.length, 1)
+    assert.equal(cutouts.length, 1)
+    assert.deepEqual(cutouts[0].points, [
+        { x: 4, y: 4 },
+        { x: 6, y: 4 },
+        { x: 6, y: 6 },
+        { x: 4, y: 6 }
+    ])
+})
+
+test('crossing contours are not nested by one interior vertex', () => {
+    const outline = [
+        '%FSLAX24Y24*%',
+        '%MOMM*%',
+        '%ADD10C,0.100*%',
+        'D10*',
+        'X000000Y000000D02*',
+        'X100000Y000000D01*',
+        'X100000Y100000D01*',
+        'X070000Y100000D01*',
+        'X070000Y030000D01*',
+        'X030000Y030000D01*',
+        'X030000Y100000D01*',
+        'X000000Y100000D01*',
+        'X000000Y000000D01*',
+        'X010000Y040000D02*',
+        'X090000Y040000D01*',
+        'X090000Y080000D01*',
+        'X010000Y080000D01*',
+        'X010000Y040000D01*',
+        'M02*'
+    ].join('\n')
+    const model = ProjectLoader.load([
+        { name: 'crossing-contours.gm1', data: outline }
+    ]).documents[0].model
+
+    assert.equal(
+        model.filter((element) => element.type === 'pcb_board').length,
+        2
+    )
+    assert.equal(
+        model.filter((element) => element.type === 'pcb_cutout').length,
+        0
+    )
+})
+
+test('explicit profiles retain unordered shared-vertex cutouts', () => {
+    const outline = [
+        '%FSLAX24Y24*%',
+        '%MOMM*%',
+        '%TF.FileFunction,Profile,NP*%',
+        '%ADD10C,0.100*%',
+        'D10*',
+        'X000000Y000000D02*',
+        'X120000Y000000D01*',
+        'X120000Y120000D01*',
+        'X000000Y120000D01*',
+        'X000000Y000000D01*',
+        'X030000Y090000D02*',
+        'X090000Y090000D01*',
+        'X090000Y030000D02*',
+        'X090000Y090000D01*',
+        'X030000Y030000D02*',
+        'X090000Y030000D01*',
+        'X030000Y030000D02*',
+        'X030000Y090000D01*',
+        'M02*'
+    ].join('\n')
+    const model = ProjectLoader.load([
+        { name: 'unordered-profile.gbr', data: outline }
+    ]).documents[0].model
+
+    assert.equal(
+        model.filter((element) => element.type === 'pcb_board').length,
+        1
+    )
+    assert.equal(
+        model.filter((element) => element.type === 'pcb_cutout').length,
+        1
+    )
+})
+
+test('fragmented unordered mechanical roots remain discoverable boards', () => {
+    const outline = [
+        '%FSLAX24Y24*%',
+        '%MOMM*%',
+        '%ADD10C,0.100*%',
+        'D10*',
+        'X000000Y120000D02*',
+        'X120000Y120000D01*',
+        'X120000Y000000D02*',
+        'X120000Y120000D01*',
+        'X000000Y000000D02*',
+        'X120000Y000000D01*',
+        'X000000Y000000D02*',
+        'X000000Y120000D01*',
+        'M02*'
+    ].join('\n')
+    const model = ProjectLoader.load([
+        { name: 'fragmented-root.gm1', data: outline }
+    ]).documents[0].model
+
+    assert.equal(
+        model.filter((element) => element.type === 'pcb_board').length,
+        1
+    )
+    assert.equal(
+        model.filter((element) => element.type === 'pcb_cutout').length,
+        0
+    )
+})
+
+test('step-repeat instances retain independent source-continuous cutouts', () => {
+    const outline = [
+        '%FSLAX24Y24*%',
+        '%MOMM*%',
+        '%ADD10C,0.100*%',
+        'D10*',
+        'X000000Y000000D02*',
+        'X300000Y000000D01*',
+        'X300000Y120000D01*',
+        'X000000Y120000D01*',
+        'X000000Y000000D01*',
+        '%SRX2Y1I10.000J0.000*%',
+        'X030000Y030000D02*',
+        'X060000Y030000D01*',
+        'X060000Y060000D01*',
+        'X030000Y060000D01*',
+        'X030000Y030000D01*',
+        '%SR*%',
+        'M02*'
+    ].join('\n')
+    const model = ProjectLoader.load([
+        { name: 'repeated-cuts.gm1', data: outline }
+    ]).documents[0].model
+    const cutouts = model.filter((element) => element.type === 'pcb_cutout')
+
+    assert.equal(
+        model.filter((element) => element.type === 'pcb_board').length,
+        1
+    )
+    assert.equal(cutouts.length, 2)
+    assert.deepEqual(
+        cutouts.map((cutout) => cutout.points[0]),
+        [
+            { x: 3, y: 3 },
+            { x: 13, y: 3 }
+        ]
+    )
+})
+
 test('closed source contours survive a following shared-vertex stroke', () => {
     const outline = [
         '%FSLAX24Y24*%',

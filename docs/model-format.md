@@ -34,9 +34,11 @@ Gerber coordinates are normalized to millimeters.
 The projection emits only semantics established by fabrication geometry or
 explicit X2 attributes:
 
-- one `pcb_board` per disjoint closed profile, with nested/clear contours as
-  board-owned `pcb_cutout` rows; aggregate bounds are a documented fallback
-  when no closed profile exists
+- one `pcb_board` per disjoint closed profile; regions, source-continuous dark
+  contours, authoritative X2 profiles, and clear contours can become
+  board-owned `pcb_cutout` rows, while non-physical mechanical artwork remains
+  transparent to nested material parity; aggregate bounds are a documented
+  fallback when no closed profile exists
 - `pcb_trace`, `pcb_smtpad`, and `pcb_copper_pour` for copper strokes, flashes,
   regions, standard aperture holes, polygons, macros, and aperture blocks
 - ordered BREP composition when clear exposures, file/image polarity, partial
@@ -84,8 +86,11 @@ const native = document.extensions.gerber.native
 Native layers retain original roles, immutable file attributes,
 definition-bound aperture attributes, object attributes, aperture-expanded
 primitives, drills, slots, `FilePolarity`/`IPNEG`, transforms, exact arc-aware
-bounds, and diagnostics. This keeps CAM inspection available without making
-native layout a hidden dependency of common consumers.
+bounds, and diagnostics. Parsed line and arc primitives also expose a stable
+`sourcePathId`; pen-up, flash, polarity, and region boundaries end a path, and
+step-repeat instances receive distinct identities. This keeps CAM inspection
+and exact draw-run intent available without making native layout a hidden
+dependency of common consumers.
 
 ## Project envelope
 

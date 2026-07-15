@@ -191,6 +191,34 @@ test('GerberParser applies step-repeat, layer polarity, attributes, and aperture
     })
 })
 
+test('GerberParser preserves draw-run and repeat-instance provenance', () => {
+    const source = [
+        '%FSLAX24Y24*%',
+        '%MOMM*%',
+        '%ADD10C,0.100*%',
+        'D10*',
+        '%SRX2Y1I10.000J0.000*%',
+        'X000000Y000000D02*',
+        'X020000Y000000D01*',
+        'X020000Y020000D01*',
+        'X050000Y050000D02*',
+        'X070000Y050000D01*',
+        '%SR*%',
+        'M02*'
+    ].join('\n')
+    const lines = GerberParser.parseArrayBuffer(
+        'source-runs.gm1',
+        bytes(source)
+    ).pcb.fabrication.layers[0].primitives
+
+    assert.equal(lines.length, 6)
+    assert.equal(lines[0].sourcePathId, lines[2].sourcePathId)
+    assert.equal(lines[1].sourcePathId, lines[3].sourcePathId)
+    assert.notEqual(lines[0].sourcePathId, lines[1].sourcePathId)
+    assert.notEqual(lines[2].sourcePathId, lines[4].sourcePathId)
+    assert.notEqual(lines[3].sourcePathId, lines[5].sourcePathId)
+})
+
 test('GerberParser binds TA attributes to aperture definitions', () => {
     const source = [
         '%FSLAX24Y24*%',

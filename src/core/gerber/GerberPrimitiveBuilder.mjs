@@ -23,10 +23,15 @@ export class GerberPrimitiveBuilder {
             for (let xIndex = 0; xIndex < repeat.x; xIndex += 1) {
                 GerberPrimitiveBuilder.#appendInstance(
                     state,
-                    GerberPrimitiveBuilder.translate(
-                        decorated,
-                        xIndex * repeat.i,
-                        yIndex * repeat.j
+                    GerberPrimitiveBuilder.#repeatInstance(
+                        GerberPrimitiveBuilder.translate(
+                            decorated,
+                            xIndex * repeat.i,
+                            yIndex * repeat.j
+                        ),
+                        repeat,
+                        xIndex,
+                        yIndex
                     )
                 )
             }
@@ -157,6 +162,22 @@ export class GerberPrimitiveBuilder {
      */
     static clone(value) {
         return JSON.parse(JSON.stringify(value || {}))
+    }
+
+    /**
+     * Assigns a distinct source-path identity to one step-repeat instance.
+     * @param {object} primitive Expanded primitive.
+     * @param {object} repeat Active step-repeat definition.
+     * @param {number} xIndex Horizontal repeat index.
+     * @param {number} yIndex Vertical repeat index.
+     * @returns {object} Instance primitive.
+     */
+    static #repeatInstance(primitive, repeat, xIndex, yIndex) {
+        if (!primitive.sourcePathId) return primitive
+        return {
+            ...primitive,
+            sourcePathId: `${primitive.sourcePathId}:repeat_${repeat.sourceInstanceId}_${xIndex}_${yIndex}`
+        }
     }
 
     /**
