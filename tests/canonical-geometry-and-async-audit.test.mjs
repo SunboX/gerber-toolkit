@@ -314,6 +314,50 @@ test('disjoint profile loops remain separate boards while nested loops are cutou
     )
 })
 
+test('pen-separated mechanical frames do not become canonical cutouts', () => {
+    const outline = [
+        '%FSLAX24Y24*%',
+        '%MOMM*%',
+        '%ADD10C,0.100*%',
+        'D10*',
+        'X000000Y000000D02*',
+        'X120000Y000000D01*',
+        'X120000Y120000D01*',
+        'X000000Y120000D01*',
+        'X000000Y000000D01*',
+        'X010000Y010000D02*',
+        'X030000Y010000D01*',
+        'X030000Y030000D01*',
+        'X010000Y030000D01*',
+        'X010000Y010000D01*',
+        'X050000Y090000D02*',
+        'X090000Y090000D01*',
+        'X090000Y050000D02*',
+        'X090000Y090000D01*',
+        'X050000Y050000D02*',
+        'X090000Y050000D01*',
+        'X050000Y050000D02*',
+        'X050000Y090000D01*',
+        'M02*'
+    ].join('\n')
+    const model = ProjectLoader.load([
+        { name: 'mechanical-frame.gm1', data: outline }
+    ]).documents[0].model
+    const cutouts = model.filter((element) => element.type === 'pcb_cutout')
+
+    assert.equal(
+        model.filter((element) => element.type === 'pcb_board').length,
+        1
+    )
+    assert.equal(cutouts.length, 1)
+    assert.deepEqual(cutouts[0].points, [
+        { x: 1, y: 1 },
+        { x: 3, y: 1 },
+        { x: 3, y: 3 },
+        { x: 1, y: 3 }
+    ])
+})
+
 test('profile cutouts target only their containing board', () => {
     const model = ProjectLoader.load([
         {
