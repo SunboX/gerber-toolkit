@@ -21,9 +21,11 @@
 ### Task 1: Lock down mechanical-stroke cutout semantics
 
 **Files:**
+
 - Modify: `tests/canonical-geometry-and-async-audit.test.mjs`
 
 **Interfaces:**
+
 - Consumes: `ProjectLoader.load([{ name, data }]).documents[0].model`
 - Produces: a regression contract over canonical `pcb_board` and `pcb_cutout` rows.
 
@@ -92,10 +94,12 @@ Expected: FAIL because the current projector returns two cutouts.
 ### Task 2: Make cutout inference source-continuity aware
 
 **Files:**
+
 - Modify: `src/convergence/GerberCircuitJsonOutlineProjector.mjs`
 - Test: `tests/canonical-geometry-and-async-audit.test.mjs`
 
 **Interfaces:**
+
 - Consumes: native outline layers and their ordered `primitives` arrays.
 - Produces: unchanged `{ boards, cutouts }` return shape from `GerberCircuitJsonOutlineProjector.project(layers)`.
 
@@ -111,9 +115,7 @@ const eligibleDark = GerberCircuitJsonOutlineProjector.#isExplicitProfile(layer)
     ? [...darkRegions, ...darkChains]
     : [
           ...darkRegions,
-          ...GerberCircuitJsonOutlineProjector.#sourceClosedChains(
-              darkSegments
-          )
+          ...GerberCircuitJsonOutlineProjector.#sourceClosedChains(darkSegments)
       ]
 ```
 
@@ -173,12 +175,14 @@ git commit -m "fix: preserve profile path intent"
 ### Task 3: Verify, document, release, and deploy
 
 **Files:**
+
 - Modify: `README.md`
 - Create: `docs/release-notes-v0.4.1.md`
 - Modify: `package.json`
 - Modify in ECAD Forge: `package.json`, `package-lock.json`, generated structured-data HTML, release notes/docs as required.
 
 **Interfaces:**
+
 - Consumes: released `gerber-toolkit` package and the existing ECAD Forge dependency boundary.
 - Produces: a published toolkit patch and an ECAD Forge patch release that consumes it.
 
@@ -226,4 +230,3 @@ Commit and push `main`, create the GitHub release, watch the exact
 `Deploy to FTP (main)` workflow for the pushed SHA to conclusion `success`,
 then reload the exact production URL and confirm the visual fix and zero browser
 errors.
-

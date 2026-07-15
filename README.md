@@ -24,6 +24,16 @@ deeply frozen without a redundant defensive graph copy. Parser parameters,
 document envelopes, extension fields, and return shapes remain unchanged. See
 the [0.4.0 release notes](docs/release-notes-v0.4.0.md).
 
+Version 0.4.1 keeps unordered endpoint reconstruction for discovering board
+profiles, but requires inferred dark cutouts on ambiguous mechanical layers to
+follow a directed, source-order-continuous closed path. Gerber regions,
+clear-polarity contours, and authoritative X2 `FileFunction=Profile` layers
+retain their explicit cutout semantics. Closure checks now use normalized
+segment endpoints, and sampled arcs are normalized once as they enter profile
+projection instead of repeatedly normalizing growing paths. Public APIs and
+return shapes remain unchanged. See the
+[0.4.1 release notes](docs/release-notes-v0.4.1.md).
+
 No Gerber functionality was removed. The complete 0.1.21 parser, renderer,
 interaction, and native 3D APIs remain available from
 `gerber-toolkit/extensions`. See the [migration guide](docs/migration.md).
@@ -123,6 +133,7 @@ const nativeScene = PcbScene3dBuilder.build(nativeDocument)
 - [API](docs/api.md)
 - [Capabilities](docs/capabilities.md)
 - [Migration from 0.1.21](docs/migration.md)
+- [0.4.1 release notes](docs/release-notes-v0.4.1.md)
 - [0.4.0 release notes](docs/release-notes-v0.4.0.md)
 - [0.3.0 release notes](docs/release-notes-v0.3.0.md)
 - [0.2.0 release notes](docs/release-notes-v0.2.0.md)
