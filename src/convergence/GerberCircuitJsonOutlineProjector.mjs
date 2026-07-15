@@ -345,7 +345,7 @@ export class GerberCircuitJsonOutlineProjector {
     }
 
     /**
-     * Extends one path from its end or beginning until no segment matches.
+     * Extends one path until it closes or no segment matches.
      * @param {{ x: number, y: number }[]} initial Current path.
      * @param {{ x: number, y: number }[][]} segments All segments.
      * @param {Map<string, number[]>} endpoints Endpoint index.
@@ -355,7 +355,10 @@ export class GerberCircuitJsonOutlineProjector {
      */
     static #grow(initial, segments, endpoints, unused, prepend) {
         let path = initial
-        while (unused.size) {
+        while (
+            unused.size &&
+            !GerberCircuitJsonOutlineProjector.#closedPoints(path)
+        ) {
             const target = prepend ? path[0] : path.at(-1)
             const index = (
                 endpoints.get(GerberCircuitJsonOutlineProjector.#key(target)) ||
