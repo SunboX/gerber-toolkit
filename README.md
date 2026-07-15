@@ -18,6 +18,12 @@ retain their absolute and relative timing thresholds, while different hardware
 still has to pass the deterministic structural and size gates. See the
 [0.3.0 release notes](docs/release-notes-v0.3.0.md).
 
+Version 0.4.0 adopts newly decoded CircuitJSON and native extension graphs at
+the shared validation boundary. Their ordinary nodes retain identity and are
+deeply frozen without a redundant defensive graph copy. Parser parameters,
+document envelopes, extension fields, and return shapes remain unchanged. See
+the [0.4.0 release notes](docs/release-notes-v0.4.0.md).
+
 No Gerber functionality was removed. The complete 0.1.21 parser, renderer,
 interaction, and native 3D APIs remain available from
 `gerber-toolkit/extensions`. See the [migration guide](docs/migration.md).
@@ -117,6 +123,7 @@ const nativeScene = PcbScene3dBuilder.build(nativeDocument)
 - [API](docs/api.md)
 - [Capabilities](docs/capabilities.md)
 - [Migration from 0.1.21](docs/migration.md)
+- [0.4.0 release notes](docs/release-notes-v0.4.0.md)
 - [0.3.0 release notes](docs/release-notes-v0.3.0.md)
 - [0.2.0 release notes](docs/release-notes-v0.2.0.md)
 - [Model format](docs/model-format.md)

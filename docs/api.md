@@ -52,6 +52,13 @@ It returns an immutable `ecad-toolkit.document.v1` envelope. The canonical
 CircuitJSON array is `document.model`; source facts are in `document.source`,
 and Gerber-only information is namespaced under `document.extensions.gerber`.
 
+The convergence builder transfers its newly decoded ordinary CircuitJSON and
+native extension graphs into the shared owned-document validator. Eligible
+graph nodes retain identity and are deeply frozen in place, avoiding a second
+full defensive copy. This is an internal ownership optimization after source
+decoding: raw caller data remains untrusted, and every public parser parameter,
+validation rule, document field, and return shape is unchanged.
+
 ### `Parser.parseAsync(input, options)`
 
 Returns the same envelope asynchronously. Common options are:
