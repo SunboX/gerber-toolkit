@@ -92,6 +92,15 @@ step-repeat instances receive distinct identities. This keeps CAM inspection
 and exact draw-run intent available without making native layout a hidden
 dependency of common consumers.
 
+Native 3D scenes classify plated drill barrels after copper flashes have been
+matched. The via `diameter` is the authored copper annulus diameter when one is
+available, with a physical barrel-wall fallback for drill-only holes.
+`isTentingTop` and `isTentingBottom` are side-specific: a side with solder-mask
+artwork is tented by default and is opened only when the via center lies inside
+a larger, same-side copper pad whose mask aperture opens that pad. Containment
+is evaluated in pad-local coordinates, so rotated and offset via-in-pad
+geometry retains its authored surface opening.
+
 ## Project envelope
 
 `ProjectLoader` returns `ecad-toolkit.project.v1`. Its `documents` contain the

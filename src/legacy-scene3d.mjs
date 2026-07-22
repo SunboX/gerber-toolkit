@@ -273,8 +273,8 @@ export class PcbScene3dBuilder {
         detail.pads.push(
             ...PcbScene3dBuilder.#buildUnmatchedDrillPads(drillIndex, board)
         )
-        GerberScene3dMaskOpeningBuilder.apply(detail, layers, board)
         GerberScene3dDrillGeometryBuilder.apply(detail)
+        GerberScene3dMaskOpeningBuilder.apply(detail, layers, board)
         GerberScene3dSilkscreenCutoutBuilder.apply(detail)
         return detail
     }

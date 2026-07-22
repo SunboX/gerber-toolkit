@@ -28,8 +28,8 @@ test('package exposes gerber parser and renderer entrypoints', async () => {
     assert.equal(pkg.scripts.test, 'node --test')
 })
 
-test('package publishes the 0.4.2 release with its historical notes', async () => {
-    const [rawPackage, readme, v020, v030, v040, v041, v042] =
+test('package publishes the 0.4.3 release with its historical notes', async () => {
+    const [rawPackage, readme, v020, v030, v040, v041, v042, v043] =
         await Promise.all([
             readPackageFile('package.json'),
             readPackageFile('README.md'),
@@ -37,22 +37,25 @@ test('package publishes the 0.4.2 release with its historical notes', async () =
             readPackageFile('docs/release-notes-v0.3.0.md'),
             readPackageFile('docs/release-notes-v0.4.0.md'),
             readPackageFile('docs/release-notes-v0.4.1.md'),
-            readPackageFile('docs/release-notes-v0.4.2.md')
+            readPackageFile('docs/release-notes-v0.4.2.md'),
+            readPackageFile('docs/release-notes-v0.4.3.md')
         ])
     const pkg = JSON.parse(rawPackage)
 
-    assert.equal(pkg.version, '0.4.2')
+    assert.equal(pkg.version, '0.4.3')
     assert.equal(pkg.files.includes('docs'), true)
     assert.match(readme, /docs\/release-notes-v0\.2\.0\.md/)
     assert.match(readme, /docs\/release-notes-v0\.3\.0\.md/)
     assert.match(readme, /docs\/release-notes-v0\.4\.0\.md/)
     assert.match(readme, /docs\/release-notes-v0\.4\.1\.md/)
     assert.match(readme, /docs\/release-notes-v0\.4\.2\.md/)
+    assert.match(readme, /docs\/release-notes-v0\.4\.3\.md/)
     assert.match(v020, /^# gerber-toolkit 0\.2\.0/m)
     assert.match(v030, /^# gerber-toolkit 0\.3\.0/m)
     assert.match(v040, /^# gerber-toolkit 0\.4\.0/m)
     assert.match(v041, /^# gerber-toolkit 0\.4\.1/m)
     assert.match(v042, /^# gerber-toolkit 0\.4\.2/m)
+    assert.match(v043, /^# gerber-toolkit 0\.4\.3/m)
 })
 
 test('common entrypoints expose shared APIs and extensions retain native APIs', async () => {

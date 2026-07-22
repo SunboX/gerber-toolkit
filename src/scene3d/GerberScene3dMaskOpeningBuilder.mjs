@@ -13,13 +13,22 @@ const CONTAINMENT_TOLERANCE_MIL = 0.5
 export class GerberScene3dMaskOpeningBuilder {
     /**
      * Applies solder-mask opening flags to copper detail.
-     * @param {{ tracks?: object[], arcs?: object[], polygons?: object[] }} detail
+     * @param {{ tracks?: object[], arcs?: object[], polygons?: object[], pads?: object[], vias?: object[] }} detail
      * Scene detail accumulator.
      * @param {object[]} layers Source fabrication layers.
      * @param {object} board Board metadata.
      * @returns {void}
      */
     static apply(detail, layers, board) {
+        const maskLayerIds = new Set(
+            (layers || [])
+                .filter((layer) =>
+                    String(layer?.role || '').includes('soldermask')
+                )
+                .flatMap((layer) =>
+                    GerberScene3dMaskOpeningBuilder.#layerIds(layer)
+                )
+        )
         const openings = GerberScene3dMaskOpeningBuilder.#buildOpenings(
             layers,
             board
@@ -40,7 +49,12 @@ export class GerberScene3dMaskOpeningBuilder {
             openings,
             GerberScene3dMaskOpeningBuilder.#pointBounds
         )
-        GerberScene3dMaskOpeningBuilder.#markPads(detail?.pads, openings)
+        GerberScene3dMaskOpeningBuilder.#markPads(
+            detail?.pads,
+            detail?.vias,
+            maskLayerIds,
+            openings
+        )
     }
 
     /**
@@ -53,7 +67,7 @@ export class GerberScene3dMaskOpeningBuilder {
         const openings = []
 
         for (const layer of layers || []) {
-            if (!GerberScene3dMaskOpeningBuilder.#isSolderMaskLayer(layer)) {
+            if (!String(layer?.role || '').includes('soldermask')) {
                 continue
             }
 
@@ -74,15 +88,6 @@ export class GerberScene3dMaskOpeningBuilder {
         }
 
         return openings
-    }
-
-    /**
-     * Checks whether a source layer contains solder-mask opening artwork.
-     * @param {object} layer Source layer.
-     * @returns {boolean}
-     */
-    static #isSolderMaskLayer(layer) {
-        return String(layer?.role || '').includes('soldermask')
     }
 
     /**
@@ -179,29 +184,68 @@ export class GerberScene3dMaskOpeningBuilder {
     }
 
     /**
-     * Marks pad faces that are opened by same-side solder-mask apertures.
-     * @param {object[] | undefined} pads Scene pad primitives.
+     * Marks mask visibility.
+     * @param {object[] | undefined} pads Pads.
+     * @param {object[] | undefined} vias Vias.
+     * @param {Set<number>} maskLayerIds Mask side lookup.
      * @param {{ layerId: number, bounds: object }[]} openings Mask openings.
      * @returns {void}
      */
-    static #markPads(pads, openings) {
-        const openingLayerIds = new Set(
-            openings.map((opening) => opening.layerId)
-        )
-
+    static #markPads(pads, vias, maskLayerIds, openings) {
         for (const pad of pads || []) {
             GerberScene3dMaskOpeningBuilder.#markPadSide(
                 pad,
                 TOP_COPPER_LAYER_ID,
-                openingLayerIds,
+                maskLayerIds,
                 openings
             )
             GerberScene3dMaskOpeningBuilder.#markPadSide(
                 pad,
                 BOTTOM_COPPER_LAYER_ID,
-                openingLayerIds,
+                maskLayerIds,
                 openings
             )
+        }
+
+        const sides = [
+            [TOP_COPPER_LAYER_ID, 'isTentingTop', 'hasTopSolderMaskOpening'],
+            [
+                BOTTOM_COPPER_LAYER_ID,
+                'isTentingBottom',
+                'hasBottomSolderMaskOpening'
+            ]
+        ]
+        for (const via of vias || []) {
+            for (const [layerId, tentingField, openingField] of sides) {
+                if (!maskLayerIds.has(layerId)) continue
+                const candidates = (pads || [])
+                    .map((pad) => ({
+                        pad,
+                        dimensions:
+                            GerberScene3dMaskOpeningBuilder.#padDimensions(
+                                pad,
+                                layerId
+                            )
+                    }))
+                    .filter(
+                        ({ pad, dimensions }) =>
+                            dimensions &&
+                            GerberScene3dMaskOpeningBuilder.#padContainsPoint(
+                                pad,
+                                dimensions,
+                                via
+                            )
+                    )
+                const areas = candidates.map(
+                    ({ dimensions }) => dimensions.width * dimensions.height
+                )
+                const baseline = Math.min(...areas, Infinity)
+                via[tentingField] = !candidates.some(
+                    ({ pad }, index) =>
+                        pad?.[openingField] === true &&
+                        areas[index] > baseline + 0.001
+                )
+            }
         }
     }
 
@@ -209,51 +253,27 @@ export class GerberScene3dMaskOpeningBuilder {
      * Marks one pad side as opened or covered when mask data exists.
      * @param {object} pad Scene pad primitive.
      * @param {number} layerId Scene copper layer id.
-     * @param {Set<number>} openingLayerIds Mask side lookup.
+     * @param {Set<number>} maskLayerIds Mask side lookup.
      * @param {{ layerId: number, bounds: object }[]} openings Mask openings.
      * @returns {void}
      */
-    static #markPadSide(pad, layerId, openingLayerIds, openings) {
-        if (
-            !openingLayerIds.has(layerId) ||
-            !GerberScene3dMaskOpeningBuilder.#hasPadCopperOnLayer(pad, layerId)
-        ) {
-            return
-        }
+    static #markPadSide(pad, layerId, maskLayerIds, openings) {
+        if (!maskLayerIds.has(layerId)) return
 
         const fieldName =
             layerId === BOTTOM_COPPER_LAYER_ID
                 ? 'hasBottomSolderMaskOpening'
                 : 'hasTopSolderMaskOpening'
         const bounds = GerberScene3dMaskOpeningBuilder.#padBounds(pad, layerId)
-        pad[fieldName] = Boolean(
-            bounds &&
-            openings.some(
-                (opening) =>
-                    opening.layerId === layerId &&
-                    GerberScene3dMaskOpeningBuilder.#contains(
-                        opening.bounds,
-                        bounds
-                    )
-            )
+        if (!bounds) return
+        pad[fieldName] = openings.some(
+            (opening) =>
+                opening.layerId === layerId &&
+                GerberScene3dMaskOpeningBuilder.#contains(
+                    opening.bounds,
+                    bounds
+                )
         )
-    }
-
-    /**
-     * Checks whether a pad has copper dimensions on a layer.
-     * @param {object} pad Scene pad primitive.
-     * @param {number} layerId Scene copper layer id.
-     * @returns {boolean}
-     */
-    static #hasPadCopperOnLayer(pad, layerId) {
-        if (layerId === BOTTOM_COPPER_LAYER_ID) {
-            return (
-                Number(pad?.sizeBottomX || 0) > 0 ||
-                Number(pad?.sizeBottomY || 0) > 0
-            )
-        }
-
-        return Number(pad?.sizeTopX || 0) > 0 || Number(pad?.sizeTopY || 0) > 0
     }
 
     /**
@@ -263,31 +283,65 @@ export class GerberScene3dMaskOpeningBuilder {
      * @returns {object | null}
      */
     static #padBounds(pad, layerId) {
-        const width =
-            layerId === BOTTOM_COPPER_LAYER_ID
-                ? Number(pad?.sizeBottomX || 0)
-                : Number(pad?.sizeTopX || 0)
-        const height =
-            layerId === BOTTOM_COPPER_LAYER_ID
-                ? Number(pad?.sizeBottomY || 0)
-                : Number(pad?.sizeTopY || 0)
+        const dimensions = GerberScene3dMaskOpeningBuilder.#padDimensions(
+            pad,
+            layerId
+        )
         const x = Number(pad?.x)
         const y = Number(pad?.y)
+        if (!dimensions || !Number.isFinite(x + y)) return null
 
-        if (
-            !Number.isFinite(width + height + x + y) ||
-            width <= 0 ||
-            height <= 0
-        ) {
+        return {
+            minX: x - dimensions.width / 2,
+            minY: y - dimensions.height / 2,
+            maxX: x + dimensions.width / 2,
+            maxY: y + dimensions.height / 2
+        }
+    }
+
+    /**
+     * Resolves one pad side's dimensions.
+     * @param {object} pad Scene pad primitive.
+     * @param {number} layerId Scene copper layer id.
+     * @returns {{ width: number, height: number } | null}
+     */
+    static #padDimensions(pad, layerId) {
+        const width = Number(
+            layerId === BOTTOM_COPPER_LAYER_ID
+                ? pad?.sizeBottomX || 0
+                : pad?.sizeTopX || 0
+        )
+        const height = Number(
+            layerId === BOTTOM_COPPER_LAYER_ID
+                ? pad?.sizeBottomY || 0
+                : pad?.sizeTopY || 0
+        )
+        if (!Number.isFinite(width + height) || width <= 0 || height <= 0) {
             return null
         }
 
-        return {
-            minX: x - width / 2,
-            minY: y - height / 2,
-            maxX: x + width / 2,
-            maxY: y + height / 2
-        }
+        return { width, height }
+    }
+
+    /**
+     * Tests a scene point against a pad in pad-local coordinates.
+     * @param {object} pad Scene pad primitive.
+     * @param {{ width: number, height: number }} dimensions Pad dimensions.
+     * @param {{ x?: number, y?: number }} point Scene point.
+     * @returns {boolean}
+     */
+    static #padContainsPoint(pad, dimensions, point) {
+        const angle = (-Number(pad?.rotation || 0) * Math.PI) / 180
+        const dx = Number(point?.x) - Number(pad?.x)
+        const dy = Number(point?.y) - Number(pad?.y)
+        const localX = dx * Math.cos(angle) - dy * Math.sin(angle)
+        const localY = dx * Math.sin(angle) + dy * Math.cos(angle)
+        return (
+            Math.abs(localX) <=
+                dimensions.width / 2 + CONTAINMENT_TOLERANCE_MIL &&
+            Math.abs(localY) <=
+                dimensions.height / 2 + CONTAINMENT_TOLERANCE_MIL
+        )
     }
 
     /**

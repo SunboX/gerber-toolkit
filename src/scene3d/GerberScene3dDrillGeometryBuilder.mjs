@@ -413,12 +413,20 @@ export class GerberScene3dDrillGeometryBuilder {
             holeDiameter * BARREL_WALL_FRACTION,
             DEFAULT_BARREL_WALL_MIL
         )
+        const annulusDiameter = Math.max(
+            Number(pad?.sizeTopX || 0),
+            Number(pad?.sizeTopY || 0),
+            Number(pad?.sizeMidX || 0),
+            Number(pad?.sizeMidY || 0),
+            Number(pad?.sizeBottomX || 0),
+            Number(pad?.sizeBottomY || 0)
+        )
 
         return {
             x: Number(pad?.x || 0),
             y: Number(pad?.y || 0),
             diameter: GerberScene3dDrillGeometryBuilder.#roundMil(
-                holeDiameter + wall * 2
+                Math.max(annulusDiameter, holeDiameter + wall * 2)
             ),
             holeDiameter,
             isPlated: true,

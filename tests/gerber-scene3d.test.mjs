@@ -263,6 +263,70 @@ function createMaskOpenedPadDocument() {
 }
 
 /**
+ * Builds paired plated drills where only one side intersects a larger pad.
+ * @returns {object}
+ */
+function createMaskClassifiedViaDocument() {
+    const documentModel = structuredClone(createDocument())
+    const layers = documentModel.pcb.fabrication.layers
+    const topCopper = layers.find((layer) => layer.id === 'top-copper')
+    const bottomCopper = layers.find((layer) => layer.id === 'bottom-copper')
+    const drillLayer = layers.find((layer) => layer.id === 'plated-drill')
+    const padFlashes = [
+        { type: 'flash', shape: 'circle', x: 2, y: 2, diameter: 0.8 },
+        { type: 'flash', shape: 'circle', x: 4, y: 2, diameter: 0.8 }
+    ]
+    const viaOpenings = [
+        { type: 'flash', shape: 'circle', x: 2, y: 2, diameter: 1 },
+        { type: 'flash', shape: 'circle', x: 4, y: 2, diameter: 1 }
+    ]
+    const hostPad = {
+        type: 'flash',
+        shape: 'rect',
+        x: 2.35,
+        y: 2.35,
+        width: 1.4,
+        height: 0.6,
+        rotation: 45
+    }
+    const hostOpening = {
+        ...hostPad,
+        width: 1.6,
+        height: 0.8
+    }
+
+    topCopper.primitives = structuredClone(padFlashes)
+    bottomCopper.primitives = [
+        ...structuredClone(padFlashes),
+        structuredClone(hostPad)
+    ]
+    drillLayer.drills = [
+        { x: 2, y: 2, diameter: 0.3, plated: true, tool: 'T02' },
+        { x: 4, y: 2, diameter: 0.3, plated: true, tool: 'T02' }
+    ]
+    layers.push(
+        {
+            id: 'top-mask',
+            fileName: 'sample-F_Mask.gts',
+            role: 'top-soldermask',
+            side: 'top',
+            primitives: structuredClone(viaOpenings),
+            drills: []
+        },
+        {
+            id: 'bottom-mask',
+            fileName: 'sample-B_Mask.gbs',
+            role: 'bottom-soldermask',
+            side: 'bottom',
+            primitives: [...structuredClone(viaOpenings), hostOpening],
+            drills: []
+        }
+    )
+
+    return documentModel
+}
+
+/**
  * Builds a compact document with a copper pour and one clear-polarity void.
  * @returns {object}
  */
@@ -865,6 +929,22 @@ test('PcbScene3dBuilder exposes pads opened by Gerber solder mask apertures', ()
 
     assert.equal(openedPad.hasTopSolderMaskOpening, true)
     assert.equal(coveredPad.hasTopSolderMaskOpening, false)
+})
+
+test('PcbScene3dBuilder tents vias except on sides inside opened pads', () => {
+    const scene = PcbScene3dBuilder.build(createMaskClassifiedViaDocument())
+    const openedVia = scene.detail.vias.find(
+        (via) => Math.abs(via.x - 78.740157) <= 0.000001
+    )
+    const tentedVia = scene.detail.vias.find(
+        (via) => Math.abs(via.x - 157.480315) <= 0.000001
+    )
+
+    assert.equal(openedVia.diameter, 31.496063)
+    assert.equal(openedVia.isTentingTop, true)
+    assert.equal(openedVia.isTentingBottom, false)
+    assert.equal(tentedVia.isTentingTop, true)
+    assert.equal(tentedVia.isTentingBottom, true)
 })
 
 test('PcbScene3dBuilder maps clear Gerber copper regions to pour holes', () => {

@@ -46,6 +46,13 @@ return shapes are unchanged; native line and arc primitives add
 `sourcePathId`. See the
 [0.4.2 release notes](docs/release-notes-v0.4.2.md).
 
+Version 0.4.3 gives generated Gerber 3D scenes source-neutral via masking.
+Plated via annuli use the authored copper flash diameter and are tented on each
+mask-bearing surface by default. A surface stays open only when the via lies
+inside a larger copper pad that is opened by that side's solder-mask artwork,
+including offset and rotated via-in-pad geometry. See the
+[0.4.3 release notes](docs/release-notes-v0.4.3.md).
+
 No Gerber functionality was removed. The complete 0.1.21 parser, renderer,
 interaction, and native 3D APIs remain available from
 `gerber-toolkit/extensions`. See the [migration guide](docs/migration.md).
@@ -145,6 +152,7 @@ const nativeScene = PcbScene3dBuilder.build(nativeDocument)
 - [API](docs/api.md)
 - [Capabilities](docs/capabilities.md)
 - [Migration from 0.1.21](docs/migration.md)
+- [0.4.3 release notes](docs/release-notes-v0.4.3.md)
 - [0.4.2 release notes](docs/release-notes-v0.4.2.md)
 - [0.4.1 release notes](docs/release-notes-v0.4.1.md)
 - [0.4.0 release notes](docs/release-notes-v0.4.0.md)
