@@ -7,7 +7,7 @@ simulation, and 3D scene APIs.
 ## Breaking API convergence
 
 Version 0.2.0 intentionally changes root names, parameters, return shapes, and
-package subpaths. The root now exposes the same 17-class API as
+package subpaths. The root now exposes the same 18-class API as
 `circuitjson-toolkit`, `altium-toolkit`, and `kicad-toolkit`. `Parser.parse()`
 returns an `ecad-toolkit.document.v1` envelope whose `model` is CircuitJSON,
 and `ProjectLoader.load()` returns an `ecad-toolkit.project.v1` envelope.
@@ -53,6 +53,13 @@ inside a larger copper pad that is opened by that side's solder-mask artwork,
 including offset and rotated via-in-pad geometry. See the
 [0.4.3 release notes](docs/release-notes-v0.4.3.md).
 
+Version 0.4.4 scales large copper-image unions by separating spatially
+independent polygon components before bounded composition, while falling back
+to the conservative union path when separation cannot be proven cheaply. It
+also prevents via-owned flashes from being exposed as host-pad mask openings
+and re-exports the shared self-adjusting computation runtime. See the
+[0.4.4 release notes](docs/release-notes-v0.4.4.md).
+
 No Gerber functionality was removed. The complete 0.1.21 parser, renderer,
 interaction, and native 3D APIs remain available from
 `gerber-toolkit/extensions`. See the [migration guide](docs/migration.md).
@@ -73,6 +80,8 @@ interaction, and native 3D APIs remain available from
   assets, source retention, typed errors, and discriminated `try*` results.
 - Uses the shared CircuitJSON context, SVG/BOM renderers, interaction indexes,
   queries, manufacturing exports, injected simulation, and 3D scene services.
+- Re-exports the canonical `SelfAdjustingComputation` runtime for persistent
+  consumers with explicit mutable input boundaries.
 - Retains exact native fabrication geometry on request through the Gerber
   extension namespace.
 - Uses bounded polygon composition only for artwork that needs it; ordinary
@@ -152,6 +161,7 @@ const nativeScene = PcbScene3dBuilder.build(nativeDocument)
 - [API](docs/api.md)
 - [Capabilities](docs/capabilities.md)
 - [Migration from 0.1.21](docs/migration.md)
+- [0.4.4 release notes](docs/release-notes-v0.4.4.md)
 - [0.4.3 release notes](docs/release-notes-v0.4.3.md)
 - [0.4.2 release notes](docs/release-notes-v0.4.2.md)
 - [0.4.1 release notes](docs/release-notes-v0.4.1.md)

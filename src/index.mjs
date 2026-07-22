@@ -1,6 +1,7 @@
 export { CircuitJsonDocument } from 'circuitjson-toolkit'
 export { CircuitJsonIndexer } from 'circuitjson-toolkit'
 export { CircuitJsonUnits } from 'circuitjson-toolkit'
+export { SelfAdjustingComputation } from 'circuitjson-toolkit'
 export { CircuitJsonDocumentContext } from 'circuitjson-toolkit'
 export { ManufacturingService } from 'circuitjson-toolkit'
 export { PcbInteractionIndex } from 'circuitjson-toolkit'

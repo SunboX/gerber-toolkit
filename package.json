@@ -1,6 +1,6 @@
 {
     "name": "gerber-toolkit",
-    "version": "0.4.3",
+    "version": "0.4.4",
     "description": "Gerber and Excellon fabrication parsing and deterministic SVG rendering utilities",
     "repository": {
         "type": "git",
@@ -60,7 +60,7 @@
         "benchmark": "node --expose-gc scripts/run-benchmarks.mjs --compare benchmarks/baseline-v0.1.21.json"
     },
     "dependencies": {
-        "circuitjson-toolkit": "^1.4.0",
+        "circuitjson-toolkit": "^1.4.1",
         "fflate": "^0.8.2",
         "polygon-clipping": "^0.15.7"
     },

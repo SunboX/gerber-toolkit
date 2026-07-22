@@ -215,6 +215,7 @@ export class GerberScene3dMaskOpeningBuilder {
                 'hasBottomSolderMaskOpening'
             ]
         ]
+        const viaOwnedFlashSides = new Map()
         for (const via of vias || []) {
             for (const [layerId, tentingField, openingField] of sides) {
                 if (!maskLayerIds.has(layerId)) continue
@@ -245,6 +246,22 @@ export class GerberScene3dMaskOpeningBuilder {
                         pad?.[openingField] === true &&
                         areas[index] > baseline + 0.001
                 )
+                candidates.forEach(({ pad }, index) => {
+                    if (areas[index] > baseline + 0.001) return
+
+                    // The drill matcher also creates a via-sized pad from the
+                    // copper flash. Its surface belongs to the via; only a
+                    // genuinely larger opened host pad should expose copper.
+                    const fields = viaOwnedFlashSides.get(pad) || new Set()
+                    fields.add(openingField)
+                    viaOwnedFlashSides.set(pad, fields)
+                })
+            }
+        }
+
+        for (const [pad, openingFields] of viaOwnedFlashSides) {
+            for (const openingField of openingFields) {
+                pad[openingField] = false
             }
         }
     }

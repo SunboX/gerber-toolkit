@@ -939,12 +939,30 @@ test('PcbScene3dBuilder tents vias except on sides inside opened pads', () => {
     const tentedVia = scene.detail.vias.find(
         (via) => Math.abs(via.x - 157.480315) <= 0.000001
     )
+    const openedViaTopFlash = scene.detail.pads.find(
+        (pad) =>
+            Math.abs(pad.x - openedVia.x) <= 0.000001 &&
+            Math.abs(Number(pad.sizeTopX) - openedVia.diameter) <= 0.000001
+    )
+    const openedViaBottomFlash = scene.detail.pads.find(
+        (pad) =>
+            Math.abs(pad.x - openedVia.x) <= 0.000001 &&
+            Math.abs(Number(pad.sizeBottomX) - openedVia.diameter) <= 0.000001
+    )
+    const openedHostPad = scene.detail.pads.find(
+        (pad) =>
+            pad.hasBottomSolderMaskOpening === true &&
+            Number(pad.sizeBottomX) > openedVia.diameter
+    )
 
     assert.equal(openedVia.diameter, 31.496063)
     assert.equal(openedVia.isTentingTop, true)
     assert.equal(openedVia.isTentingBottom, false)
     assert.equal(tentedVia.isTentingTop, true)
     assert.equal(tentedVia.isTentingBottom, true)
+    assert.equal(openedViaTopFlash.hasTopSolderMaskOpening, false)
+    assert.equal(openedViaBottomFlash.hasBottomSolderMaskOpening, false)
+    assert.equal(openedHostPad.hasBottomSolderMaskOpening, true)
 })
 
 test('PcbScene3dBuilder maps clear Gerber copper regions to pour holes', () => {

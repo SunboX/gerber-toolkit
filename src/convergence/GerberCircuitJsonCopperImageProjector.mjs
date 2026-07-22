@@ -2,6 +2,7 @@ import polygonClipping from 'polygon-clipping'
 
 import { GerberCircuitJsonApertureHoleProjector } from './GerberCircuitJsonApertureHoleProjector.mjs'
 import { GerberCircuitJsonArcSampler } from './GerberCircuitJsonArcSampler.mjs'
+import { GerberCircuitJsonPolygonUnion } from './GerberCircuitJsonPolygonUnion.mjs'
 import { GerberCircuitJsonSquareStroke } from './GerberCircuitJsonSquareStroke.mjs'
 
 const CURVE_SEGMENTS = 32
@@ -131,8 +132,7 @@ export class GerberCircuitJsonCopperImageProjector {
         let polarity = null
         const flush = () => {
             if (!batch.length) return
-            const geometry =
-                GerberCircuitJsonCopperImageProjector.#unionMany(batch)
+            const geometry = GerberCircuitJsonPolygonUnion.union(batch)
             image = GerberCircuitJsonCopperImageProjector.#apply(
                 image,
                 geometry,
@@ -152,24 +152,6 @@ export class GerberCircuitJsonCopperImageProjector {
         }
         flush()
         return image
-    }
-
-    /**
-     * Unions an operand batch in bounded chunks to avoid argument ceilings.
-     * @param {number[][][][][]} operands MultiPolygon operands.
-     * @returns {number[][][][]} Unioned geometry.
-     */
-    static #unionMany(operands) {
-        let merged = []
-        for (let offset = 0; offset < operands.length; offset += 256) {
-            const chunk = polygonClipping.union(
-                ...operands.slice(offset, offset + 256)
-            )
-            merged = merged.length
-                ? polygonClipping.union(merged, chunk)
-                : chunk
-        }
-        return merged
     }
 
     /**
